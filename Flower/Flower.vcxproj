@@ -75,6 +75,12 @@
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros" />
   <ItemGroup>
+    <ClCompile Include="IndexNode.cpp" />
+    <ClCompile Include="UniqueGenerator.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="IndexNode.h" />
+    <ClInclude Include="UniqueGenerator.h" />
   </ItemGroup>
   <ItemDefinitionGroup />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
