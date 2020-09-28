@@ -9,6 +9,6 @@ IndexNode::IndexNode()
 
 IndexNodeChild::IndexNodeChild()
 {
-	isLeaf = false;
+	childType = 0;
 	indexId = 0;
 }

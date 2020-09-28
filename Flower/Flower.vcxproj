@@ -76,10 +76,12 @@
   <PropertyGroup Label="UserMacros" />
   <ItemGroup>
     <ClCompile Include="IndexNode.cpp" />
+    <ClCompile Include="Myfile.cpp" />
     <ClCompile Include="UniqueGenerator.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="IndexNode.h" />
+    <ClInclude Include="Myfile.h" />
     <ClInclude Include="UniqueGenerator.h" />
   </ItemGroup>
   <ItemDefinitionGroup />
