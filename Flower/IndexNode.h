@@ -1,11 +1,16 @@
 #pragma once
 #include <unordered_map>
 #include <unordered_set>
+
+const int CHILD_TYPE_NODE = 0;
+const int CHILD_TYPE_LEAF = 1;
+const int CHILD_TYPE_NODENLEAF = 2;
 class IndexNode
 {
 public:
 	IndexNode();
-private:
+	virtual bool toBinary(char *buffer, int len) = 0;					//把这个结构体转成二进制好进行存储
+protected:
 	unsigned long long start;	//在原文件当中的位置
 	unsigned long long len;		//文件中指定位置的这个节点对应段的长度
 	unsigned long long preCmpLen;	//查询到这个结点的时候前面已经比较过的字符的长度
@@ -15,6 +20,10 @@ private:
 
 class IndexNodeChild
 {
+	friend class IndexNodeTypeOne;
+	friend class IndexNodeTypeTwo;
+	friend class IndexNodeTypeThree;
+	friend class IndexNodeTypeFour;
 public:
 	IndexNodeChild();
 private:
@@ -26,6 +35,7 @@ private:
 //第一种节点是以8个字节来比较得到孩子节点的
 class IndexNodeTypeOne : public IndexNode
 {
+	bool toBinary(char* buffer, int len);
 	std::unordered_map<unsigned long long, IndexNodeChild> children;
 };
 
