@@ -42,17 +42,20 @@ class IndexNodeTypeOne : public IndexNode
 //第二种节点是以4个字节来比较得到孩子节点的
 class IndexNodeTypeTwo : public IndexNode
 {
+	bool toBinary(char* buffer, int len);
 	std::unordered_map<unsigned int, IndexNodeChild> children;
 };
 
 //第三种节点是以2个字节来比较得到孩子节点的
 class IndexNodeTypeThree : public IndexNode
 {
+	bool toBinary(char* buffer, int len);
 	std::unordered_map<unsigned short, IndexNodeChild> children;
 };
 
 //第四种节点是以一个字节来比较得到孩子节点的
 class IndexNodeTypeFour : public IndexNode
 {
+	bool toBinary(char* buffer, int len);
 	std::unordered_map<unsigned char, IndexNodeChild> children;
 };
