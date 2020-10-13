@@ -6,12 +6,21 @@ IndexNode::IndexNode()
 	start = 0;
 	len = 0;
 	preCmpLen = 0;
+	parentID = 0;
+	isBig = false;
+	isModified = false;
 }
 
 IndexNodeChild::IndexNodeChild()
 {
 	childType = 0;
 	indexId = 0;
+}
+
+IndexNodeChild::IndexNodeChild(unsigned char childType, unsigned char indexId)
+{
+	this->childType = childType;
+	this->indexId = indexId;
 }
 
 bool IndexNodeTypeOne::toBinary(char* buffer, int len)
@@ -162,6 +171,123 @@ bool IndexNodeTypeOne::toBinary(char* buffer, int len)
 	}
 	//最后把总体大小写入最前面
 	*((short*)buffer) = totalSize;
+	return true;
+}
+
+bool IndexNodeTypeOne::toObject(char* buffer, int len)
+{
+	//存储的时候前面有加上类型还有存储的大小所以前面加3个字节
+	if ((len + 3) > 4 * 1024)
+	{
+		isBig = true;
+	}
+	char* p = buffer;
+	int leftSize = len;
+	if (leftSize < 32)
+	{
+		return false;
+	}
+
+	start = *((unsigned long long*)p);
+	p += 8;
+	len = *((unsigned long long*)p);
+	p += 8;
+	preCmpLen = *((unsigned long long*)p);
+	p += 8;
+	parentID = *((unsigned long long*)p);
+	p += 8;
+	leftSize -= 32;
+	//先读取有索引节点的部分
+	if (leftSize < 1)
+	{
+		return false;
+	}
+	unsigned char indexNodeNum = *p;
+	p += 1;
+	leftSize -= 1;
+	if (leftSize < indexNodeNum * 16)
+	{
+		return false;
+	}
+
+	for (unsigned char i = 0; i < indexNodeNum; ++i)
+	{
+		unsigned long long findValue = *((unsigned long long*)p);
+		p += 8;
+		IndexNodeChild indexNodeChild(CHILD_TYPE_NODE, *((unsigned long long*)p));
+		bool ok = children.insert({ findValue, indexNodeChild }).second;
+		if (!ok)
+		{
+			return false;
+		}
+		p += 8;
+	}
+
+	leftSize -= indexNodeNum * 16;
+	//添加只是叶子节点部分
+	unsigned char leafNum = *p;
+	p += 1;
+	leftSize -= 1;
+	if (leftSize < leafNum * 16)
+	{
+		return false;
+	}
+
+	for (unsigned char i = 0; i < leafNum; ++i)
+	{
+		unsigned long long findValue = *((unsigned long long*)p);
+		p += 8;
+		IndexNodeChild indexNodeChild(CHILD_TYPE_LEAF, *((unsigned long long*)p));
+		bool ok = children.insert({ findValue, indexNodeChild }).second;
+		if (!ok)
+		{
+			return false;
+		}
+		p += 8;
+	}
+
+	leftSize -= leafNum * 16;
+	//添加和索引节点同一个分支的指向末尾的叶节点
+	unsigned char lastLeafNum = *p;
+	p += 1;
+	leftSize -= 1;
+	if (leftSize < lastLeafNum * 8)
+	{
+		return false;
+	}
+
+	for (unsigned char i = 0; i < lastLeafNum; ++i)
+	{
+		std::unordered_map<unsigned long long, IndexNodeChild>::iterator it = children.find(*((unsigned long long*)p));
+		if (it == end(children))
+		{
+			return false;
+		}
+		it->second.childType = CHILD_TYPE_NODENLEAF;
+		p += 8;
+	}
+
+	leftSize -= lastLeafNum * 8;
+
+
+	//添加比较到中途就到文件结尾的叶子节点
+	unsigned char endLeafNum = *p;
+	p += 1;
+	leftSize -= 1;
+	if (leftSize < endLeafNum * 8)
+	{
+		return false;
+	}
+
+	for (unsigned char i = 0; i < endLeafNum; ++i)
+	{
+		bool ok = leafSet.insert(*((unsigned long long*)p)).second;
+		if (!ok)
+		{
+			return false;
+		}
+		p += 8;
+	}
 	return true;
 }
 
@@ -316,6 +442,123 @@ bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 	return true;
 }
 
+bool IndexNodeTypeTwo::toObject(char* buffer, int len)
+{
+	//存储的时候前面有加上类型还有存储的大小所以前面加3个字节
+	if ((len + 3) > 4 * 1024)
+	{
+		isBig = true;
+	}
+	char* p = buffer;
+	int leftSize = len;
+	if (leftSize < 32)
+	{
+		return false;
+	}
+
+	start = *((unsigned long long*)p);
+	p += 8;
+	len = *((unsigned long long*)p);
+	p += 8;
+	preCmpLen = *((unsigned long long*)p);
+	p += 8;
+	parentID = *((unsigned long long*)p);
+	p += 8;
+	leftSize -= 32;
+	//先读取有索引节点的部分
+	if (leftSize < 1)
+	{
+		return false;
+	}
+	unsigned char indexNodeNum = *p;
+	p += 1;
+	leftSize -= 1;
+	if (leftSize < indexNodeNum * 12)
+	{
+		return false;
+	}
+
+	for (unsigned char i = 0; i < indexNodeNum; ++i)
+	{
+		unsigned int findValue = *((unsigned int*)p);
+		p += 4;
+		IndexNodeChild indexNodeChild(CHILD_TYPE_NODE, *((unsigned long long*)p));
+		bool ok = children.insert({ findValue, indexNodeChild }).second;
+		if (!ok)
+		{
+			return false;
+		}
+		p += 8;
+	}
+
+	leftSize -= indexNodeNum * 12;
+	//添加只是叶子节点部分
+	unsigned char leafNum = *p;
+	p += 1;
+	leftSize -= 1;
+	if (leftSize < leafNum * 12)
+	{
+		return false;
+	}
+
+	for (unsigned char i = 0; i < leafNum; ++i)
+	{
+		unsigned int findValue = *((unsigned int*)p);
+		p += 4;
+		IndexNodeChild indexNodeChild(CHILD_TYPE_LEAF, *((unsigned long long*)p));
+		bool ok = children.insert({ findValue, indexNodeChild }).second;
+		if (!ok)
+		{
+			return false;
+		}
+		p += 8;
+	}
+
+	leftSize -= leafNum * 12;
+	//添加和索引节点同一个分支的指向末尾的页节点
+	unsigned char lastLeafNum = *p;
+	p += 1;
+	leftSize -= 1;
+	if (leftSize < lastLeafNum * 4)
+	{
+		return false;
+	}
+
+	for (unsigned char i = 0; i < lastLeafNum; ++i)
+	{
+		std::unordered_map<unsigned int, IndexNodeChild>::iterator it = children.find(*((unsigned int*)p));
+		if (it == end(children))
+		{
+			return false;
+		}
+		it->second.childType = CHILD_TYPE_NODENLEAF;
+		p += 4;
+	}
+
+	leftSize -= lastLeafNum * 4;
+
+
+	//添加比较到中途就到文件结尾的叶子节点
+	unsigned char endLeafNum = *p;
+	p += 1;
+	leftSize -= 1;
+	if (leftSize < endLeafNum * 8)
+	{
+		return false;
+	}
+
+	for (unsigned char i = 0; i < endLeafNum; ++i)
+	{
+		bool ok = leafSet.insert(*((unsigned long long*)p)).second;
+		if (!ok)
+		{
+			return false;
+		}
+		p += 8;
+	}
+	return true;
+}
+
 bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 {
 	short totalSize = 0;
@@ -467,7 +710,124 @@ bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 	return true;
 }
 
-bool IndexNodeTypeThree::toBinary(char* buffer, int len)
+bool IndexNodeTypeThree::toObject(char* buffer, int len)
+{
+	//存储的时候前面有加上类型还有存储的大小所以前面加3个字节
+	if ((len + 3) > 4 * 1024)
+	{
+		isBig = true;
+	}
+	char* p = buffer;
+	int leftSize = len;
+	if (leftSize < 32)
+	{
+		return false;
+	}
+
+	start = *((unsigned long long*)p);
+	p += 8;
+	len = *((unsigned long long*)p);
+	p += 8;
+	preCmpLen = *((unsigned long long*)p);
+	p += 8;
+	parentID = *((unsigned long long*)p);
+	p += 8;
+	leftSize -= 32;
+	//先读取有索引节点的部分
+	if (leftSize < 1)
+	{
+		return false;
+	}
+	unsigned char indexNodeNum = *p;
+	p += 1;
+	leftSize -= 1;
+	if (leftSize < indexNodeNum * 10)
+	{
+		return false;
+	}
+
+	for (unsigned char i = 0; i < indexNodeNum; ++i)
+	{
+		unsigned short findValue = *((unsigned short*)p);
+		p += 2;
+		IndexNodeChild indexNodeChild(CHILD_TYPE_NODE, *((unsigned long long*)p));
+		bool ok = children.insert({ findValue, indexNodeChild }).second;
+		if (!ok)
+		{
+			return false;
+		}
+		p += 8;
+	}
+
+	leftSize -= indexNodeNum * 10;
+	//添加只是叶子节点部分
+	unsigned char leafNum = *p;
+	p += 1;
+	leftSize -= 1;
+	if (leftSize < leafNum * 10)
+	{
+		return false;
+	}
+
+	for (unsigned char i = 0; i < leafNum; ++i)
+	{
+		unsigned short findValue = *((unsigned short*)p);
+		p += 2;
+		IndexNodeChild indexNodeChild(CHILD_TYPE_LEAF, *((unsigned long long*)p));
+		bool ok = children.insert({ findValue, indexNodeChild }).second;
+		if (!ok)
+		{
+			return false;
+		}
+		p += 8;
+	}
+
+	leftSize -= leafNum * 10;
+	//添加和索引节点同一个分支的指向末尾的页节点
+	unsigned char lastLeafNum = *p;
+	p += 1;
+	leftSize -= 1;
+	if (leftSize < lastLeafNum * 2)
+	{
+		return false;
+	}
+
+	for (unsigned char i = 0; i < lastLeafNum; ++i)
+	{
+		std::unordered_map<unsigned short, IndexNodeChild>::iterator it = children.find(*((unsigned short*)p));
+		if (it == end(children))
+		{
+			return false;
+		}
+		it->second.childType = CHILD_TYPE_NODENLEAF;
+		p += 2;
+	}
+
+	leftSize -= lastLeafNum * 2;
+
+
+	//添加比较到中途就到文件结尾的叶子节点
+	unsigned char endLeafNum = *p;
+	p += 1;
+	leftSize -= 1;
+	if (leftSize < endLeafNum * 8)
+	{
+		return false;
+	}
+
+	for (unsigned char i = 0; i < endLeafNum; ++i)
+	{
+		bool ok = leafSet.insert(*((unsigned long long*)p)).second;
+		if (!ok)
+		{
+			return false;
+		}
+		p += 8;
+	}
+	return true;
+}
+
+bool IndexNodeTypeFour::toBinary(char* buffer, int len)
 {
 	short totalSize = 0;
 	char* p = buffer;
@@ -615,5 +975,122 @@ bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 	}
 	//最后把总体大小写入最前面
 	*((short*)buffer) = totalSize;
+	return true;
+}
+
+bool IndexNodeTypeFour::toObject(char* buffer, int len)
+{
+	//存储的时候前面有加上类型还有存储的大小所以前面加3个字节
+	if ((len + 3) > 4 * 1024)
+	{
+		isBig = true;
+	}
+	char* p = buffer;
+	int leftSize = len;
+	if (leftSize < 32)
+	{
+		return false;
+	}
+
+	start = *((unsigned long long*)p);
+	p += 8;
+	len = *((unsigned long long*)p);
+	p += 8;
+	preCmpLen = *((unsigned long long*)p);
+	p += 8;
+	parentID = *((unsigned long long*)p);
+	p += 8;
+	leftSize -= 32;
+	//先读取有索引节点的部分
+	if (leftSize < 1)
+	{
+		return false;
+	}
+	unsigned char indexNodeNum = *p;
+	p += 1;
+	leftSize -= 1;
+	if (leftSize < indexNodeNum * 9)
+	{
+		return false;
+	}
+
+	for (unsigned char i = 0; i < indexNodeNum; ++i)
+	{
+		unsigned char findValue = *((unsigned char*)p);
+		p += 1;
+		IndexNodeChild indexNodeChild(CHILD_TYPE_NODE, *((unsigned long long*)p));
+		bool ok = children.insert({ findValue, indexNodeChild }).second;
+		if (!ok)
+		{
+			return false;
+		}
+		p += 8;
+	}
+
+	leftSize -= indexNodeNum * 9;
+	//添加只是叶子节点部分
+	unsigned char leafNum = *p;
+	p += 1;
+	leftSize -= 1;
+	if (leftSize < leafNum * 9)
+	{
+		return false;
+	}
+
+	for (unsigned char i = 0; i < leafNum; ++i)
+	{
+		unsigned char findValue = *((unsigned char*)p);
+		p += 1;
+		IndexNodeChild indexNodeChild(CHILD_TYPE_LEAF, *((unsigned long long*)p));
+		bool ok = children.insert({ findValue, indexNodeChild }).second;
+		if (!ok)
+		{
+			return false;
+		}
+		p += 8;
+	}
+
+	leftSize -= leafNum * 9;
+	//添加和索引节点同一个分支的指向末尾的页节点
+	unsigned char lastLeafNum = *p;
+	p += 1;
+	leftSize -= 1;
+	if (leftSize < lastLeafNum * 1)
+	{
+		return false;
+	}
+
+	for (unsigned char i = 0; i < lastLeafNum; ++i)
+	{
+		std::unordered_map<unsigned char, IndexNodeChild>::iterator it = children.find(*((unsigned char*)p));
+		if (it == end(children))
+		{
+			return false;
+		}
+		it->second.childType = CHILD_TYPE_NODENLEAF;
+		p += 1;
+	}
+
+	leftSize -= lastLeafNum * 1;
+
+
+	//添加比较到中途就到文件结尾的叶子节点
+	unsigned char endLeafNum = *p;
+	p += 1;
+	leftSize -= 1;
+	if (leftSize < endLeafNum * 8)
+	{
+		return false;
+	}
+
+	for (unsigned char i = 0; i < endLeafNum; ++i)
+	{
+		bool ok = leafSet.insert(*((unsigned long long*)p)).second;
+		if (!ok)
+		{
+			return false;
+		}
+		p += 8;
+	}
 	return true;
 }

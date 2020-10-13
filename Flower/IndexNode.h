@@ -10,12 +10,15 @@ class IndexNode
 public:
 	IndexNode();
 	virtual bool toBinary(char *buffer, int len) = 0;					//把这个结构体转成二进制好进行存储
+	virtual bool toObject(char* buffer, int len) = 0;					//把二进制转成结构体
 protected:
 	unsigned long long start;	//在原文件当中的位置
 	unsigned long long len;		//文件中指定位置的这个节点对应段的长度
 	unsigned long long preCmpLen;	//查询到这个结点的时候前面已经比较过的字符的长度
 	unsigned long long parentID;	//父节点的Id
 	std::unordered_set<unsigned long long> leafSet;	//有些叶子节点是指向结尾的,为了节省空间这里记录这些比较到这个节点一部分全部一样的叶子节点的开始比较位置
+	bool isBig;					//有些节点写入硬盘大于4k字节就是big
+	bool isModified;			//从缓存中删除了以后是否需要写入硬盘
 };
 
 class IndexNodeChild
@@ -26,6 +29,7 @@ class IndexNodeChild
 	friend class IndexNodeTypeFour;
 public:
 	IndexNodeChild();
+	IndexNodeChild(unsigned char childType, unsigned char indexId);
 private:
 	//0表示非叶子节点, 1表示叶子节点,有些叶子节点指向结尾,可能和这个分支相同,这时候用2表示这里还包含了一个指向结尾的叶子节点这样节省空间。
 	unsigned char childType;
@@ -36,6 +40,7 @@ private:
 class IndexNodeTypeOne : public IndexNode
 {
 	bool toBinary(char* buffer, int len);
+	bool toObject(char* buffer, int len);
 	std::unordered_map<unsigned long long, IndexNodeChild> children;
 };
 
@@ -43,6 +48,7 @@ class IndexNodeTypeOne : public IndexNode
 class IndexNodeTypeTwo : public IndexNode
 {
 	bool toBinary(char* buffer, int len);
+	bool toObject(char* buffer, int len);
 	std::unordered_map<unsigned int, IndexNodeChild> children;
 };
 
@@ -50,6 +56,7 @@ class IndexNodeTypeTwo : public IndexNode
 class IndexNodeTypeThree : public IndexNode
 {
 	bool toBinary(char* buffer, int len);
+	bool toObject(char* buffer, int len);
 	std::unordered_map<unsigned short, IndexNodeChild> children;
 };
 
@@ -57,5 +64,6 @@ class IndexNodeTypeThree : public IndexNode
 class IndexNodeTypeFour : public IndexNode
 {
 	bool toBinary(char* buffer, int len);
+	bool toObject(char* buffer, int len);
 	std::unordered_map<unsigned char, IndexNodeChild> children;
 };
