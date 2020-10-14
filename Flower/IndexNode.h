@@ -2,9 +2,17 @@
 #include <unordered_map>
 #include <unordered_set>
 
+//索引孩子节点的类型
 const int CHILD_TYPE_NODE = 0;
 const int CHILD_TYPE_LEAF = 1;
 const int CHILD_TYPE_NODENLEAF = 2;
+
+//索引节点的类型
+const int NODE_TYPE_ONE = 0;
+const int NODE_TYPE_TWO = 1;
+const int NODE_TYPE_THREE = 2;
+const int NODE_TYPE_FOUR = 3;
+
 class IndexNode
 {
 public:
