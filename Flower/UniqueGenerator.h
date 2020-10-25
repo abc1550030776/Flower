@@ -9,6 +9,7 @@ class UniqueGenerator {
 
 public:
 	unsigned long long acquireNumber();
+	unsigned long long acquireTwoNumber();
 	void recycleNumber(unsigned long long number);
 	static UniqueGenerator& getUGenerator();
 };

@@ -3,15 +3,14 @@
 #include <unordered_set>
 
 //索引孩子节点的类型
-const int CHILD_TYPE_NODE = 0;
-const int CHILD_TYPE_LEAF = 1;
-const int CHILD_TYPE_NODENLEAF = 2;
+const unsigned char CHILD_TYPE_NODE = 0;
+const unsigned char CHILD_TYPE_LEAF = 1;
 
 //索引节点的类型
-const int NODE_TYPE_ONE = 0;
-const int NODE_TYPE_TWO = 1;
-const int NODE_TYPE_THREE = 2;
-const int NODE_TYPE_FOUR = 3;
+const unsigned char NODE_TYPE_ONE = 0;
+const unsigned char NODE_TYPE_TWO = 1;
+const unsigned char NODE_TYPE_THREE = 2;
+const unsigned char NODE_TYPE_FOUR = 3;
 
 class IndexNode
 {
@@ -19,6 +18,13 @@ public:
 	IndexNode();
 	virtual bool toBinary(char *buffer, int len) = 0;					//把这个结构体转成二进制好进行存储
 	virtual bool toObject(char* buffer, int len) = 0;					//把二进制转成结构体
+	void setIsBig(bool isBig);											//设置是不是大的节点块
+	unsigned long long getPreCmpLen();									//获取这个节点前面已经比较过的长度
+	bool getIsModified();												//获取节点是否已经修改过
+	bool getIsBig();													//获取是否是比较大的节点
+	unsigned long long getParentId();									//获取父节点Id;
+	virtual unsigned char getType() = 0;								//获取节点的类型
+	virtual ~IndexNode();
 protected:
 	unsigned long long start;	//在原文件当中的位置
 	unsigned long long len;		//文件中指定位置的这个节点对应段的长度
@@ -39,7 +45,7 @@ public:
 	IndexNodeChild();
 	IndexNodeChild(unsigned char childType, unsigned char indexId);
 private:
-	//0表示非叶子节点, 1表示叶子节点,有些叶子节点指向结尾,可能和这个分支相同,这时候用2表示这里还包含了一个指向结尾的叶子节点这样节省空间。
+	//0表示非叶子节点, 1表示叶子节点。
 	unsigned char childType;
 	unsigned long long indexId;	//如果是非叶子节点就是索引节点的Id,如果是叶子节点就是除开之前的比较后面从文件开始的比较处
 };
@@ -49,6 +55,7 @@ class IndexNodeTypeOne : public IndexNode
 {
 	bool toBinary(char* buffer, int len);
 	bool toObject(char* buffer, int len);
+	unsigned char getType();
 	std::unordered_map<unsigned long long, IndexNodeChild> children;
 };
 
@@ -57,6 +64,7 @@ class IndexNodeTypeTwo : public IndexNode
 {
 	bool toBinary(char* buffer, int len);
 	bool toObject(char* buffer, int len);
+	unsigned char getType();
 	std::unordered_map<unsigned int, IndexNodeChild> children;
 };
 
@@ -65,6 +73,7 @@ class IndexNodeTypeThree : public IndexNode
 {
 	bool toBinary(char* buffer, int len);
 	bool toObject(char* buffer, int len);
+	unsigned char getType();
 	std::unordered_map<unsigned short, IndexNodeChild> children;
 };
 
@@ -73,5 +82,6 @@ class IndexNodeTypeFour : public IndexNode
 {
 	bool toBinary(char* buffer, int len);
 	bool toObject(char* buffer, int len);
+	unsigned char getType();
 	std::unordered_map<unsigned char, IndexNodeChild> children;
 };

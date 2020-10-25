@@ -17,6 +17,13 @@ unsigned long long UniqueGenerator::acquireNumber()
 	return returnVal;
 }
 
+unsigned long long UniqueGenerator::acquireTwoNumber()
+{
+	unsigned long long ret = maxUniqueNum;
+	maxUniqueNum += 2;
+	return ret;
+}
+
 void UniqueGenerator::recycleNumber(unsigned long long number)
 {
 	recycleNumbers.push(number);

@@ -11,6 +11,34 @@ IndexNode::IndexNode()
 	isModified = false;
 }
 
+void IndexNode::setIsBig(bool isBig)
+{
+	this->isBig = isBig;
+}
+
+unsigned long long IndexNode::getPreCmpLen()
+{
+	return preCmpLen;
+}
+
+bool IndexNode::getIsModified()
+{
+	return isModified;
+}
+
+bool IndexNode::getIsBig()
+{
+	return isBig;
+}
+
+unsigned long long IndexNode::getParentId()
+{
+	return parentID;
+}
+
+IndexNode::~IndexNode()
+{}
+
 IndexNodeChild::IndexNodeChild()
 {
 	childType = 0;
@@ -55,8 +83,6 @@ bool IndexNodeTypeOne::toBinary(char* buffer, int len)
 		leftSize--;
 		char leafBuffer[256 * 16];
 		unsigned char leafNum = 0;
-		char lastLeafBuffer[256 * 8];			//有些指向末尾的叶子节点和索引节点重合单独存
-		unsigned char lastLeafNum = 0;
 		for (auto& value : children)
 		{
 			if (value.second.childType == CHILD_TYPE_NODE)
@@ -79,22 +105,6 @@ bool IndexNodeTypeOne::toBinary(char* buffer, int len)
 				*((unsigned long long*)(leafBuffer + 16 * leafNum + 8)) = value.second.indexId;
 				leafNum++;
 			}
-			else
-			{
-				if (leftSize < 16)
-				{
-					return false;
-				}
-				(*indexNodeNum)++;
-				*((unsigned long long*)p) = value.first;
-				p += 8;
-				*((unsigned long long*)p) = value.second.indexId;
-				p += 8;
-				totalSize += 16;
-				leftSize -= 16;
-				*((unsigned long long*)(lastLeafBuffer + 8 * lastLeafNum)) = value.first;
-				lastLeafNum++;
-			}
 		}
 		//保存只是叶子节点部分
 		if (leftSize < 1 + leafNum * 16)
@@ -107,31 +117,18 @@ bool IndexNodeTypeOne::toBinary(char* buffer, int len)
 		p += leafNum * 16;
 		totalSize += (1 + leafNum * 16);
 		leftSize -= (1 + leafNum * 16);
-		//保存和索引同一个分支到目前为止指向文件末尾的叶子节点使用的索引
-		if (leftSize < 1 + lastLeafNum * 8)
-		{
-			return false;
-		}
-		*p = lastLeafNum;
-		p++;
-		memcpy(p, lastLeafBuffer, lastLeafNum * 8);
-		p += lastLeafNum * 8;
-		totalSize += (1 + lastLeafNum * 8);
-		leftSize -= (1 + lastLeafNum * 8);
 	}
 	else
 	{
-		//没有孩子节点用三个0的字节表示三种节点数目都是零
-		if (leftSize < 3)
+		//没有孩子节点用2个0的字节表示二种节点数目都是零
+		if (leftSize < 2)
 		{
 			return false;
 		}
 		*((short*)p) = 0;
 		p += 2;
-		*p = 0;
-		p++;
-		totalSize += 3;
-		leftSize -= 3;
+		totalSize += 2;
+		leftSize -= 2;
 	}
 
 	//有些比较到这个中途就到文件末尾了这时这个分支记录在叶子节点集里面
@@ -247,27 +244,6 @@ bool IndexNodeTypeOne::toObject(char* buffer, int len)
 	}
 
 	leftSize -= leafNum * 16;
-	//添加和索引节点同一个分支的指向末尾的叶节点
-	unsigned char lastLeafNum = *p;
-	p += 1;
-	leftSize -= 1;
-	if (leftSize < lastLeafNum * 8)
-	{
-		return false;
-	}
-
-	for (unsigned char i = 0; i < lastLeafNum; ++i)
-	{
-		std::unordered_map<unsigned long long, IndexNodeChild>::iterator it = children.find(*((unsigned long long*)p));
-		if (it == end(children))
-		{
-			return false;
-		}
-		it->second.childType = CHILD_TYPE_NODENLEAF;
-		p += 8;
-	}
-
-	leftSize -= lastLeafNum * 8;
 
 
 	//添加比较到中途就到文件结尾的叶子节点
@@ -289,6 +265,11 @@ bool IndexNodeTypeOne::toObject(char* buffer, int len)
 		p += 8;
 	}
 	return true;
+}
+
+unsigned char IndexNodeTypeOne::getType()
+{
+	return NODE_TYPE_ONE;
 }
 
 bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
@@ -323,8 +304,6 @@ bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 		leftSize--;
 		char leafBuffer[256 * 12];
 		unsigned char leafNum = 0;
-		char lastLeafBuffer[256 * 4];			//有些指向末尾的叶子节点和索引节点重合单独存
-		unsigned char lastLeafNum = 0;
 		for (auto& value : children)
 		{
 			if (value.second.childType == CHILD_TYPE_NODE)
@@ -347,22 +326,6 @@ bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 				*((unsigned long long*)(leafBuffer + 12 * leafNum + 4)) = value.second.indexId;
 				leafNum++;
 			}
-			else
-			{
-				if (leftSize < 12)
-				{
-					return false;
-				}
-				(*indexNodeNum)++;
-				*((unsigned int*)p) = value.first;
-				p += 4;
-				*((unsigned long long*)p) = value.second.indexId;
-				p += 8;
-				totalSize += 12;
-				leftSize -= 12;
-				*((unsigned int*)(lastLeafBuffer + 4 * lastLeafNum)) = value.first;
-				lastLeafNum++;
-			}
 		}
 		//保存只是叶子节点部分
 		if (leftSize < 1 + leafNum * 12)
@@ -375,31 +338,18 @@ bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 		p += leafNum * 16;
 		totalSize += (1 + leafNum * 12);
 		leftSize -= (1 + leafNum * 12);
-		//保存和索引同一个分支到目前为止指向文件末尾的叶子节点使用的索引
-		if (leftSize < 1 + lastLeafNum * 4)
-		{
-			return false;
-		}
-		*p = lastLeafNum;
-		p++;
-		memcpy(p, lastLeafBuffer, lastLeafNum * 4);
-		p += lastLeafNum * 4;
-		totalSize += (1 + lastLeafNum * 4);
-		leftSize -= (1 + lastLeafNum * 4);
 	}
 	else
 	{
 		//没有孩子节点用三个0的字节表示三种节点数目都是零
-		if (leftSize < 3)
+		if (leftSize < 2)
 		{
 			return false;
 		}
 		*((short*)p) = 0;
 		p += 2;
-		*p = 0;
-		p++;
-		totalSize += 3;
-		leftSize -= 3;
+		totalSize += 2;
+		leftSize -= 2;
 	}
 
 	//有些比较到这个中途就到文件末尾了这时这个分支记录在叶子节点集里面
@@ -515,27 +465,6 @@ bool IndexNodeTypeTwo::toObject(char* buffer, int len)
 	}
 
 	leftSize -= leafNum * 12;
-	//添加和索引节点同一个分支的指向末尾的页节点
-	unsigned char lastLeafNum = *p;
-	p += 1;
-	leftSize -= 1;
-	if (leftSize < lastLeafNum * 4)
-	{
-		return false;
-	}
-
-	for (unsigned char i = 0; i < lastLeafNum; ++i)
-	{
-		std::unordered_map<unsigned int, IndexNodeChild>::iterator it = children.find(*((unsigned int*)p));
-		if (it == end(children))
-		{
-			return false;
-		}
-		it->second.childType = CHILD_TYPE_NODENLEAF;
-		p += 4;
-	}
-
-	leftSize -= lastLeafNum * 4;
 
 
 	//添加比较到中途就到文件结尾的叶子节点
@@ -557,6 +486,11 @@ bool IndexNodeTypeTwo::toObject(char* buffer, int len)
 		p += 8;
 	}
 	return true;
+}
+
+unsigned char IndexNodeTypeTwo::getType()
+{
+	return NODE_TYPE_TWO;
 }
 
 bool IndexNodeTypeThree::toBinary(char* buffer, int len)
@@ -591,8 +525,6 @@ bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 		leftSize--;
 		char leafBuffer[256 * 10];
 		unsigned char leafNum = 0;
-		char lastLeafBuffer[256 * 2];			//有些指向末尾的叶子节点和索引节点重合单独存
-		unsigned char lastLeafNum = 0;
 		for (auto& value : children)
 		{
 			if (value.second.childType == CHILD_TYPE_NODE)
@@ -615,22 +547,6 @@ bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 				*((unsigned long long*)(leafBuffer + 10 * leafNum + 2)) = value.second.indexId;
 				leafNum++;
 			}
-			else
-			{
-				if (leftSize < 10)
-				{
-					return false;
-				}
-				(*indexNodeNum)++;
-				*((unsigned short*)p) = value.first;
-				p += 2;
-				*((unsigned long long*)p) = value.second.indexId;
-				p += 8;
-				totalSize += 10;
-				leftSize -= 10;
-				*((unsigned short*)(lastLeafBuffer + 2 * lastLeafNum)) = value.first;
-				lastLeafNum++;
-			}
 		}
 		//保存只是叶子节点部分
 		if (leftSize < 1 + leafNum * 10)
@@ -643,31 +559,18 @@ bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 		p += leafNum * 10;
 		totalSize += (1 + leafNum * 10);
 		leftSize -= (1 + leafNum * 10);
-		//保存和索引同一个分支到目前为止指向文件末尾的叶子节点使用的索引
-		if (leftSize < 1 + lastLeafNum * 2)
-		{
-			return false;
-		}
-		*p = lastLeafNum;
-		p++;
-		memcpy(p, lastLeafBuffer, lastLeafNum * 2);
-		p += lastLeafNum * 2;
-		totalSize += (1 + lastLeafNum * 2);
-		leftSize -= (1 + lastLeafNum * 2);
 	}
 	else
 	{
 		//没有孩子节点用三个0的字节表示三种节点数目都是零
-		if (leftSize < 3)
+		if (leftSize < 2)
 		{
 			return false;
 		}
 		*((short*)p) = 0;
 		p += 2;
-		*p = 0;
-		p++;
-		totalSize += 3;
-		leftSize -= 3;
+		totalSize += 2;
+		leftSize -= 2;
 	}
 
 	//有些比较到这个中途就到文件末尾了这时这个分支记录在叶子节点集里面
@@ -783,27 +686,6 @@ bool IndexNodeTypeThree::toObject(char* buffer, int len)
 	}
 
 	leftSize -= leafNum * 10;
-	//添加和索引节点同一个分支的指向末尾的页节点
-	unsigned char lastLeafNum = *p;
-	p += 1;
-	leftSize -= 1;
-	if (leftSize < lastLeafNum * 2)
-	{
-		return false;
-	}
-
-	for (unsigned char i = 0; i < lastLeafNum; ++i)
-	{
-		std::unordered_map<unsigned short, IndexNodeChild>::iterator it = children.find(*((unsigned short*)p));
-		if (it == end(children))
-		{
-			return false;
-		}
-		it->second.childType = CHILD_TYPE_NODENLEAF;
-		p += 2;
-	}
-
-	leftSize -= lastLeafNum * 2;
 
 
 	//添加比较到中途就到文件结尾的叶子节点
@@ -825,6 +707,11 @@ bool IndexNodeTypeThree::toObject(char* buffer, int len)
 		p += 8;
 	}
 	return true;
+}
+
+unsigned char IndexNodeTypeThree::getType()
+{
+	return NODE_TYPE_THREE;
 }
 
 bool IndexNodeTypeFour::toBinary(char* buffer, int len)
@@ -859,8 +746,6 @@ bool IndexNodeTypeFour::toBinary(char* buffer, int len)
 		leftSize--;
 		char leafBuffer[256 * 9];
 		unsigned char leafNum = 0;
-		char lastLeafBuffer[256 * 1];			//有些指向末尾的叶子节点和索引节点重合单独存
-		unsigned char lastLeafNum = 0;
 		for (auto& value : children)
 		{
 			if (value.second.childType == CHILD_TYPE_NODE)
@@ -883,22 +768,6 @@ bool IndexNodeTypeFour::toBinary(char* buffer, int len)
 				*((unsigned long long*)(leafBuffer + 9 * leafNum + 1)) = value.second.indexId;
 				leafNum++;
 			}
-			else
-			{
-				if (leftSize < 9)
-				{
-					return false;
-				}
-				(*indexNodeNum)++;
-				*((unsigned char*)p) = value.first;
-				p += 1;
-				*((unsigned long long*)p) = value.second.indexId;
-				p += 8;
-				totalSize += 9;
-				leftSize -= 9;
-				*((unsigned char*)(lastLeafBuffer + 1 * lastLeafNum)) = value.first;
-				lastLeafNum++;
-			}
 		}
 		//保存只是叶子节点部分
 		if (leftSize < 1 + leafNum * 9)
@@ -911,31 +780,18 @@ bool IndexNodeTypeFour::toBinary(char* buffer, int len)
 		p += leafNum * 9;
 		totalSize += (1 + leafNum * 9);
 		leftSize -= (1 + leafNum * 9);
-		//保存和索引同一个分支到目前为止指向文件末尾的叶子节点使用的索引
-		if (leftSize < 1 + lastLeafNum * 1)
-		{
-			return false;
-		}
-		*p = lastLeafNum;
-		p++;
-		memcpy(p, lastLeafBuffer, lastLeafNum * 1);
-		p += lastLeafNum * 1;
-		totalSize += (1 + lastLeafNum * 1);
-		leftSize -= (1 + lastLeafNum * 1);
 	}
 	else
 	{
 		//没有孩子节点用三个0的字节表示三种节点数目都是零
-		if (leftSize < 3)
+		if (leftSize < 2)
 		{
 			return false;
 		}
 		*((short*)p) = 0;
 		p += 2;
-		*p = 0;
-		p++;
-		totalSize += 3;
-		leftSize -= 3;
+		totalSize += 2;
+		leftSize -= 2;
 	}
 
 	//有些比较到这个中途就到文件末尾了这时这个分支记录在叶子节点集里面
@@ -1051,27 +907,6 @@ bool IndexNodeTypeFour::toObject(char* buffer, int len)
 	}
 
 	leftSize -= leafNum * 9;
-	//添加和索引节点同一个分支的指向末尾的页节点
-	unsigned char lastLeafNum = *p;
-	p += 1;
-	leftSize -= 1;
-	if (leftSize < lastLeafNum * 1)
-	{
-		return false;
-	}
-
-	for (unsigned char i = 0; i < lastLeafNum; ++i)
-	{
-		std::unordered_map<unsigned char, IndexNodeChild>::iterator it = children.find(*((unsigned char*)p));
-		if (it == end(children))
-		{
-			return false;
-		}
-		it->second.childType = CHILD_TYPE_NODENLEAF;
-		p += 1;
-	}
-
-	leftSize -= lastLeafNum * 1;
 
 
 	//添加比较到中途就到文件结尾的叶子节点
@@ -1093,4 +928,9 @@ bool IndexNodeTypeFour::toObject(char* buffer, int len)
 		p += 8;
 	}
 	return true;
+}
+
+unsigned char IndexNodeTypeFour::getType()
+{
+	return NODE_TYPE_FOUR;
 }
