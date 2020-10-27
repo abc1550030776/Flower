@@ -175,12 +175,11 @@ bool IndexFile::writeFile(unsigned long long indexId, IndexNode* pIndexNode)
 		free(buffer);
 		return false;
 	}
-
-	std::vector<unsigned long long> indexIdVec;
-	std::vector<IndexNode*> indexNodeVec;
 	short len = *((short*)p);
 	if ((len + 3) > 4 * 1024 && !pIndexNode->getIsBig())
 	{
+		std::vector<unsigned long long> indexIdVec;
+		std::vector<IndexNode*> indexNodeVec;
 		//节点的大小比默认的4k的大小还要大这个时候换一个可以保存8k大小的id
 		unsigned long long newIndexId = UniqueGenerator::getUGenerator().acquireTwoNumber();
 
@@ -204,8 +203,68 @@ bool IndexFile::writeFile(unsigned long long indexId, IndexNode* pIndexNode)
 			indexIdVec.push_back(parentIndexId);
 			indexNodeVec.push_back(pTempIndexNode);
 			
+			//修改父节点对应的子节点的id
+			if (!pTempIndexNode->changeChildIndexId(indexId, newIndexId))
+			{
+				for (unsigned int i = 0; i < indexIdVec.size(); ++i)
+				{
+					writeTempFile(indexIdVec[i], indexNodeVec[i]);
+				}
+				free(buffer);
+				return false;
+			}
 		}
+
+		//修改所有子节点的父节点id
+
+		//先把所有的子节点id找出来
+		std::vector<unsigned long long> childIndexId;
+		pIndexNode->getAllChildNodeId(childIndexId);
+
+		//把所有的孩子节点的数据读取出来
+		std::vector< IndexNode*> childIndexNode;
+		for (auto& value : childIndexId)
+		{
+			IndexNode* childNode = getTempIndexNode(value);
+			if (childNode == nullptr)
+			{
+				for (unsigned int i = 0; i < indexIdVec.size(); ++i)
+				{
+					writeTempFile(indexIdVec[i], indexNodeVec[i]);
+				}
+				free(buffer);
+				return false;
+			}
+
+			indexIdVec.push_back(value);
+			indexNodeVec.push_back(childNode);
+			childIndexNode.push_back(childNode);
+		}
+
+		//把所有的孩子节点的父节点id改掉
+		for (auto& value : childIndexNode)
+		{
+			value->setParentID(newIndexId);
+		}
+
+		//把所有临时打开的文件保存回去
+		for (unsigned int i = 0; i < indexIdVec.size(); ++i)
+		{
+			writeTempFile(indexIdVec[i], indexNodeVec[i]);
+		}
+
+		//父节点还有所有的孩子节点的父节点id都改变了以后这个节点就是用新节点id了。
+		indexId = newIndexId;
 	}
+
+	//把这个节点的数据写进磁盘里面
+	*((unsigned char*)buffer) = pIndexNode->getType();
+	fpos_t pos;
+	pos.__pos = indexId * 4 * 1024;
+	indexFile.write(pos, buffer, len + 3);
+
+	free(buffer);
+	return true;
 }
 
 bool IndexFile::writeTempFile(unsigned long long indexId, IndexNode* pIndexNode)
@@ -267,28 +326,14 @@ bool IndexFile::reduceCache()
 	indexNodeVec.reserve(needReduceNum);
 	
 	pIndex->getLastNodes(needReduceNum, indexIdVec, indexNodeVec);
-	char* buffer = (char*)malloc(8 * 1024);
-	char* p = buffer + 1;
-	//把需要减小的缓存进行写盘
-	for (unsigned int i = 0; i < indexIdVec.size(); ++i)
+
+	//把所有需要减少的节点全部写盘
+	for (unsigned int i = 0; i < needReduceNum; ++i)
 	{
-		IndexNode* indexNode = indexNodeVec[i];
-		//判断节点是否是已经修改过了的
-		if (!indexNode->getIsModified())
-		{
-			continue;
-		}
-		bool ok = indexNode->toBinary(p, 8 * 1024 - 1);
-		if (!ok)
-		{
-			free(buffer);
-			return false;
-		}
-		short len = *((short*)p);
-		if ((len + 3) > 4 * 1024 && )
+		writeFile(indexIdVec[i], indexNodeVec[i]);
 	}
 
-	free(buffer);
+	//减少索引里面的相应数量的数据
 
 	return true;
 }

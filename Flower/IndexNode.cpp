@@ -36,6 +36,11 @@ unsigned long long IndexNode::getParentId()
 	return parentID;
 }
 
+void IndexNode::setParentID(unsigned long long parentID)
+{
+	this->parentID = parentID;
+}
+
 IndexNode::~IndexNode()
 {}
 
@@ -272,6 +277,32 @@ unsigned char IndexNodeTypeOne::getType()
 	return NODE_TYPE_ONE;
 }
 
+bool IndexNodeTypeOne::changeChildIndexId(unsigned long long orgIndexId, unsigned long long newIndexId)
+{
+	//便利所有的孩子节点把孩子节点设置为新的节点id
+	for (auto& value : children)
+	{
+		if (value.second.childType == CHILD_TYPE_NODE && value.second.indexId == orgIndexId)
+		{
+			value.second.indexId = newIndexId;
+			return true;
+		}
+	}
+	return false;
+}
+
+bool IndexNodeTypeOne::getAllChildNodeId(std::vector<unsigned long long>& childIndexId)
+{
+	for (auto& value : children)
+	{
+		if (value.second.childType == CHILD_TYPE_NODE)
+		{
+			childIndexId.push_back(value.second.indexId);
+		}
+	}
+	return true;
+}
+
 bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 {
 	short totalSize = 0;
@@ -491,6 +522,32 @@ bool IndexNodeTypeTwo::toObject(char* buffer, int len)
 unsigned char IndexNodeTypeTwo::getType()
 {
 	return NODE_TYPE_TWO;
+}
+
+bool IndexNodeTypeTwo::changeChildIndexId(unsigned long long orgIndexId, unsigned long long newIndexId)
+{
+	//便利所有的孩子节点把孩子节点设置为新的节点id
+	for (auto& value : children)
+	{
+		if (value.second.childType == CHILD_TYPE_NODE && value.second.indexId == orgIndexId)
+		{
+			value.second.indexId = newIndexId;
+			return true;
+		}
+	}
+	return false;
+}
+
+bool IndexNodeTypeTwo::getAllChildNodeId(std::vector<unsigned long long>& childIndexId)
+{
+	for (auto& value : children)
+	{
+		if (value.second.childType == CHILD_TYPE_NODE)
+		{
+			childIndexId.push_back(value.second.indexId);
+		}
+	}
+	return true;
 }
 
 bool IndexNodeTypeThree::toBinary(char* buffer, int len)
@@ -714,6 +771,32 @@ unsigned char IndexNodeTypeThree::getType()
 	return NODE_TYPE_THREE;
 }
 
+bool IndexNodeTypeThree::changeChildIndexId(unsigned long long orgIndexId, unsigned long long newIndexId)
+{
+	//便利所有的孩子节点把孩子节点设置为新的节点id
+	for (auto& value : children)
+	{
+		if (value.second.childType == CHILD_TYPE_NODE && value.second.indexId == orgIndexId)
+		{
+			value.second.indexId = newIndexId;
+			return true;
+		}
+	}
+	return false;
+}
+
+bool IndexNodeTypeThree::getAllChildNodeId(std::vector<unsigned long long>& childIndexId)
+{
+	for (auto& value : children)
+	{
+		if (value.second.childType == CHILD_TYPE_NODE)
+		{
+			childIndexId.push_back(value.second.indexId);
+		}
+	}
+	return true;
+}
+
 bool IndexNodeTypeFour::toBinary(char* buffer, int len)
 {
 	short totalSize = 0;
@@ -933,4 +1016,30 @@ bool IndexNodeTypeFour::toObject(char* buffer, int len)
 unsigned char IndexNodeTypeFour::getType()
 {
 	return NODE_TYPE_FOUR;
+}
+
+bool IndexNodeTypeFour::changeChildIndexId(unsigned long long orgIndexId, unsigned long long newIndexId)
+{
+	//便利所有的孩子节点把孩子节点设置为新的节点id
+	for (auto& value : children)
+	{
+		if (value.second.childType == CHILD_TYPE_NODE && value.second.indexId == orgIndexId)
+		{
+			value.second.indexId = newIndexId;
+			return true;
+		}
+	}
+	return false;
+}
+
+bool IndexNodeTypeFour::getAllChildNodeId(std::vector<unsigned long long>& childIndexId)
+{
+	for (auto& value : children)
+	{
+		if (value.second.childType == CHILD_TYPE_NODE)
+		{
+			childIndexId.push_back(value.second.indexId);
+		}
+	}
+	return true;
 }
