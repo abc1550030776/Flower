@@ -325,15 +325,24 @@ bool IndexFile::reduceCache()
 	indexIdVec.reserve(needReduceNum);
 	indexNodeVec.reserve(needReduceNum);
 	
-	pIndex->getLastNodes(needReduceNum, indexIdVec, indexNodeVec);
+	if (!pIndex->getLastNodes(needReduceNum, indexIdVec, indexNodeVec))
+	{
+		return false;
+	}
 
 	//把所有需要减少的节点全部写盘
 	for (unsigned int i = 0; i < needReduceNum; ++i)
 	{
-		writeFile(indexIdVec[i], indexNodeVec[i]);
+		if (!writeFile(indexIdVec[i], indexNodeVec[i]))
+		{
+			return false;
+		}
 	}
 
 	//减少索引里面的相应数量的数据
-
+	if (!pIndex->reduceCache(needReduceNum))
+	{
+		return false;
+	}
 	return true;
 }

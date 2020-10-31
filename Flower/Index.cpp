@@ -53,3 +53,21 @@ bool Index::getLastNodes(unsigned int num, std::vector<unsigned long long>& inde
 	}
 	return true;
 }
+
+bool Index::reduceCache(unsigned int needReduceNum)
+{
+	if (indexNodeCache.size() < needReduceNum)
+	{
+		return false;
+	}
+
+	auto it = end(IndexIdPreority);
+	--it;
+	for (unsigned int i = 0; i < needReduceNum; ++i)
+	{
+		auto curIt = it--;
+		indexNodeCache.erase(curIt->second);
+		IndexIdPreority.erase(curIt);
+	}
+	return true;
+}

@@ -28,6 +28,7 @@ public:
 	virtual bool changeChildIndexId(unsigned long long orgIndexId, unsigned long long newIndexId) = 0;
 	virtual bool getAllChildNodeId(std::vector<unsigned long long>& childIndexId) = 0;
 	void setParentID(unsigned long long parentID);								//设置父节点id
+	virtual size_t getChildrenNum() = 0;										//获取孩子的数量
 	virtual ~IndexNode();
 protected:
 	unsigned long long start;	//在原文件当中的位置
@@ -62,6 +63,7 @@ class IndexNodeTypeOne : public IndexNode
 	unsigned char getType();
 	bool changeChildIndexId(unsigned long long orgIndexId, unsigned long long newIndexId);
 	bool getAllChildNodeId(std::vector<unsigned long long>& childIndexId);
+	size_t getChildrenNum();
 	std::unordered_map<unsigned long long, IndexNodeChild> children;
 };
 
@@ -73,6 +75,7 @@ class IndexNodeTypeTwo : public IndexNode
 	unsigned char getType();
 	bool changeChildIndexId(unsigned long long orgIndexId, unsigned long long newIndexId);
 	bool getAllChildNodeId(std::vector<unsigned long long>& childIndexId);
+	size_t getChildrenNum();
 	std::unordered_map<unsigned int, IndexNodeChild> children;
 };
 
@@ -84,6 +87,7 @@ class IndexNodeTypeThree : public IndexNode
 	unsigned char getType();
 	bool changeChildIndexId(unsigned long long orgIndexId, unsigned long long newIndexId);
 	bool getAllChildNodeId(std::vector<unsigned long long>& childIndexId);
+	size_t getChildrenNum();
 	std::unordered_map<unsigned short, IndexNodeChild> children;
 };
 
@@ -95,5 +99,6 @@ class IndexNodeTypeFour : public IndexNode
 	unsigned char getType();
 	bool changeChildIndexId(unsigned long long orgIndexId, unsigned long long newIndexId);
 	bool getAllChildNodeId(std::vector<unsigned long long>& childIndexId);
+	size_t getChildrenNum();
 	std::unordered_map<unsigned char, IndexNodeChild> children;
 };

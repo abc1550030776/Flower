@@ -1,0 +1,1 @@
+bool GetIndexPath(const char* dstFilePath, const char* indexPath);

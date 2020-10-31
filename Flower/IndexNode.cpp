@@ -303,6 +303,11 @@ bool IndexNodeTypeOne::getAllChildNodeId(std::vector<unsigned long long>& childI
 	return true;
 }
 
+size_t IndexNodeTypeOne::getChildrenNum()
+{
+	return children.size();
+}
+
 bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 {
 	short totalSize = 0;
@@ -548,6 +553,11 @@ bool IndexNodeTypeTwo::getAllChildNodeId(std::vector<unsigned long long>& childI
 		}
 	}
 	return true;
+}
+
+size_t IndexNodeTypeTwo::getChildrenNum()
+{
+	return children.size();
 }
 
 bool IndexNodeTypeThree::toBinary(char* buffer, int len)
@@ -797,6 +807,11 @@ bool IndexNodeTypeThree::getAllChildNodeId(std::vector<unsigned long long>& chil
 	return true;
 }
 
+size_t IndexNodeTypeThree::getChildrenNum()
+{
+	return children.size();
+}
+
 bool IndexNodeTypeFour::toBinary(char* buffer, int len)
 {
 	short totalSize = 0;
@@ -1042,4 +1057,9 @@ bool IndexNodeTypeFour::getAllChildNodeId(std::vector<unsigned long long>& child
 		}
 	}
 	return true;
+}
+
+size_t IndexNodeTypeFour::getChildrenNum()
+{
+	return children.size();
 }
