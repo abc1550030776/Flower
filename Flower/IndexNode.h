@@ -2,6 +2,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include "BuildIndex.h"
 
 //索引孩子节点的类型
 const unsigned char CHILD_TYPE_NODE = 0;
@@ -29,6 +30,13 @@ public:
 	virtual bool getAllChildNodeId(std::vector<unsigned long long>& childIndexId) = 0;
 	void setParentID(unsigned long long parentID);								//设置父节点id
 	virtual size_t getChildrenNum() = 0;										//获取孩子的数量
+	virtual  IndexNode* changeType(BuildIndex* buildIndex) = 0;					//改变节点的类型缩小每个索引查找使用的键的大小
+	void setStart(unsigned long long start);													//设置在原文件的开始位置
+	unsigned long long getStart();										//获取节点在远文件的开始位置
+	void setLen(unsigned long long len);								//设置节点在文件当中的长度
+	unsigned long long getLen();										//获取节点在文件当中的长度
+	void setPreCmpLen(unsigned long long preCmpLen);												//设置这个节点前面已经比较过的长度
+	void setIsModified(bool isModified);								//设置是否已经改变过
 	virtual ~IndexNode();
 protected:
 	unsigned long long start;	//在原文件当中的位置
@@ -64,6 +72,7 @@ class IndexNodeTypeOne : public IndexNode
 	bool changeChildIndexId(unsigned long long orgIndexId, unsigned long long newIndexId);
 	bool getAllChildNodeId(std::vector<unsigned long long>& childIndexId);
 	size_t getChildrenNum();
+	IndexNode* changeType(BuildIndex* buildIndex);
 	std::unordered_map<unsigned long long, IndexNodeChild> children;
 };
 
@@ -76,6 +85,7 @@ class IndexNodeTypeTwo : public IndexNode
 	bool changeChildIndexId(unsigned long long orgIndexId, unsigned long long newIndexId);
 	bool getAllChildNodeId(std::vector<unsigned long long>& childIndexId);
 	size_t getChildrenNum();
+	IndexNode* changeType(BuildIndex* buildIndex);
 	std::unordered_map<unsigned int, IndexNodeChild> children;
 };
 

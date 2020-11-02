@@ -41,6 +41,36 @@ void IndexNode::setParentID(unsigned long long parentID)
 	this->parentID = parentID;
 }
 
+void IndexNode::setStart(unsigned long long start)
+{
+	this->start = start;
+}
+
+unsigned long long IndexNode::getStart()
+{
+	return start;
+}
+
+void IndexNode::setLen(unsigned long long len)
+{
+	this->len = len;
+}
+
+unsigned long long IndexNode::getLen()
+{
+	return len;
+}
+
+void IndexNode::setPreCmpLen(unsigned long long preCmpLen)
+{
+	this->preCmpLen = preCmpLen;
+}
+
+void IndexNode::setIsModified(bool isModified)
+{
+	this->isModified = isModified;
+}
+
 IndexNode::~IndexNode()
 {}
 
@@ -306,6 +336,21 @@ bool IndexNodeTypeOne::getAllChildNodeId(std::vector<unsigned long long>& childI
 size_t IndexNodeTypeOne::getChildrenNum()
 {
 	return children.size();
+}
+
+IndexNode* IndexNodeTypeOne::changeType(BuildIndex* buildIndex)
+{
+	//首先创建下一个类型的节点
+	IndexNodeTypeTwo* ret = new IndexNodeTypeTwo();
+	//把当前节点当前全部的父类的数据拷贝过去
+	ret->setStart(getStart());
+	ret->setLen(getLen());
+	ret->setPreCmpLen(getPreCmpLen());
+	ret->setParentID(getParentId());
+	ret->setIsBig(getIsBig());
+	ret->setIsModified(getIsModified());
+
+	//遍历自己的孩子节点
 }
 
 bool IndexNodeTypeTwo::toBinary(char* buffer, int len)

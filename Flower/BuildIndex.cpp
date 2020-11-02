@@ -46,5 +46,22 @@ bool BuildIndex::cutNodeSize(IndexNode* indexNode)
 		return true;
 	}
 
+	//根据当前的类型查看转化了以后的孩子节点的索引长度
+	unsigned char type = NODE_TYPE_ONE;
+	switch (indexNode->getType())
+	{
+	case NODE_TYPE_ONE:
+		type = NODE_TYPE_TWO;
+		break;
+	case NODE_TYPE_TWO:
+		type = NODE_TYPE_THREE;
+		break;
+	case NODE_TYPE_THREE:
+		type = NODE_TYPE_FOUR;
+		break;
+	case NODE_TYPE_FOUR:
+		return false;
+	}
 
+	//这里使用那个
 }
