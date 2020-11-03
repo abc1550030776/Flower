@@ -37,6 +37,7 @@ public:
 	unsigned long long getLen();										//获取节点在文件当中的长度
 	void setPreCmpLen(unsigned long long preCmpLen);												//设置这个节点前面已经比较过的长度
 	void setIsModified(bool isModified);								//设置是否已经改变过
+	virtual bool cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId) = 0;				//减小节点的大小
 	virtual ~IndexNode();
 protected:
 	unsigned long long start;	//在原文件当中的位置
@@ -57,6 +58,9 @@ class IndexNodeChild
 public:
 	IndexNodeChild();
 	IndexNodeChild(unsigned char childType, unsigned char indexId);
+	unsigned char getType() const;
+	unsigned long long getIndexId() const;
+	void setIndexId(unsigned long long indexId);
 private:
 	//0表示非叶子节点, 1表示叶子节点。
 	unsigned char childType;
@@ -73,12 +77,14 @@ class IndexNodeTypeOne : public IndexNode
 	bool getAllChildNodeId(std::vector<unsigned long long>& childIndexId);
 	size_t getChildrenNum();
 	IndexNode* changeType(BuildIndex* buildIndex);
+	bool cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId);
 	std::unordered_map<unsigned long long, IndexNodeChild> children;
 };
 
 //第二种节点是以4个字节来比较得到孩子节点的
 class IndexNodeTypeTwo : public IndexNode
 {
+	friend class IndexNodeTypeOne;
 	bool toBinary(char* buffer, int len);
 	bool toObject(char* buffer, int len);
 	unsigned char getType();
@@ -86,6 +92,8 @@ class IndexNodeTypeTwo : public IndexNode
 	bool getAllChildNodeId(std::vector<unsigned long long>& childIndexId);
 	size_t getChildrenNum();
 	IndexNode* changeType(BuildIndex* buildIndex);
+	bool cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId);
+	bool insertChildNode(BuildIndex* buildIndex, unsigned long long key, const IndexNodeChild& indexNodeChild);
 	std::unordered_map<unsigned int, IndexNodeChild> children;
 };
 
@@ -98,6 +106,7 @@ class IndexNodeTypeThree : public IndexNode
 	bool changeChildIndexId(unsigned long long orgIndexId, unsigned long long newIndexId);
 	bool getAllChildNodeId(std::vector<unsigned long long>& childIndexId);
 	size_t getChildrenNum();
+	bool cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId);
 	std::unordered_map<unsigned short, IndexNodeChild> children;
 };
 
@@ -110,5 +119,6 @@ class IndexNodeTypeFour : public IndexNode
 	bool changeChildIndexId(unsigned long long orgIndexId, unsigned long long newIndexId);
 	bool getAllChildNodeId(std::vector<unsigned long long>& childIndexId);
 	size_t getChildrenNum();
+	bool cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId);
 	std::unordered_map<unsigned char, IndexNodeChild> children;
 };

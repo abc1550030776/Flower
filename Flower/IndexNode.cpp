@@ -86,6 +86,21 @@ IndexNodeChild::IndexNodeChild(unsigned char childType, unsigned char indexId)
 	this->indexId = indexId;
 }
 
+unsigned char IndexNodeChild::getType() const
+{
+	return childType;
+}
+
+unsigned long long IndexNodeChild::getIndexId() const
+{
+	return indexId;
+}
+
+void IndexNodeChild::setIndexId(unsigned long long indexId)
+{
+	this->indexId = indexId;
+}
+
 bool IndexNodeTypeOne::toBinary(char* buffer, int len)
 {
 	short totalSize = 0;
@@ -348,9 +363,53 @@ IndexNode* IndexNodeTypeOne::changeType(BuildIndex* buildIndex)
 	ret->setPreCmpLen(getPreCmpLen());
 	ret->setParentID(getParentId());
 	ret->setIsBig(getIsBig());
-	ret->setIsModified(getIsModified());
 
-	//遍历自己的孩子节点
+	//遍历自己的孩子节点对每个节点放到新的map当中
+	for (auto& value : children)
+	{
+		//把每个孩子节点重新添加到新的节点当中
+		if (!ret->insertChildNode(buildIndex, value.first, value.second))
+		{
+			delete ret;
+			return NULL;
+		}
+	}
+
+	//把这个节点技术的叶子节点也复制过去
+	ret->leafSet.swap(leafSet);
+	ret->setIsModified(true);
+	return ret;
+}
+
+bool IndexNodeTypeOne::cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId)
+{
+	if (buildIndex == nullptr)
+	{
+		return false;
+	}
+	for (auto& it : children)
+	{
+		if (it.second.getType() == CHILD_TYPE_NODE)
+		{
+			IndexNode* node = buildIndex->getIndexNode(it.second.getIndexId());
+			if (node == nullptr)
+			{
+				return false;
+			}
+
+			if (!buildIndex->cutNodeSize(it.second.getIndexId(), node))
+			{
+				return false;
+			}
+		}
+	}
+
+	//本身可能比256要大所以也要调用
+	if (!buildIndex->cutNodeSize(indexId, this))
+	{
+		return false;
+	}
+	return true;
 }
 
 bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
@@ -605,6 +664,90 @@ size_t IndexNodeTypeTwo::getChildrenNum()
 	return children.size();
 }
 
+bool IndexNodeTypeTwo::cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId)
+{
+	if (buildIndex == nullptr)
+	{
+		return false;
+	}
+	for (auto& it : children)
+	{
+		if (it.second.getType() == CHILD_TYPE_NODE)
+		{
+			IndexNode* node = buildIndex->getIndexNode(it.second.getIndexId());
+			if (node == nullptr)
+			{
+				return false;
+			}
+
+			if (!buildIndex->cutNodeSize(it.second.getIndexId(), node))
+			{
+				return false;
+			}
+		}
+	}
+
+	//本身可能比256要大所以也要调用
+	if (!buildIndex->cutNodeSize(indexId, this))
+	{
+		return false;
+	}
+	return true;
+}
+
+bool IndexNodeTypeTwo::insertChildNode(BuildIndex* buildIndex, unsigned long long key, const IndexNodeChild& indexNodeChild)
+{
+	if (buildIndex == nullptr)
+	{
+		return false;
+	}
+
+	//先对添加进来的节点进行处理
+	IndexNodeChild newIndexNodeChild(indexNodeChild.getType(), indexNodeChild.getIndexId());
+	if (indexNodeChild.getType() == CHILD_TYPE_LEAF)
+	{
+		newIndexNodeChild.setIndexId(indexNodeChild.getIndexId() - 2);
+	}
+	else if (indexNodeChild.getType() == CHILD_TYPE_NODE)
+	{
+		//如果是普通的结点的话要对节点里面的内容进行修改使其包含前面的两个字节
+		IndexNode* childIndexNode = buildIndex->getIndexNode(indexNodeChild.getIndexId());
+		if (childIndexNode == nullptr)
+		{
+			return false;
+		}
+		childIndexNode->setStart(childIndexNode->getStart() - 2);
+		childIndexNode->setLen(childIndexNode->getLen() + 2);
+		//改变preCmpLen的时候有修改到优先级需要到缓存当中把那个缓存表也给修改掉
+		if (!buildIndex->changePreCmpLen(indexNodeChild.getIndexId(), childIndexNode->getPreCmpLen(), childIndexNode->getPreCmpLen() - 2))
+		{
+			return false;
+		}
+		childIndexNode->setIsModified(true);
+	}
+	else
+	{
+		return false;
+	}
+
+	unsigned int nodeKey = (unsigned int)key;
+	auto it = children.find(nodeKey);
+	if (it == end(children))
+	{
+		//直接插入到孩子map当中
+		children.insert({ nodeKey, newIndexNodeChild });
+	}
+	else
+	{
+		//这个时候合并两个孩子节点
+		if (!buildIndex->mergeNode(it->second, newIndexNodeChild))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
 bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 {
 	short totalSize = 0;
@@ -857,6 +1000,37 @@ size_t IndexNodeTypeThree::getChildrenNum()
 	return children.size();
 }
 
+bool IndexNodeTypeThree::cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId)
+{
+	if (buildIndex == nullptr)
+	{
+		return false;
+	}
+	for (auto& it : children)
+	{
+		if (it.second.getType() == CHILD_TYPE_NODE)
+		{
+			IndexNode* node = buildIndex->getIndexNode(it.second.getIndexId());
+			if (node == nullptr)
+			{
+				return false;
+			}
+
+			if (!buildIndex->cutNodeSize(it.second.getIndexId(), node))
+			{
+				return false;
+			}
+		}
+	}
+
+	//本身可能比256要大所以也要调用
+	if (!buildIndex->cutNodeSize(indexId, this))
+	{
+		return false;
+	}
+	return true;
+}
+
 bool IndexNodeTypeFour::toBinary(char* buffer, int len)
 {
 	short totalSize = 0;
@@ -1107,4 +1281,35 @@ bool IndexNodeTypeFour::getAllChildNodeId(std::vector<unsigned long long>& child
 size_t IndexNodeTypeFour::getChildrenNum()
 {
 	return children.size();
+}
+
+bool IndexNodeTypeFour::cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId)
+{
+	if (buildIndex == nullptr)
+	{
+		return false;
+	}
+	for (auto& it : children)
+	{
+		if (it.second.getType() == CHILD_TYPE_NODE)
+		{
+			IndexNode* node = buildIndex->getIndexNode(it.second.getIndexId());
+			if (node == nullptr)
+			{
+				return false;
+			}
+
+			if (!buildIndex->cutNodeSize(it.second.getIndexId(), node))
+			{
+				return false;
+			}
+		}
+	}
+
+	//本身可能比256要大所以也要调用
+	if (!buildIndex->cutNodeSize(indexId, this))
+	{
+		return false;
+	}
+	return true;
 }

@@ -13,6 +13,8 @@ public:
 	bool writeFile(unsigned long long indexId, IndexNode* pIndexNode);
 	bool writeTempFile(unsigned long long indexId, IndexNode* pIndexNode);
 	bool reduceCache();
+	bool changePreCmpLen(unsigned long long indexId, unsigned long long orgPreCmpLen, unsigned long long newPreCmpLen);
+	bool swapNode(unsigned long long indexId, IndexNode* newNode);
 private:
 	Myfile indexFile;
 	Index* pIndex;

@@ -34,7 +34,7 @@ bool BuildIndex::init(const char* fileName, Index* index)
 	return true;
 }
 
-bool BuildIndex::cutNodeSize(IndexNode* indexNode)
+bool BuildIndex::cutNodeSize(unsigned long long indexId, IndexNode* indexNode)
 {
 	if (indexNode == nullptr)
 	{
@@ -46,22 +46,51 @@ bool BuildIndex::cutNodeSize(IndexNode* indexNode)
 		return true;
 	}
 
-	//根据当前的类型查看转化了以后的孩子节点的索引长度
-	unsigned char type = NODE_TYPE_ONE;
-	switch (indexNode->getType())
+	//改变节点类型让节点的孩子结点的键小点这样孩子节点会少点
+	IndexNode* newNode = changeNodeType(indexId, indexNode);
+
+	if (newNode == nullptr)
 	{
-	case NODE_TYPE_ONE:
-		type = NODE_TYPE_TWO;
-		break;
-	case NODE_TYPE_TWO:
-		type = NODE_TYPE_THREE;
-		break;
-	case NODE_TYPE_THREE:
-		type = NODE_TYPE_FOUR;
-		break;
-	case NODE_TYPE_FOUR:
 		return false;
 	}
 
-	//这里使用那个
+	//改变了节点类型但是还是无法排除当前节点可能比256要大和产生的新的孩子节点比256要大所以调用节点的函数改变节点
+	newNode->cutNodeSize(this, indexId);
+	return true;
+}
+
+IndexNode* BuildIndex::getIndexNode(unsigned long long indexId)
+{
+	return indexFile.getIndexNode(indexId);
+}
+
+bool BuildIndex::changePreCmpLen(unsigned long long indexId, unsigned long long orgPreCmpLen, unsigned long long newPreCmpLen)
+{
+	return indexFile.changePreCmpLen(indexId, orgPreCmpLen, newPreCmpLen);
+}
+
+IndexNode* BuildIndex::changeNodeType(unsigned long long indexId, IndexNode* indexNode)
+{
+	if (indexNode == nullptr)
+	{
+		return nullptr;
+	}
+	
+	//直接调用节点的函数改变节点的类型
+	IndexNode* newNode = indexNode->changeType(this);
+	if (newNode == nullptr)
+	{
+		return nullptr;
+	}
+	
+	//创建了已经减小了的节点和原来的节点交换
+	if (!indexFile.swapNode(indexId, newNode))
+	{
+		delete newNode;
+		return nullptr;
+	}
+
+	//成功交换了节点了以后交换出来的节点要被删掉
+	delete indexNode;
+	return newNode;
 }

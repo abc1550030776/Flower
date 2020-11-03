@@ -269,10 +269,15 @@ bool IndexFile::writeFile(unsigned long long indexId, IndexNode* pIndexNode)
 
 bool IndexFile::writeTempFile(unsigned long long indexId, IndexNode* pIndexNode)
 {
+	if (pIndexNode == nullptr)
+	{
+		return false;
+	}
 	//首先检查下缓存是否已经有了
 	auto it = tempIndexNodeId.find(indexId);
 	if (it != end(tempIndexNodeId))
 	{
+		pIndexNode->setIsModified(true);
 		tempIndexNodeId.erase(it);
 		return true;
 	}
@@ -345,4 +350,29 @@ bool IndexFile::reduceCache()
 		return false;
 	}
 	return true;
+}
+
+bool IndexFile::changePreCmpLen(unsigned long long indexId, unsigned long long orgPreCmpLen, unsigned long long newPreCmpLen)
+{
+	if (pIndex == nullptr)
+	{
+		return false;
+	}
+
+	return pIndex->changePreCmpLen(indexId, orgPreCmpLen, newPreCmpLen);
+}
+
+bool IndexFile::swapNode(unsigned long long indexId, IndexNode* newNode)
+{
+	if (pIndex == nullptr)
+	{
+		return false;
+	}
+
+	if (newNode == nullptr)
+	{
+		return false;
+	}
+
+	return pIndex->swapNode(indexId, newNode);
 }
