@@ -81,6 +81,7 @@ IndexNode* IndexFile::getIndexNode(unsigned long long indexId)
 		return nullptr;
 	}
 
+	pIndexNode->setIndexId(indexId);
 	//加入到缓存里面了以后再把索引返回
 	return pIndexNode;
 }
@@ -150,6 +151,8 @@ IndexNode* IndexFile::getTempIndexNode(unsigned long long indexId)
 	}
 
 	free(buffer);
+
+	pIndexNode->setIndexId(indexId);
 
 	return pIndexNode;
 }
@@ -254,7 +257,10 @@ bool IndexFile::writeFile(unsigned long long indexId, IndexNode* pIndexNode)
 		}
 
 		//父节点还有所有的孩子节点的父节点id都改变了以后这个节点就是用新节点id了。
+		//创建了新的节点的id所以旧的节点的id就无效了放回去
+		UniqueGenerator::getUGenerator().recycleNumber(indexId);
 		indexId = newIndexId;
+		pIndexNode->setIndexId(indexId);
 	}
 
 	//把这个节点的数据写进磁盘里面
@@ -375,4 +381,14 @@ bool IndexFile::swapNode(unsigned long long indexId, IndexNode* newNode)
 	}
 
 	return pIndex->swapNode(indexId, newNode);
+}
+
+IndexNode* IndexFile::newIndexNode(unsigned char nodeType, unsigned long long preCmpLen)
+{
+	if (pIndex == nullptr)
+	{
+		return nullptr;
+	}
+
+	return pIndex->newIndexNode(nodeType, preCmpLen);
 }

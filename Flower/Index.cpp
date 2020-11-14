@@ -1,11 +1,12 @@
 #include "Index.h"
+#include "UniqueGenerator.h"
 
 IndexNode* Index::getIndexNode(unsigned long long indexId)
 {
 	auto it = indexNodeCache.find(indexId);
 	if (it == end(indexNodeCache))
 	{
-		return NULL;
+		return nullptr;
 	}
 
 	return it->second;
@@ -13,7 +14,7 @@ IndexNode* Index::getIndexNode(unsigned long long indexId)
 
 bool Index::insert(unsigned long long indexId, IndexNode* pIndexNode)
 {
-	if (pIndexNode == NULL)
+	if (pIndexNode == nullptr)
 	{
 		return false;
 	}
@@ -66,7 +67,15 @@ bool Index::reduceCache(unsigned int needReduceNum)
 	for (unsigned int i = 0; i < needReduceNum; ++i)
 	{
 		auto curIt = it--;
-		indexNodeCache.erase(curIt->second);
+		auto cacheIt = indexNodeCache.find(curIt->second);
+		if (cacheIt == end(indexNodeCache))
+		{
+			return false;
+		}
+
+		//删除之前先把内存的数据删除
+		delete cacheIt->second;
+		indexNodeCache.erase(cacheIt);
 		IndexIdPreority.erase(curIt);
 	}
 	return true;
@@ -119,4 +128,54 @@ bool Index::swapNode(unsigned long long indexId, IndexNode* newNode)
 	}
 	it->second = newNode;
 	return true;
+}
+
+IndexNode* Index::newIndexNode(unsigned char nodeType, unsigned long long preCmpLen)
+{
+	//根据类型创建新的节点
+	IndexNode* pNode = nullptr;
+	switch (nodeType)
+	{
+	case NODE_TYPE_ONE:
+		pNode = new IndexNodeTypeOne();
+		break;
+	case NODE_TYPE_TWO:
+		pNode = new IndexNodeTypeTwo();
+		break;
+	case NODE_TYPE_THREE:
+		pNode = new IndexNodeTypeThree();
+		break;
+	case NODE_TYPE_FOUR:
+		pNode = new IndexNodeTypeFour();
+		break;
+	default:
+		break;
+	}
+
+	if (pNode == nullptr)
+	{
+		return nullptr;
+	}
+
+	//获取新创建的节点的id
+	unsigned long long indexId = UniqueGenerator::getUGenerator().acquireNumber();
+
+	//将新创建的节点插入到缓存当中
+	bool ok = indexNodeCache.insert({ indexId, pNode }).second;
+	if (!ok)
+	{
+		delete pNode;
+		return nullptr;
+	}
+
+	//添加了索引缓存的同时也要添加优先级缓存
+	IndexIdPreority.insert({ preCmpLen, indexId });
+
+	//设置preCmdLen
+	pNode->setPreCmpLen(preCmpLen);
+
+	//设置indexId
+	pNode->setIndexId(indexId);
+
+	return pNode;
 }

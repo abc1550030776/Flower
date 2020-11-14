@@ -38,12 +38,16 @@ public:
 	void setPreCmpLen(unsigned long long preCmpLen);												//设置这个节点前面已经比较过的长度
 	void setIsModified(bool isModified);								//设置是否已经改变过
 	virtual bool cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId) = 0;				//减小节点的大小
+	void setIndexId(unsigned long long indexId);
+	unsigned long long getIndexId();									//获取节点的索引id
+	void insertLeafSet(unsigned long long start);												//插入叶子节点
 	virtual ~IndexNode();
 protected:
 	unsigned long long start;	//在原文件当中的位置
 	unsigned long long len;		//文件中指定位置的这个节点对应段的长度
 	unsigned long long preCmpLen;	//查询到这个结点的时候前面已经比较过的字符的长度
 	unsigned long long parentID;	//父节点的Id
+	unsigned long long indexId;		//节点的id;
 	std::unordered_set<unsigned long long> leafSet;	//有些叶子节点是指向结尾的,为了节省空间这里记录这些比较到这个节点一部分全部一样的叶子节点的开始比较位置
 	bool isBig;					//有些节点写入硬盘大于4k字节就是big
 	bool isModified;			//从缓存中删除了以后是否需要写入硬盘
@@ -61,6 +65,7 @@ public:
 	unsigned char getType() const;
 	unsigned long long getIndexId() const;
 	void setIndexId(unsigned long long indexId);
+	void setChildType(unsigned char childType);
 private:
 	//0表示非叶子节点, 1表示叶子节点。
 	unsigned char childType;
@@ -70,6 +75,7 @@ private:
 //第一种节点是以8个字节来比较得到孩子节点的
 class IndexNodeTypeOne : public IndexNode
 {
+	friend class BuildIndex;
 	bool toBinary(char* buffer, int len);
 	bool toObject(char* buffer, int len);
 	unsigned char getType();
@@ -78,12 +84,14 @@ class IndexNodeTypeOne : public IndexNode
 	size_t getChildrenNum();
 	IndexNode* changeType(BuildIndex* buildIndex);
 	bool cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId);
+	bool insertChildNode(BuildIndex* buildIndex, unsigned long long key, const IndexNodeChild& indexNodeChild);
 	std::unordered_map<unsigned long long, IndexNodeChild> children;
 };
 
 //第二种节点是以4个字节来比较得到孩子节点的
 class IndexNodeTypeTwo : public IndexNode
 {
+	friend class BuildIndex;
 	friend class IndexNodeTypeOne;
 	bool toBinary(char* buffer, int len);
 	bool toObject(char* buffer, int len);
@@ -94,31 +102,42 @@ class IndexNodeTypeTwo : public IndexNode
 	IndexNode* changeType(BuildIndex* buildIndex);
 	bool cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId);
 	bool insertChildNode(BuildIndex* buildIndex, unsigned long long key, const IndexNodeChild& indexNodeChild);
+	bool insertChildNode(BuildIndex* buildIndex, unsigned int key, const IndexNodeChild& indexNodeChild);
 	std::unordered_map<unsigned int, IndexNodeChild> children;
 };
 
 //第三种节点是以2个字节来比较得到孩子节点的
 class IndexNodeTypeThree : public IndexNode
 {
+	friend class BuildIndex;
+	friend class IndexNodeTypeTwo;
 	bool toBinary(char* buffer, int len);
 	bool toObject(char* buffer, int len);
 	unsigned char getType();
 	bool changeChildIndexId(unsigned long long orgIndexId, unsigned long long newIndexId);
 	bool getAllChildNodeId(std::vector<unsigned long long>& childIndexId);
 	size_t getChildrenNum();
+	IndexNode* changeType(BuildIndex* buildIndex);
 	bool cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId);
+	bool insertChildNode(BuildIndex* buildIndex, unsigned int key, const IndexNodeChild& indexNodeChild);
+	bool insertChildNode(BuildIndex* buildIndex, unsigned short key, const IndexNodeChild& indexNodeChild);
 	std::unordered_map<unsigned short, IndexNodeChild> children;
 };
 
 //第四种节点是以一个字节来比较得到孩子节点的
 class IndexNodeTypeFour : public IndexNode
 {
+	friend class BuildIndex;
+	friend class IndexNodeTypeThree;
 	bool toBinary(char* buffer, int len);
 	bool toObject(char* buffer, int len);
 	unsigned char getType();
 	bool changeChildIndexId(unsigned long long orgIndexId, unsigned long long newIndexId);
 	bool getAllChildNodeId(std::vector<unsigned long long>& childIndexId);
 	size_t getChildrenNum();
+	IndexNode* changeType(BuildIndex* buildIndex);
 	bool cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId);
+	bool insertChildNode(BuildIndex* buildIndex, unsigned short key, const IndexNodeChild& indexNodeChild);
+	bool insertChildNode(BuildIndex* buildIndex, unsigned char key, const IndexNodeChild& indexNodeChild);
 	std::unordered_map<unsigned char, IndexNodeChild> children;
 };
