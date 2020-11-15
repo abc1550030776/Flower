@@ -383,6 +383,7 @@ IndexNode* IndexNodeTypeOne::changeType(BuildIndex* buildIndex)
 	ret->setLen(getLen());
 	ret->setPreCmpLen(getPreCmpLen());
 	ret->setParentID(getParentId());
+	ret->setIndexId(getIndexId());
 	ret->setIsBig(getIsBig());
 
 	//遍历自己的孩子节点对每个节点放到新的map当中
@@ -718,6 +719,7 @@ IndexNode* IndexNodeTypeTwo::changeType(BuildIndex* buildIndex)
 	ret->setLen(getLen());
 	ret->setPreCmpLen(getPreCmpLen());
 	ret->setParentID(getParentId());
+	ret->setIndexId(getIndexId());
 	ret->setIsBig(getIsBig());
 
 	//遍历自己的孩子节点对每个节点放到新的map当中
@@ -1106,6 +1108,7 @@ IndexNode* IndexNodeTypeThree::changeType(BuildIndex* buildIndex)
 	ret->setLen(getLen());
 	ret->setPreCmpLen(getPreCmpLen());
 	ret->setParentID(getParentId());
+	ret->setIndexId(getIndexId());
 	ret->setIsBig(getIsBig());
 
 	//遍历自己的孩子节点对每个节点放到新的map当中

@@ -338,6 +338,8 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				leftChildNode.setChildType(CHILD_TYPE_NODE);
 				leftChildNode.setIndexId(pNode->getIndexId());
 
+				free(leftBuffer);
+				free(rightBuffer);
 				return true;
 			}
 
@@ -376,7 +378,491 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			leftChildNode.setChildType(CHILD_TYPE_NODE);
 			leftChildNode.setIndexId(pNode->getIndexId());
 
+			free(leftBuffer);
+			free(rightBuffer);
 			return true;
+		}
+
+		//后面的比较长度不够4k
+		unsigned long long lastNeedReadSize = remainReadSize - cmpLen;
+
+		fpos_t leftPos;
+		leftPos.__pos = leftFilePos + cmpLen;
+		if (!dstFile.read(leftPos, leftBuffer, lastNeedReadSize))
+		{
+			free(leftBuffer);
+			free(rightBuffer);
+			return false;
+		}
+		fpos_t rightPos;
+		rightPos.__pos = rightFilePos + cmpLen;
+		if (!dstFile.read(rightPos, rightBuffer, lastNeedReadSize))
+		{
+			free(leftBuffer);
+			free(rightBuffer);
+			return false;
+		}
+
+		unsigned long long subCmpLen = 0;
+		for (; subCmpLen + 8 <= lastNeedReadSize; subCmpLen += 8)
+		{
+			if (*(unsigned long long*)(&leftBuffer[subCmpLen]) != *(unsigned long long*)(&rightBuffer[subCmpLen]))
+			{
+				break;
+			}
+		}
+
+		if (subCmpLen + 8 <= lastNeedReadSize)
+		{
+			IndexNode* pNode = indexFile.newIndexNode(NODE_TYPE_ONE, preCmpLen);
+
+			if (pNode == nullptr)
+			{
+				free(leftBuffer);
+				free(rightBuffer);
+				return false;
+			}
+
+			pNode->setStart(leftFilePos);
+			pNode->setLen(cmpLen + subCmpLen);
+			pNode->setParentID(parentId);
+
+			IndexNodeTypeOne* tmpNode = (IndexNodeTypeOne*)pNode;
+			IndexNodeChild indexNodeChild(CHILD_TYPE_LEAF, leftFilePos + cmpLen + subCmpLen + 8);
+
+			if (!tmpNode->insertChildNode(this, *(unsigned long long*)(&leftBuffer[subCmpLen]), indexNodeChild))
+			{
+				free(leftBuffer);
+				free(rightBuffer);
+				return false;
+			}
+
+			IndexNodeChild rIndexNodeChild(CHILD_TYPE_LEAF, rightFilePos + cmpLen + subCmpLen + 8);
+
+			if (!tmpNode->insertChildNode(this, *(unsigned long long*)(&rightBuffer[subCmpLen]), rIndexNodeChild))
+			{
+				free(leftBuffer);
+				free(rightBuffer);
+				return false;
+			}
+
+			pNode->setIsModified(true);
+
+			leftChildNode.setChildType(CHILD_TYPE_NODE);
+			leftChildNode.setIndexId(pNode->getIndexId());
+
+			free(leftBuffer);
+			free(rightBuffer);
+			return true;
+		}
+
+		//接下来还有剩下不够8个字节的部分
+		unsigned long long suppleSize = 0;
+		for (; subCmpLen + suppleSize < lastNeedReadSize; ++suppleSize)
+		{
+			if (*(unsigned char*)(&leftBuffer[subCmpLen + suppleSize]) != *(unsigned char*)(&rightBuffer[subCmpLen + suppleSize]))
+			{
+				break;
+			}
+		}
+
+		if ((subCmpLen + suppleSize) == lastNeedReadSize)
+		{
+			//两个叶子节点前面的部分全部都一样
+			IndexNode* pNode = indexFile.newIndexNode(NODE_TYPE_ONE, preCmpLen);
+
+			if (pNode == nullptr)
+			{
+				free(leftBuffer);
+				free(rightBuffer);
+				return false;
+			}
+
+			unsigned long long startPos = leftFilePos;
+			unsigned long long nodeLen = leftRemainSize;
+			if (rightFilePos < leftFilePos)
+			{
+				startPos = rightFilePos;
+				nodeLen = rightRemainSize;
+			}
+			pNode->setStart(startPos);
+			nodeLen -= dstFileSize % 8;
+			pNode->setLen(nodeLen);
+			pNode->setParentID(parentId);
+
+			pNode->insertLeafSet(leftFilePos - preCmpLen);
+			pNode->insertLeafSet(rightFilePos - preCmpLen);
+
+			pNode->setIsModified(true);
+
+			leftChildNode.setChildType(CHILD_TYPE_NODE);
+			leftChildNode.setIndexId(pNode->getIndexId());
+
+			free(leftBuffer);
+			free(rightBuffer);
+			return true;
+		}
+
+		//最后几个字节不一样
+		IndexNode* pNode = indexFile.newIndexNode(NODE_TYPE_ONE, preCmpLen);
+
+		if (pNode == nullptr)
+		{
+			free(leftBuffer);
+			free(rightBuffer);
+			return false;
+		}
+
+		unsigned long long chooseFilePos = leftFilePos;
+		unsigned long long anotherFilePos = rightFilePos;
+		unsigned long long chooseKey = *(unsigned long long*)(&leftBuffer[subCmpLen]);
+		if (rightFilePos < chooseFilePos)
+		{
+			chooseFilePos = rightFilePos;
+			anotherFilePos = leftFilePos;
+			chooseKey = *(unsigned long long*)(&rightBuffer[subCmpLen]);
+		}
+
+		pNode->setStart(leftFilePos);
+		pNode->setLen(cmpLen + subCmpLen);
+		pNode->setParentID(parentId);
+
+		IndexNodeTypeOne* tmpNode = (IndexNodeTypeOne*)pNode;
+		IndexNodeChild indexNodeChild(CHILD_TYPE_LEAF, chooseFilePos + cmpLen + subCmpLen + 8);
+
+		if (!tmpNode->insertChildNode(this, chooseKey, indexNodeChild))
+		{
+			free(leftBuffer);
+			free(rightBuffer);
+			return false;
+		}
+
+		pNode->insertLeafSet(anotherFilePos - preCmpLen);
+
+		pNode->setIsModified(true);
+
+		leftChildNode.setChildType(CHILD_TYPE_NODE);
+		leftChildNode.setIndexId(pNode->getIndexId());
+
+		free(leftBuffer);
+		free(rightBuffer);
+		return true;
+	}
+	else if (leftType == CHILD_TYPE_NODE && rightType == CHILD_TYPE_NODE)
+	{
+		//合并的两个孩子节点都是非叶子节点
+		IndexNode* leftNode = indexFile.getIndexNode(leftChildNode.getIndexId());
+		if (leftNode == nullptr)
+		{
+			return false;
+		}
+
+		IndexNode* rightNode = indexFile.getIndexNode(rightChildNode.getIndexId());
+		if (rightNode == nullptr)
+		{
+			return false;
+		}
+
+		unsigned long long leftFilePos = leftNode->getStart();
+		unsigned long long rightFilePos = rightNode->getStart();
+
+		unsigned long long leftRemainSize = leftNode->getLen();
+		unsigned long long rightRemainSize = rightNode->getLen();
+		unsigned long long remainReadSize = leftRemainSize;
+		if (rightRemainSize < remainReadSize)
+		{
+			remainReadSize = rightRemainSize;
+		}
+
+		//如果开始比较位置不是8的整数倍的先比较前面那一部分
+		unsigned long long offset = leftFilePos % 8;
+		unsigned long long cmpLen = 0;
+		if (offset != 0)
+		{
+			unsigned long long needChartoEight = 8 - offset;
+
+			//有可能剩下的读取大小比8个字节还要小
+			if (remainReadSize < needChartoEight)
+			{
+				needChartoEight = remainReadSize;
+			}
+
+			//从文件当中两个位置当中读取剩下的字节的数据
+			unsigned char leftData[8];
+			unsigned char rightData[8];
+			fpos_t leftPos;
+			leftPos.__pos = leftFilePos;
+			if (!dstFile.read(leftPos, leftData, needChartoEight))
+			{
+				return false;
+			}
+			fpos_t rightPos;
+			rightPos.__pos = rightFilePos;
+			if (!dstFile.read(rightPos, rightData, needChartoEight))
+			{
+				return false;
+			}
+
+			int curCmpLen = 0;
+			while (cmpLen != needChartoEight)
+			{
+				if ((needChartoEight - cmpLen) % 4 == 0)
+				{
+					if (*(int*)(&leftData[cmpLen]) == *(int*)(&rightData[cmpLen]))
+					{
+						cmpLen += 4;
+					}
+					else
+					{
+						curCmpLen = 4;
+						break;
+					}
+				}
+				else if ((needChartoEight - cmpLen) % 2 == 0)
+				{
+					if (*(short*)(&leftData[cmpLen]) == *(short*)(&rightData[cmpLen]))
+					{
+						cmpLen += 2;
+					}
+					else
+					{
+						curCmpLen = 2;
+						break;
+					}
+				}
+				else
+				{
+					if (*(char*)(&leftData[cmpLen]) == *(char*)(&rightData[cmpLen]))
+					{
+						cmpLen++;
+					}
+					else
+					{
+						curCmpLen = 1;
+						break;
+					}
+				}
+			}
+
+			if (cmpLen != needChartoEight)
+			{
+				//前面不够8个字节里面有不一样的地方
+				//根据不同的字节创建不同的对象
+				IndexNode* pNode = nullptr;
+				switch (curCmpLen)
+				{
+				case 4:
+					pNode = indexFile.newIndexNode(NODE_TYPE_TWO, preCmpLen);
+					break;
+				case 2:
+					pNode = indexFile.newIndexNode(NODE_TYPE_THREE, preCmpLen);
+					break;
+				case 1:
+					pNode = indexFile.newIndexNode(NODE_TYPE_FOUR, preCmpLen);
+					break;
+				default:
+					break;
+				}
+
+				if (pNode == nullptr)
+				{
+					return false;
+				}
+
+				//设置这个新设置的节点的各个参数
+				pNode->setStart(leftFilePos);
+				pNode->setLen(cmpLen);
+				pNode->setParentID(parentId);
+				switch (pNode->getType())
+				{
+				case NODE_TYPE_TWO:
+				{
+					//读取左边节点的key
+					unsigned int leftKey;
+					fpos_t leftPos;
+					leftPos.__pos = leftFilePos + cmpLen;
+					if (!dstFile.read(leftPos, &leftKey, 4))
+					{
+						return false;
+					}
+
+					//读取右边节点的key
+					unsigned int rightKey;
+					fpos_t rightPos;
+					rightPos.__pos = rightFilePos + cmpLen;
+					if (!dstFile.read(rightPos, &rightKey, 4))
+					{
+						return false;
+					}
+
+					IndexNodeTypeTwo* tmpNode = (IndexNodeTypeTwo*)pNode;
+
+					//左边节点修改相应的节点长度
+					leftNode->setStart(leftNode->getStart() + cmpLen + 4);
+					leftNode->setLen(leftNode->getLen() - cmpLen - 4);
+					//要修改preCmpLen也要修改优先级
+					if (!indexFile.changePreCmpLen(leftNode->getIndexId(), leftNode->getPreCmpLen(), leftNode->getPreCmpLen + cmpLen + 4))
+					{
+						return false;
+					}
+					leftNode->setParentID(pNode->getIndexId());
+					leftNode->setIsModified(true);
+
+					IndexNodeChild indexNodeChild(CHILD_TYPE_NODE, leftNode->getIndexId());
+
+					if (!tmpNode->insertChildNode(this, leftKey, indexNodeChild))
+					{
+						return false;
+					}
+
+					//右边节点修改相应节点的长度
+					rightNode->setStart(rightNode->getStart() + cmpLen + 4);
+					rightNode->setLen(rightNode->getLen() - cmpLen - 4);
+					//要修改preCmpLen也要修改优先级
+					if (!indexFile.changePreCmpLen(rightNode->getIndexId(), rightNode->getPreCmpLen(), rightNode->getPreCmpLen() + cmpLen + 4))
+					{
+						return false;
+					}
+					rightNode->setParentID(pNode->getIndexId());
+					rightNode->setIsModified(true);
+
+					IndexNodeChild rIndexNodeChild(CHILD_TYPE_NODE, rightNode->getIndexId());
+					if (!tmpNode->insertChildNode(this, rightKey, rIndexNodeChild))
+					{
+						return false;
+					}
+				}
+					break;
+				case NODE_TYPE_THREE:
+				{
+					//读取左边节点的key
+					unsigned short leftKey;
+					fpos_t leftPos;
+					leftPos.__pos = leftFilePos + cmpLen;
+					if (!dstFile.read(leftPos, &leftKey, 2))
+					{
+						return false;
+					}
+
+					//读取右边节点的key
+					unsigned short rightKey;
+					fpos_t rightPos;
+					rightPos.__pos = rightFilePos + cmpLen;
+					if (!dstFile.read(rightPos, &rightKey, 2))
+					{
+						return false;
+					}
+
+					IndexNodeTypeThree* tmpNode = (IndexNodeTypeThree*)pNode;
+
+					//左边节点修改相应节点长度
+					leftNode->setStart(leftNode->getStart() + cmpLen + 2);
+					leftNode->setLen(leftNode->getLen() - cmpLen - 2);
+					//要修改preCmpLen也要修改优先级
+					if (!indexFile.changePreCmpLen(leftNode->getIndexId(), leftNode->getPreCmpLen(), leftNode->getPreCmpLen() + cmpLen + 2))
+					{
+						return false;
+					}
+					leftNode->setParentID(pNode->getIndexId());
+					leftNode->setIsModified(true);
+
+					IndexNodeChild indexNodeChild(CHILD_TYPE_NODE, leftNode->getIndexId());
+
+					if (!tmpNode->insertChildNode(this, leftKey, indexNodeChild))
+					{
+						return false;
+					}
+
+					//右边节点修改相应节点的长度
+					rightNode->setStart(rightNode->getStart() + cmpLen + 2);
+					rightNode->setLen(rightNode->getLen() - cmpLen - 2);
+					//要修改preCmpLen也要修改优先级
+					if (!indexFile.changePreCmpLen(rightNode->getIndexId(), rightNode->getPreCmpLen(), rightNode->getPreCmpLen() + cmpLen + 2))
+					{
+						return false;
+					}
+
+					rightNode->setParentID(pNode->getIndexId());
+					rightNode->setIsModified(true);
+
+					IndexNodeChild rIndexNodeChild(CHILD_TYPE_NODE, rightNode->getIndexId());
+					if (!tmpNode->insertChildNode(this, rightKey, rIndexNodeChild))
+					{
+						return false;
+					}
+				}
+					break;
+				case NODE_TYPE_FOUR:
+				{
+					//读取左边节点的key
+					unsigned char leftKey;
+					fpos_t leftPos;
+					leftPos.__pos = leftFilePos + cmpLen;
+					if (!dstFile.read(leftPos, &leftKey, 1))
+					{
+						return false;
+					}
+
+					//读取右边节点的key
+					unsigned char rightKey;
+					fpos_t rightPos;
+					rightPos.__pos = rightFilePos + cmpLen;
+					if (!dstFile.read(rightPos, &rightKey, 1))
+					{
+						return false;
+					}
+
+					IndexNodeTypeFour* tmpNode = (IndexNodeTypeFour*)pNode;
+
+					//左边节点修改相应节点长度
+					leftNode->setStart(leftNode->getStart() + cmpLen + 1);
+					leftNode->setLen(leftNode->getLen() - cmpLen - 1);
+					//要修改preCmpLen也要修改优先级
+					if (!indexFile.changePreCmpLen(leftNode->getIndexId(), leftNode->getPreCmpLen(), leftNode->getPreCmpLen() + cmpLen + 1))
+					{
+						return false;
+					}
+					leftNode->setParentID(pNode->getIndexId());
+					leftNode->setIsModified(true);
+
+					IndexNodeChild indexNodeChild(CHILD_TYPE_NODE, leftNode->getIndexId());
+
+					if (!tmpNode->insertChildNode(this, leftKey, indexNodeChild))
+					{
+						return false;
+					}
+
+					//右边节点修改相应节点的长度
+					rightNode->setStart(rightNode->getStart() + cmpLen + 1);
+					rightNode->setLen(rightNode->getLen() - cmpLen - 1);
+					//要修改preCmpLen也要修改优先级
+					if (!indexFile.changePreCmpLen(rightNode->getIndexId(), rightNode->getPreCmpLen(), rightNode->getPreCmpLen() + cmpLen + 1))
+					{
+						return false;
+					}
+
+					rightNode->setParentID(pNode->getIndexId());
+					rightNode->setIsModified(true);
+
+					IndexNodeChild rIndexNodeChild(CHILD_TYPE_NODE, rightNode->getIndexId());
+					if (!tmpNode->insertChildNode(this, rightKey, rIndexNodeChild))
+					{
+						return false;
+					}
+				}
+					break;
+				default:
+					break;
+				}
+
+				//已经修改了节点设置节点为已经修改状态
+				pNode->setIsModified(true);
+
+				//两个节点合并成一个节点了以后设置左边的那个孩子节点
+				leftChildNode.setIndexId(pNode->getIndexId());
+
+				return true;
+			}
 		}
 	}
 }
