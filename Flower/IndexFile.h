@@ -16,6 +16,7 @@ public:
 	bool changePreCmpLen(unsigned long long indexId, unsigned long long orgPreCmpLen, unsigned long long newPreCmpLen);
 	bool swapNode(unsigned long long indexId, IndexNode* newNode);
 	IndexNode* newIndexNode(unsigned char nodeType, unsigned long long preCmpLen);			//创建新的节点
+	bool deleteIndexNode(unsigned long long indexId);										//删除节点
 private:
 	Myfile indexFile;
 	Index* pIndex;

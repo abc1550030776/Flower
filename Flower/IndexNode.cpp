@@ -87,6 +87,86 @@ void IndexNode::insertLeafSet(unsigned long long start)
 	leafSet.insert(start);
 }
 
+bool IndexNode::mergeSameLenNode(BuildIndex* buildIndex, IndexNode* indexNode)
+{
+	if (buildIndex == nullptr || indexNode == nullptr)
+	{
+		return false;
+	}
+
+	if (getType() != indexNode->getType())
+	{
+		return false;
+	}
+
+	switch (getType())
+	{
+	case NODE_TYPE_ONE:
+	{
+		IndexNodeTypeOne* leftNode = (IndexNodeTypeOne*)this;
+		IndexNodeTypeOne* rightNode = (IndexNodeTypeOne*)indexNode;
+		if (!leftNode->mergeSameLenNode(buildIndex, rightNode))
+		{
+			return false;
+		}
+	}
+		break;
+	case NODE_TYPE_TWO:
+	{
+		IndexNodeTypeTwo* leftNode = (IndexNodeTypeTwo*)this;
+		IndexNodeTypeTwo* rightNode = (IndexNodeTypeTwo*)indexNode;
+		if (!leftNode->mergeSameLenNode(buildIndex, rightNode))
+		{
+			return false;
+		}
+	}
+		break;
+	case NODE_TYPE_THREE:
+	{
+		IndexNodeTypeThree* leftNode = (IndexNodeTypeThree*)this;
+		IndexNodeTypeThree* rightNode = (IndexNodeTypeThree*)indexNode;
+		if (!leftNode->mergeSameLenNode(buildIndex, rightNode))
+		{
+			return false;
+		}
+	}
+		break;
+	case NODE_TYPE_FOUR:
+	{
+		IndexNodeTypeFour* leftNode = (IndexNodeTypeFour*)this;
+		IndexNodeTypeFour* rightNode = (IndexNodeTypeFour*)indexNode;
+		if (!leftNode->mergeSameLenNode(buildIndex, rightNode))
+		{
+			return false;
+		}
+	}
+		break;
+	default:
+		break;
+	}
+	return true;
+}
+
+bool IndexNode::appendLeafSet(IndexNode* indexNode, unsigned long long beforeNumber, unsigned long long fileSize)
+{
+	if (indexNode == nullptr)
+	{
+		return false;
+	}
+
+	for (auto it = indexNode->leafSet.begin(); it != end(indexNode->leafSet);)
+	{
+		auto curIt = it++;
+		if (fileSize - *curIt - preCmpLen < beforeNumber)
+		{
+			leafSet.insert(*curIt);
+			indexNode->leafSet.erase(curIt);
+		}
+	}
+
+	return true;
+}
+
 IndexNode::~IndexNode()
 {}
 
@@ -453,6 +533,39 @@ bool IndexNodeTypeOne::insertChildNode(BuildIndex* buildIndex, unsigned long lon
 		if (!buildIndex->mergeNode(preCmpLen + len + 8, indexId, it->second, indexNodeChild))
 		{
 			return false;
+		}
+	}
+	return true;
+}
+
+bool IndexNodeTypeOne::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeOne* indexNode)
+{
+	if (buildIndex == nullptr || indexNode == nullptr)
+	{
+		return false;
+	}
+
+	//合并叶子节点
+	for (auto& leaf : indexNode->leafSet)
+	{
+		leafSet.insert(leaf);
+	}
+
+	for (auto& child : indexNode->children)
+	{
+		auto it = children.find(child.first);
+		if (it == end(children))
+		{
+			//直接插入到孩子的map当中
+			children.insert({ child.first, child.second });
+		}
+		else
+		{
+			//这个时候合并两个孩子节点
+			if (!buildIndex->mergeNode(preCmpLen + len + 8, indexId, it->second, child.second))
+			{
+				return false;
+			}
 		}
 	}
 	return true;
@@ -847,6 +960,33 @@ bool IndexNodeTypeTwo::insertChildNode(BuildIndex* buildIndex, unsigned int key,
 	return true;
 }
 
+bool IndexNodeTypeTwo::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeTwo* indexNode)
+{
+	if (buildIndex == nullptr || indexNode == nullptr)
+	{
+		return false;
+	}
+
+	for (auto& child : indexNode->children)
+	{
+		auto it = children.find(child.first);
+		if (it == end(children))
+		{
+			//直接插入到孩子的map当中
+			children.insert({ child.first, child.second });
+		}
+		else
+		{
+			//这个时候合并两个孩子节点
+			if (!buildIndex->mergeNode(preCmpLen + len + 4, indexId, it->second, child.second))
+			{
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
 bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 {
 	short totalSize = 0;
@@ -1236,6 +1376,33 @@ bool IndexNodeTypeThree::insertChildNode(BuildIndex* buildIndex, unsigned short 
 	return true;
 }
 
+bool IndexNodeTypeThree::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeThree* indexNode)
+{
+	if (buildIndex == nullptr || indexNode == nullptr)
+	{
+		return false;
+	}
+
+	for (auto& child : indexNode->children)
+	{
+		auto it = children.find(child.first);
+		if (it == end(children))
+		{
+			//直接插入到孩子的map当中
+			children.insert({ child.first, child.second });
+		}
+		else
+		{
+			//这个时候合并两个孩子节点
+			if (!buildIndex->mergeNode(preCmpLen + len + 2, indexId, it->second, child.second))
+			{
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
 bool IndexNodeTypeFour::toBinary(char* buffer, int len)
 {
 	short totalSize = 0;
@@ -1596,6 +1763,33 @@ bool IndexNodeTypeFour::insertChildNode(BuildIndex* buildIndex, unsigned char ke
 		if (!buildIndex->mergeNode(preCmpLen + len + 1, indexId, it->second, indexNodeChild))
 		{
 			return false;
+		}
+	}
+	return true;
+}
+
+bool IndexNodeTypeFour::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeFour* indexNode)
+{
+	if (buildIndex == nullptr || indexNode == nullptr)
+	{
+		return false;
+	}
+
+	for (auto& child : indexNode->children)
+	{
+		auto it = children.find(child.first);
+		if (it == end(children))
+		{
+			//直接插入到孩子的map当中
+			children.insert({ child.first, child.second });
+		}
+		else
+		{
+			//这个时候合并两个孩子节点
+			if (!buildIndex->mergeNode(preCmpLen + len + 1, indexId, it->second, child.second))
+			{
+				return false;
+			}
 		}
 	}
 	return true;

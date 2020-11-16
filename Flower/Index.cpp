@@ -179,3 +179,33 @@ IndexNode* Index::newIndexNode(unsigned char nodeType, unsigned long long preCmp
 
 	return pNode;
 }
+
+bool Index::deleteIndexNode(unsigned long long indexId)
+{
+	auto it = indexNodeCache.find(indexId);
+	if (it == end(indexNodeCache))
+	{
+		return false;
+	}
+
+	auto range = IndexIdPreority.equal_range(it->second->getPreCmpLen());
+	auto ipIt = range.first;
+	for (; ipIt != range.second; ++ipIt)
+	{
+		if (ipIt->second == indexId)
+		{
+			break;
+		}
+	}
+
+	if (ipIt == range.second)
+	{
+		return false;
+	}
+
+	delete it->second;
+	indexNodeCache.erase(it);
+	IndexIdPreority.erase(ipIt);
+	UniqueGenerator::getUGenerator().recycleNumber(indexId);
+	return true;
+}

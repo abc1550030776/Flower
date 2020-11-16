@@ -16,3 +16,13 @@ bool GetIndexPath(const char* dstFilePath, char* indexPath)
 
 	return true;
 }
+
+bool compareTwoType(const unsigned char leftType, const unsigned char rightType)
+{
+	//比较孩子节点key值大小,左边小的化返回true
+	if (leftType > rightType)
+	{
+		return true;
+	}
+	return false;
+}

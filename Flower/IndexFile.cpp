@@ -392,3 +392,13 @@ IndexNode* IndexFile::newIndexNode(unsigned char nodeType, unsigned long long pr
 
 	return pIndex->newIndexNode(nodeType, preCmpLen);
 }
+
+bool IndexFile::deleteIndexNode(unsigned long long indexId)
+{
+	if (pIndex == nullptr)
+	{
+		return false;
+	}
+
+	return pIndex->deleteIndexNode(indexId);
+}
