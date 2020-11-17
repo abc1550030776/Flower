@@ -515,12 +515,22 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 		unsigned long long chooseFilePos = leftFilePos;
 		unsigned long long anotherFilePos = rightFilePos;
-		unsigned long long chooseKey = *(unsigned long long*)(&leftBuffer[subCmpLen]);
+		unsigned char* chooseBuffer = leftBuffer;
 		if (rightFilePos < chooseFilePos)
 		{
 			chooseFilePos = rightFilePos;
 			anotherFilePos = leftFilePos;
-			chooseKey = *(unsigned long long*)(&rightBuffer[subCmpLen]);
+			chooseBuffer = rightBuffer;
+		}
+
+		//读取完整的key值
+		fpos_t pos;
+		pos.__pos = chooseFilePos + remainReadSize;
+		if (!dstFile.read(pos, &chooseBuffer[lastNeedReadSize], subCmpLen + 8 - lastNeedReadSize))
+		{
+			free(leftBuffer);
+			free(rightBuffer);
+			return false;
 		}
 
 		pNode->setStart(leftFilePos);
@@ -530,7 +540,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		IndexNodeTypeOne* tmpNode = (IndexNodeTypeOne*)pNode;
 		IndexNodeChild indexNodeChild(CHILD_TYPE_LEAF, chooseFilePos + cmpLen + subCmpLen + 8);
 
-		if (!tmpNode->insertChildNode(this, chooseKey, indexNodeChild))
+		if (!tmpNode->insertChildNode(this, *(unsigned long long*)(&chooseBuffer[subCmpLen]), indexNodeChild))
 		{
 			free(leftBuffer);
 			free(rightBuffer);
@@ -1021,7 +1031,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			}
 
 			//比较小的节点加入了新的节点可能比较大缩小下大小
-			if (!anotherNode->cutNodeSize(this, anotherNode->getIndexId()))
+			if (!cutNodeSize(anotherNode->getIndexId(), anotherNode))
 			{
 				return false;
 			}
@@ -1346,7 +1356,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			return true;
 		}
 
-		//有一个系欸但比较长一个节点比较短
+		//有一个节点比较长一个节点比较短
 		IndexNode* longNode = leftNode;
 		IndexNode* anotherNode = rightNode;
 		unsigned long long longNodeStart = leftFilePos;
@@ -1532,7 +1542,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		}
 
 		//比较小的节点加入了新的节点可能比较大缩小下大小
-		if (!anotherNode->cutNodeSize(this, anotherNode->getIndexId()))
+		if (!cutNodeSize(anotherNode->getIndexId(), anotherNode))
 		{
 			free(leftBuffer);
 			free(rightBuffer);
@@ -1546,6 +1556,62 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		free(leftBuffer);
 		free(rightBuffer);
 		return true;
+	}
+	else
+	{
+		//其中一个节点是非叶子节点,另一个节点是叶子节点
+		unsigned long long nodeIndexId = leftChildNode.getIndexId();
+		unsigned long long leafFilePos = rightChildNode.getIndexId();
+		if (rightChildNode.getType() == CHILD_TYPE_NODE)
+		{
+			nodeIndexId = rightChildNode.getIndexId();
+			leafFilePos = leftChildNode.getIndexId();
+		}
+
+		IndexNode* pNode = indexFile.getIndexNode(nodeIndexId);
+		if (pNode == nullptr)
+		{
+			return false;
+		}
+
+		unsigned long long nodeFilePos = pNode->getStart();
+		unsigned long long leafRemainSize = dstFileSize - leafFilePos;
+		unsigned long long nodeRemainSize = pNode->getLen();
+		unsigned long long remainReadSize = leafRemainSize;
+		if (nodeRemainSize < remainReadSize)
+		{
+			remainReadSize = nodeRemainSize;
+		}
+
+		//如果开始比较位置不是8的整数倍的先比较前面那一部分
+		unsigned long long offset = leafFilePos % 8;
+		unsigned long long cmpLen = 0;
+		if (offset != 0)
+		{
+			unsigned long long needChartoEight = 8 - offset;
+
+			//有可能剩下的读取大小比8个字节还小
+			if (remainReadSize < needChartoEight)
+			{
+				needChartoEight = remainReadSize;
+			}
+
+			//从文件当中两个位置当中读取剩下的字节的数据
+			unsigned char leafData[8];
+			unsigned char nodeData[8];
+			fpos_t leafPos;
+			leafPos.__pos = leafFilePos;
+			if (!dstFile.read(leafPos, leafData, needChartoEight))
+			{
+				return false;
+			}
+			fpos_t nodePos;
+			nodePos.__pos = nodeFilePos;
+			if (!dstFile.read(nodePos, nodeData, needChartoEight))
+			{
+				return false;
+			}
+		}
 	}
 }
 
