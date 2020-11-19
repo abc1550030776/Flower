@@ -4,6 +4,7 @@
 IndexFile::IndexFile()
 {
 	pIndex = nullptr;
+	rootIndexId = 0;
 }
 
 void IndexFile::init(const Myfile& file, Index* index)
@@ -262,6 +263,11 @@ bool IndexFile::writeFile(unsigned long long indexId, IndexNode* pIndexNode)
 		indexId = newIndexId;
 		pIndexNode->setIndexId(indexId);
 	}
+	else if ((len + 3) <= 4 * 1024 && pIndexNode->getIsBig())
+	{
+		//写入的时候发现只需要4k的存储空间就够了,但是从硬盘里面读出来的时候是超过4k的,大于4k的部分已经不需要了把一个id回收
+		UniqueGenerator::getUGenerator().recycleNumber(indexId + 1);
+	}
 
 	//把这个节点的数据写进磁盘里面
 	*((unsigned char*)buffer) = pIndexNode->getType();
@@ -401,4 +407,54 @@ bool IndexFile::deleteIndexNode(unsigned long long indexId)
 	}
 
 	return pIndex->deleteIndexNode(indexId);
+}
+
+void IndexFile::setRootIndexId(unsigned long long rootIndexId)
+{
+	this->rootIndexId = rootIndexId;
+}
+
+unsigned long long IndexFile::getRootIndexId()
+{
+	return rootIndexId;
+}
+
+bool IndexFile::writeEveryCache()																	//把缓存当中的数据全部写盘
+{
+	if (pIndex == nullptr)
+	{
+		return false;
+	}
+
+	unsigned size = pIndex->size();
+
+	std::vector<unsigned long long> indexIdVec;
+	std::vector<IndexNode*> indexNodeVec;
+	indexIdVec.reserve(size);
+	indexNodeVec.reserve(size);
+
+	if (!pIndex->getLastNodes(size, indexIdVec, indexNodeVec))
+	{
+		return false;
+	}
+
+	//把所有需要减少的节点全部写盘
+	for (unsigned int i = 0; i < size; ++i)
+	{
+		if (!writeFile(indexIdVec[i], indexNodeVec[i]))
+		{
+			return false;
+		}
+	}
+
+	pIndex->clearCache();
+
+	//把根节点的id写入到文件开头
+	fpos_t pos;
+	pos.__pos = 0;
+	if (!indexFile.write(pos, &rootIndexId, 8))
+	{
+		return false;
+	}
+	return true;
 }

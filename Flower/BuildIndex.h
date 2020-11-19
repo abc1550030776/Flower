@@ -11,6 +11,7 @@ public:
 	bool changePreCmpLen(unsigned long long indexId, unsigned long long orgPreCmpLen, unsigned long long newPreCmpLen);
 	bool mergeNode(unsigned long long preCmpLen, unsigned long long parentId, IndexNodeChild& leftChildNode, const IndexNodeChild& rightChildNode);
 	IndexNode* changeNodeType(unsigned long long indexId, IndexNode* indexNode);
+	bool build();												//构建文件索引
 private:
 	Myfile dstFile;									//需要构建索引的目标文件
 	IndexFile indexFile;							//用来处理索引文件和缓存的对象

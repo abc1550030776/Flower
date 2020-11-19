@@ -1980,7 +1980,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 				//修改非叶子节点的长度
 				pNotLeafNode->setStart(pNotLeafNode->getStart() + cmpLen + subCmpLen + 8);
-				pNotLeafNode->setLen(pNotLeafNode->getLen() - cmpLen + subCmpLen + 8);
+				pNotLeafNode->setLen(pNotLeafNode->getLen() - cmpLen - subCmpLen - 8);
 
 				if (!indexFile.changePreCmpLen(pNotLeafNode->getIndexId(), pNotLeafNode->getPreCmpLen(), pNotLeafNode->getPreCmpLen() + cmpLen + 8))
 				{
@@ -2132,7 +2132,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		unsigned long long suppleSize = 0;
 		for (; subCmpLen + suppleSize < lastNeedReadSize; ++suppleSize)
 		{
-			if (*(unsigned char*)(leafBuffer[subCmpLen + suppleSize]) != *(unsigned char*)(&nodeBuffer[subCmpLen + suppleSize]))
+			if (*(unsigned char*)(&leafBuffer[subCmpLen + suppleSize]) != *(unsigned char*)(&nodeBuffer[subCmpLen + suppleSize]))
 			{
 				break;
 			}
@@ -2319,36 +2319,36 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		pNotLeafNode->setStart(pNotLeafNode->getStart() + cmpLen + subCmpLen + 8);
 		pNotLeafNode->setLen(pNotLeafNode->getLen() - cmpLen - subCmpLen - 8);
 
-		if (!indexFile.changePreCmpLen(pNotLeafNode->getIndexId(), pNotLeafNode->getPreCmpLen(), pNotLeafNode->getPreCmpLen() + cmpLen + subCmpLen + 8))
-		{
-			free(leafBuffer);
-			free(nodeBuffer);
-			return false;
-		}
+if (!indexFile.changePreCmpLen(pNotLeafNode->getIndexId(), pNotLeafNode->getPreCmpLen(), pNotLeafNode->getPreCmpLen() + cmpLen + subCmpLen + 8))
+{
+	free(leafBuffer);
+	free(nodeBuffer);
+	return false;
+}
 
-		pNotLeafNode->setParentID(pNode->getIndexId());
-		pNotLeafNode->setIsModified(true);
+pNotLeafNode->setParentID(pNode->getIndexId());
+pNotLeafNode->setIsModified(true);
 
-		IndexNodeChild indexNodeChild(CHILD_TYPE_NODE, pNotLeafNode->getIndexId());
+IndexNodeChild indexNodeChild(CHILD_TYPE_NODE, pNotLeafNode->getIndexId());
 
-		if (!tmpNode->insertChildNode(this, *(unsigned long long*)(&nodeBuffer[subCmpLen]), indexNodeChild))
-		{
-			free(leafBuffer);
-			free(nodeBuffer);
-			return false;
-		}
+if (!tmpNode->insertChildNode(this, *(unsigned long long*)(&nodeBuffer[subCmpLen]), indexNodeChild))
+{
+	free(leafBuffer);
+	free(nodeBuffer);
+	return false;
+}
 
-		//插入叶子节点
-		pNode->insertLeafSet(leafFilePos - preCmpLen);
+//插入叶子节点
+pNode->insertLeafSet(leafFilePos - preCmpLen);
 
-		pNode->setIsModified(true);
+pNode->setIsModified(true);
 
-		leftChildNode.setChildType(CHILD_TYPE_NODE);
-		leftChildNode.setIndexId(pNode->getIndexId());
+leftChildNode.setChildType(CHILD_TYPE_NODE);
+leftChildNode.setIndexId(pNode->getIndexId());
 
-		free(leafBuffer);
-		free(nodeBuffer);
-		return true;
+free(leafBuffer);
+free(nodeBuffer);
+return true;
 
 	}
 
@@ -2361,14 +2361,14 @@ IndexNode* BuildIndex::changeNodeType(unsigned long long indexId, IndexNode* ind
 	{
 		return nullptr;
 	}
-	
+
 	//直接调用节点的函数改变节点的类型
 	IndexNode* newNode = indexNode->changeType(this);
 	if (newNode == nullptr)
 	{
 		return nullptr;
 	}
-	
+
 	//创建了已经减小了的节点和原来的节点交换
 	if (!indexFile.swapNode(indexId, newNode))
 	{
@@ -2379,4 +2379,48 @@ IndexNode* BuildIndex::changeNodeType(unsigned long long indexId, IndexNode* ind
 	//成功交换了节点了以后交换出来的节点要被删掉
 	delete indexNode;
 	return newNode;
+}
+
+bool BuildIndex::build()
+{
+	//首先构建根节点
+	IndexNode* pNode = indexFile.newIndexNode(NODE_TYPE_ONE, 0);
+
+	if (pNode == nullptr)
+	{
+		return false;
+	}
+
+	pNode->setStart(0);						//根节点的开始位置为文件的开头
+	pNode->setLen(dstFileSize - dstFileSize % 8);
+	pNode->setParentID(0);					//根节点没有父节点id为0
+
+	pNode->insertLeafSet(0);				//根节点是特殊的有一个叶子节点从开头直到结尾
+
+	IndexNodeChild rootIndex(CHILD_TYPE_NODE, pNode->getIndexId());
+
+	//接下来把各个8字节开始的位置做一个节点然后不停的合并到一起
+	for (unsigned long long filePos = 8; filePos < dstFileSize; filePos += 8)
+	{
+		IndexNodeChild indexNodeChild(CHILD_TYPE_LEAF, filePos);
+
+		if (!mergeNode(0, 0, rootIndex, indexNodeChild))
+		{
+			return false;
+		}
+
+		//一直创建节点到缓存或者是从硬盘读取数据到缓存内存太大可能不够用所以这里调整缓存
+		indexFile.reduceCache();
+	}
+
+	//设置文件的索引文件的根节点
+	indexFile.setRootIndexId(rootIndex.getIndexId());
+
+	//还有很多缓存里面的数据从来都没有写过盘的全部写盘根节点id也写入文件
+	if (!indexFile.writeEveryCache())
+	{
+		return false;
+	}
+
+	return true;
 }

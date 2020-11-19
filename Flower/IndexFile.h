@@ -17,8 +17,12 @@ public:
 	bool swapNode(unsigned long long indexId, IndexNode* newNode);
 	IndexNode* newIndexNode(unsigned char nodeType, unsigned long long preCmpLen);			//创建新的节点
 	bool deleteIndexNode(unsigned long long indexId);										//删除节点
+	void setRootIndexId(unsigned long long rootIndexId);									//设置根节点id
+	unsigned long long getRootIndexId();													//获取根节点id
+	bool writeEveryCache();																	//把缓存当中的数据全部写盘
 private:
 	Myfile indexFile;
 	Index* pIndex;
 	std::unordered_set<unsigned long long> tempIndexNodeId;
+	unsigned long long rootIndexId;
 };

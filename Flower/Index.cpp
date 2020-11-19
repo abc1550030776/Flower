@@ -209,3 +209,19 @@ bool Index::deleteIndexNode(unsigned long long indexId)
 	UniqueGenerator::getUGenerator().recycleNumber(indexId);
 	return true;
 }
+
+void Index::clearCache()
+{
+	for (auto& value : indexNodeCache)
+	{
+		delete value.second;
+	}
+
+	indexNodeCache.clear();
+	IndexIdPreority.clear();
+}
+
+Index::~Index()
+{
+	clearCache();
+}
