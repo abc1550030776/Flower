@@ -7,10 +7,19 @@ IndexFile::IndexFile()
 	rootIndexId = 0;
 }
 
-void IndexFile::init(const Myfile& file, Index* index)
+bool IndexFile::init(const char* fileName, Index* index)
 {
-	indexFile = file;
+	if (index == nullptr)
+	{
+		return false;
+	}
+
+	if (!indexFile.init(fileName))
+	{
+		return false;
+	}
 	pIndex = index;
+	return true;
 }
 
 IndexNode* IndexFile::getIndexNode(unsigned long long indexId)
@@ -34,7 +43,11 @@ IndexNode* IndexFile::getIndexNode(unsigned long long indexId)
 	//在文件当中的存储位置是用索引id * 4 * 1024来定的,有些存储的存储的比较大会大于4k
 	fpos_t pos;
 	pos.__pos = indexId * 4 * 1024;
-	indexFile.read(pos, buffer, 8 * 1024);
+	if (!indexFile.read(pos, buffer, 4 * 1024))
+	{
+		free(buffer);
+		return nullptr;
+	}
 
 	//根据不同的节点类型创建节点
 	char* p = buffer;
@@ -62,6 +75,15 @@ IndexNode* IndexFile::getIndexNode(unsigned long long indexId)
 	p += 2;
 	if ((len + 3) > 4 * 1024)
 	{
+		//把剩下的字节给读取出来
+		fpos_t pos;
+		pos.__pos = (indexId + 1) * 4 * 1024;
+		if (!indexFile.read(pos, &buffer[4 * 1024], len + 3 - 4 * 1024))
+		{
+			delete pIndexNode;
+			free(buffer);
+			return nullptr;
+		}
 		pIndexNode->setIsBig(true);
 	}
 
@@ -75,14 +97,13 @@ IndexNode* IndexFile::getIndexNode(unsigned long long indexId)
 
 	free(buffer);
 
+	pIndexNode->setIndexId(indexId);
 	//加载完成了以后加入到索引节点里面
 	if (!pIndex->insert(indexId, pIndexNode))
 	{
 		delete pIndexNode;
 		return nullptr;
 	}
-
-	pIndexNode->setIndexId(indexId);
 	//加入到缓存里面了以后再把索引返回
 	return pIndexNode;
 }
@@ -113,7 +134,7 @@ IndexNode* IndexFile::getTempIndexNode(unsigned long long indexId)
 	//在文件当中的存储位置是用索引id * 4 * 1024来定的,有些存储的存储的比较大会大于4k
 	fpos_t pos;
 	pos.__pos = indexId * 4 * 1024;
-	indexFile.read(pos, buffer, 8 * 1024);
+	indexFile.read(pos, buffer, 4 * 1024);
 
 	//根据不同的节点类型创建节点
 	char* p = buffer;
@@ -140,6 +161,15 @@ IndexNode* IndexFile::getTempIndexNode(unsigned long long indexId)
 	p += 2;
 	if ((len + 3) > 4 * 1024)
 	{
+		//把剩下的字节给读取出来
+		fpos_t pos;
+		pos.__pos = (indexId + 1) * 4 * 1024;
+		if (!indexFile.read(pos, &buffer[4 * 1024], len + 3 - 4 * 1024))
+		{
+			delete pIndexNode;
+			free(buffer);
+			return nullptr;
+		}
 		pIndexNode->setIsBig(true);
 	}
 
@@ -328,38 +358,49 @@ bool IndexFile::reduceCache()
 		return false;
 	}
 
-	unsigned size = pIndex->size();
-	if (size <= 1024)
+	//根据使用的方法减少内存搜索的时候是不需要写如硬盘的所以直接清除缓存就可以了
+	if (pIndex->getUseType() == USE_TYPE_SEARCH)
 	{
-		return true;
-	}
-
-	unsigned int needReduceNum = size - 1024;
-
-	//把优先级最低的那些节点取出来。
-	std::vector<unsigned long long> indexIdVec;
-	std::vector<IndexNode*> indexNodeVec;
-	indexIdVec.reserve(needReduceNum);
-	indexNodeVec.reserve(needReduceNum);
-	
-	if (!pIndex->getLastNodes(needReduceNum, indexIdVec, indexNodeVec))
-	{
-		return false;
-	}
-
-	//把所有需要减少的节点全部写盘
-	for (unsigned int i = 0; i < needReduceNum; ++i)
-	{
-		if (!writeFile(indexIdVec[i], indexNodeVec[i]))
+		if (!pIndex->reduceCache())
 		{
 			return false;
 		}
 	}
-
-	//减少索引里面的相应数量的数据
-	if (!pIndex->reduceCache(needReduceNum))
+	else
 	{
-		return false;
+		unsigned size = pIndex->size();
+		if (size <= 1024)
+		{
+			return true;
+		}
+
+		unsigned int needReduceNum = size - 1024;
+
+		//把优先级最低的那些节点取出来。
+		std::vector<unsigned long long> indexIdVec;
+		std::vector<IndexNode*> indexNodeVec;
+		indexIdVec.reserve(needReduceNum);
+		indexNodeVec.reserve(needReduceNum);
+
+		if (!pIndex->getLastNodes(needReduceNum, indexIdVec, indexNodeVec))
+		{
+			return false;
+		}
+
+		//把所有需要减少的节点全部写盘
+		for (unsigned int i = 0; i < needReduceNum; ++i)
+		{
+			if (!writeFile(indexIdVec[i], indexNodeVec[i]))
+			{
+				return false;
+			}
+		}
+
+		//减少索引里面的相应数量的数据
+		if (!pIndex->reduceCache(needReduceNum))
+		{
+			return false;
+		}
 	}
 	return true;
 }
@@ -457,4 +498,14 @@ bool IndexFile::writeEveryCache()																	//把缓存当中的数据全部写盘
 		return false;
 	}
 	return true;
+}
+
+bool IndexFile::putIndexNode(IndexNode* indexNode)
+{
+	if (pIndex == nullptr)
+	{
+		return false;
+	}
+
+	return pIndex->putIndexNode(indexNode);
 }

@@ -3,6 +3,7 @@
 #include <unordered_set>
 #include <vector>
 #include "BuildIndex.h"
+#include "ReadWriteLock.h"
 
 //索引孩子节点的类型
 const unsigned char CHILD_TYPE_NODE = 0;
@@ -43,6 +44,10 @@ public:
 	void insertLeafSet(unsigned long long start);												//插入叶子节点
 	bool mergeSameLenNode(BuildIndex* buildIndex, IndexNode* indexNode);//合并相同长度的节点
 	bool appendLeafSet(IndexNode* indexNode, unsigned long long beforeNumber, unsigned long long fileSize);		//把某个长度以前的叶子节点加入到现在的节点
+	void increaseRef();													//增加索引
+	void decreaseRef();													//减少索引
+	bool isZeroRef();													//判断是否是没有任何索引
+	bool decreaseAndTestZero();											//减少索引并判断是否是0
 	virtual ~IndexNode();
 protected:
 	unsigned long long start;	//在原文件当中的位置
@@ -53,6 +58,7 @@ protected:
 	std::unordered_set<unsigned long long> leafSet;	//有些叶子节点是指向结尾的,为了节省空间这里记录这些比较到这个节点一部分全部一样的叶子节点的开始比较位置
 	bool isBig;					//有些节点写入硬盘大于4k字节就是big
 	bool isModified;			//从缓存中删除了以后是否需要写入硬盘
+	volatile unsigned long refCount;		//搜索文件的时候是采用多线程的这个时候有可能多个线程同时使用同一个的情况不好判断删除的时机所以这里加一个引用数量
 };
 
 class IndexNodeChild

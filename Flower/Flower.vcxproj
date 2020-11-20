@@ -81,6 +81,7 @@
     <ClCompile Include="IndexFile.cpp" />
     <ClCompile Include="IndexNode.cpp" />
     <ClCompile Include="Myfile.cpp" />
+    <ClCompile Include="ReadWriteLock.cpp" />
     <ClCompile Include="UniqueGenerator.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -90,6 +91,7 @@
     <ClInclude Include="IndexFile.h" />
     <ClInclude Include="IndexNode.h" />
     <ClInclude Include="Myfile.h" />
+    <ClInclude Include="ReadWriteLock.h" />
     <ClInclude Include="UniqueGenerator.h" />
   </ItemGroup>
   <ItemDefinitionGroup />

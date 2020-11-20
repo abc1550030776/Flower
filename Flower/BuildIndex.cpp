@@ -28,15 +28,11 @@ bool BuildIndex::init(const char* fileName, Index* index)
 	{
 		return false;
 	}
-	
-	//对索引文件初始化先要创建一个索引文件
-	Myfile tmpIndexFile;
-	if (!tmpIndexFile.init(indexFileName))
+
+	if (!indexFile.init(indexFileName, index))
 	{
 		return false;
 	}
-
-	indexFile.init(tmpIndexFile, index);
 
 	//获取文件的大小
 	struct stat statbuf;
@@ -2319,36 +2315,36 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		pNotLeafNode->setStart(pNotLeafNode->getStart() + cmpLen + subCmpLen + 8);
 		pNotLeafNode->setLen(pNotLeafNode->getLen() - cmpLen - subCmpLen - 8);
 
-if (!indexFile.changePreCmpLen(pNotLeafNode->getIndexId(), pNotLeafNode->getPreCmpLen(), pNotLeafNode->getPreCmpLen() + cmpLen + subCmpLen + 8))
-{
-	free(leafBuffer);
-	free(nodeBuffer);
-	return false;
-}
+		if (!indexFile.changePreCmpLen(pNotLeafNode->getIndexId(), pNotLeafNode->getPreCmpLen(), pNotLeafNode->getPreCmpLen() + cmpLen + subCmpLen + 8))
+		{
+			free(leafBuffer);
+			free(nodeBuffer);
+			return false;
+		}
 
-pNotLeafNode->setParentID(pNode->getIndexId());
-pNotLeafNode->setIsModified(true);
+		pNotLeafNode->setParentID(pNode->getIndexId());
+		pNotLeafNode->setIsModified(true);
 
-IndexNodeChild indexNodeChild(CHILD_TYPE_NODE, pNotLeafNode->getIndexId());
+		IndexNodeChild indexNodeChild(CHILD_TYPE_NODE, pNotLeafNode->getIndexId());
 
-if (!tmpNode->insertChildNode(this, *(unsigned long long*)(&nodeBuffer[subCmpLen]), indexNodeChild))
-{
-	free(leafBuffer);
-	free(nodeBuffer);
-	return false;
-}
+		if (!tmpNode->insertChildNode(this, *(unsigned long long*)(&nodeBuffer[subCmpLen]), indexNodeChild))
+		{
+			free(leafBuffer);
+			free(nodeBuffer);
+			return false;
+		}
 
-//插入叶子节点
-pNode->insertLeafSet(leafFilePos - preCmpLen);
+		//插入叶子节点
+		pNode->insertLeafSet(leafFilePos - preCmpLen);
 
-pNode->setIsModified(true);
+		pNode->setIsModified(true);
 
-leftChildNode.setChildType(CHILD_TYPE_NODE);
-leftChildNode.setIndexId(pNode->getIndexId());
+		leftChildNode.setChildType(CHILD_TYPE_NODE);
+		leftChildNode.setIndexId(pNode->getIndexId());
 
-free(leafBuffer);
-free(nodeBuffer);
-return true;
+		free(leafBuffer);
+		free(nodeBuffer);
+		return true;
 
 	}
 

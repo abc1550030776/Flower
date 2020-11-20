@@ -6,7 +6,7 @@ class IndexFile
 {
 public:
 	IndexFile();
-	void init(const Myfile& file, Index* index);
+	bool init(const char* fileName, Index* index);
 
 	IndexNode* getIndexNode(unsigned long long indexId);
 	IndexNode* getTempIndexNode(unsigned long long indexId);
@@ -20,6 +20,7 @@ public:
 	void setRootIndexId(unsigned long long rootIndexId);									//设置根节点id
 	unsigned long long getRootIndexId();													//获取根节点id
 	bool writeEveryCache();																	//把缓存当中的数据全部写盘
+	bool putIndexNode(IndexNode* indexNode);												//外部使用完了告诉说外部已经不再引用
 private:
 	Myfile indexFile;
 	Index* pIndex;

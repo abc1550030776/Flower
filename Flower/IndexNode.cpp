@@ -10,6 +10,7 @@ IndexNode::IndexNode()
 	isBig = false;
 	isModified = false;
 	indexId = 0;
+	refCount = 0;
 }
 
 void IndexNode::setIsBig(bool isBig)
@@ -165,6 +166,30 @@ bool IndexNode::appendLeafSet(IndexNode* indexNode, unsigned long long beforeNum
 	}
 
 	return true;
+}
+
+void IndexNode::increaseRef()
+{
+	__sync_fetch_and_add((unsigned long volatile*)&refCount, 1);
+}
+
+void IndexNode::decreaseRef()
+{
+	__sync_fetch_and_sub((unsigned long volatile*)&refCount, 1);
+}
+
+bool IndexNode::isZeroRef()
+{
+	return refCount == 0;
+}
+
+bool IndexNode::decreaseAndTestZero()
+{
+	if (__sync_sub_and_fetch((unsigned long volatile*)&refCount, 1) == 0)
+	{
+		return true;
+	}
+	return false;
 }
 
 IndexNode::~IndexNode()

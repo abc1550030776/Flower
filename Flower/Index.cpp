@@ -1,31 +1,62 @@
 #include "Index.h"
 #include "UniqueGenerator.h"
 
+Index::Index()
+{
+	useType = USE_TYPE_SEARCH;
+	rwLock.Ptr = 0;
+}
+
+Index::Index(unsigned char useType)
+{
+	this->useType = useType;
+	rwLock.Ptr = 0;
+}
+
 IndexNode* Index::getIndexNode(unsigned long long indexId)
 {
+	acquireSRWLockShared(&rwLock);
 	auto it = indexNodeCache.find(indexId);
 	if (it == end(indexNodeCache))
 	{
+		releaseSRWLockShared(&rwLock);
 		return nullptr;
 	}
 
-	return it->second;
+	IndexNode* ret = it->second;
+	ret->increaseRef();
+	releaseSRWLockShared(&rwLock);
+	return ret;
 }
 
-bool Index::insert(unsigned long long indexId, IndexNode* pIndexNode)
+bool Index::insert(unsigned long long indexId, IndexNode*& pIndexNode)
 {
 	if (pIndexNode == nullptr)
 	{
 		return false;
 	}
-	bool ok = indexNodeCache.insert({ indexId, pIndexNode }).second;
-	if (!ok)
+
+	acquireSRWLockExclusive(&rwLock);
+	auto pair = indexNodeCache.insert({ indexId, pIndexNode });
+	if (!pair.second)
 	{
+		//在搜索模式下面可能同时读取文件进行插入的操作这个时候其中一个已经插入了这边就直接返回就行了
+		if (useType == USE_TYPE_SEARCH)
+		{
+			delete pIndexNode;
+			pIndexNode = pair.first->second;
+			pIndexNode->increaseRef();
+			releaseSRWLockExclusive(&rwLock);
+			return true;
+		}
+		releaseSRWLockExclusive(&rwLock);
 		return false;
 	}
 
 	//添加了索引缓存的同时也要添加优先级缓存
 	IndexIdPreority.insert({ pIndexNode->getPreCmpLen(), indexId });
+	pIndexNode->increaseRef();
+	releaseSRWLockExclusive(&rwLock);
 	return true;
 }
 
@@ -78,6 +109,40 @@ bool Index::reduceCache(unsigned int needReduceNum)
 		indexNodeCache.erase(cacheIt);
 		IndexIdPreority.erase(curIt);
 	}
+	return true;
+}
+
+bool Index::reduceCache()
+{
+	acquireSRWLockExclusive(&rwLock);
+	if (indexNodeCache.size <= 1024)
+	{
+		releaseSRWLockExclusive(&rwLock);
+		return true;
+	}
+
+	unsigned int needReduceNum = indexNodeCache.size() - 1024;
+	auto it = end(IndexIdPreority);
+	--it;
+	for (unsigned int i = 0; i < needReduceNum; ++i)
+	{
+		auto curIt = it--;
+		auto cacheIt = indexNodeCache.find(curIt->second);
+		if (cacheIt == end(indexNodeCache))
+		{
+			releaseSRWLockExclusive(&rwLock);
+			return false;
+		}
+
+		//删除之前先看一下是否外面有引用这个节点
+		if (cacheIt->second->isZeroRef())
+		{
+			delete cacheIt->second;
+		}
+		indexNodeCache.erase(cacheIt);
+		IndexIdPreority.erase(curIt);
+	}
+	releaseSRWLockExclusive(&rwLock);
 	return true;
 }
 
@@ -219,6 +284,31 @@ void Index::clearCache()
 
 	indexNodeCache.clear();
 	IndexIdPreority.clear();
+}
+
+unsigned char Index::getUseType()
+{
+	return useType;
+}
+
+bool Index::putIndexNode(IndexNode* indexNode)
+{
+	if (indexNode == nullptr)
+	{
+		return false;
+	}
+	acquireSRWLockShared(&rwLock);
+	if (indexNode->decreaseAndTestZero())
+	{
+		//已经没有缓存或者是缓存清除从新添加了新的节点就删除
+		auto it = indexNodeCache.find(indexNode->getIndexId());
+		if (it == end(indexNodeCache) || it->second != indexNode)
+		{
+			delete indexNode;
+		}
+	}
+	releaseSRWLockShared(&rwLock);
+	return true;
 }
 
 Index::~Index()
