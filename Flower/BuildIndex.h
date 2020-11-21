@@ -5,15 +5,15 @@ class BuildIndex
 {
 public:
 	BuildIndex();
-	bool init(const char* fileName, Index* index);				//³õÊ¼»¯
-	bool cutNodeSize(unsigned long long indexId, IndexNode* indexNode);			//¼õÉÙ½ÚµãµÄ´óĞ¡Ê¹½Úµã×ÜÊÇÄÜ±£´æÔÚ±È½ÏĞ¡µÄ¿Õ¼äÀïÃæ
-	IndexNode* getIndexNode(unsigned long long indexId);		//¸ù¾İÄ³¸ö½Úµãid»ñÈ¡½Úµã
+	bool init(const char* fileName, Index* index);				//åˆå§‹åŒ–
+	bool cutNodeSize(unsigned long long indexId, IndexNode* indexNode);			//å‡å°‘èŠ‚ç‚¹çš„å¤§å°ä½¿èŠ‚ç‚¹æ€»æ˜¯èƒ½ä¿å­˜åœ¨æ¯”è¾ƒå°çš„ç©ºé—´é‡Œé¢
+	IndexNode* getIndexNode(unsigned long long indexId);		//æ ¹æ®æŸä¸ªèŠ‚ç‚¹idè·å–èŠ‚ç‚¹
 	bool changePreCmpLen(unsigned long long indexId, unsigned long long orgPreCmpLen, unsigned long long newPreCmpLen);
 	bool mergeNode(unsigned long long preCmpLen, unsigned long long parentId, IndexNodeChild& leftChildNode, const IndexNodeChild& rightChildNode);
 	IndexNode* changeNodeType(unsigned long long indexId, IndexNode* indexNode);
-	bool build();												//¹¹½¨ÎÄ¼şË÷Òı
+	bool build();												//æ„å»ºæ–‡ä»¶ç´¢å¼•
 private:
-	Myfile dstFile;									//ĞèÒª¹¹½¨Ë÷ÒıµÄÄ¿±êÎÄ¼ş
-	IndexFile indexFile;							//ÓÃÀ´´¦ÀíË÷ÒıÎÄ¼şºÍ»º´æµÄ¶ÔÏó
-	unsigned long long dstFileSize;					//Ä¿±êÎÄ¼şµÄ´óĞ¡
+	Myfile dstFile;									//éœ€è¦æ„å»ºç´¢å¼•çš„ç›®æ ‡æ–‡ä»¶
+	IndexFile indexFile;							//ç”¨æ¥å¤„ç†ç´¢å¼•æ–‡ä»¶å’Œç¼“å­˜çš„å¯¹è±¡
+	unsigned long long dstFileSize;					//ç›®æ ‡æ–‡ä»¶çš„å¤§å°
 };

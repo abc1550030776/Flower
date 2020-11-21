@@ -15,12 +15,12 @@ public:
 	bool reduceCache();
 	bool changePreCmpLen(unsigned long long indexId, unsigned long long orgPreCmpLen, unsigned long long newPreCmpLen);
 	bool swapNode(unsigned long long indexId, IndexNode* newNode);
-	IndexNode* newIndexNode(unsigned char nodeType, unsigned long long preCmpLen);			//´´½¨ĞÂµÄ½Úµã
-	bool deleteIndexNode(unsigned long long indexId);										//É¾³ı½Úµã
-	void setRootIndexId(unsigned long long rootIndexId);									//ÉèÖÃ¸ù½Úµãid
-	unsigned long long getRootIndexId();													//»ñÈ¡¸ù½Úµãid
-	bool writeEveryCache();																	//°Ñ»º´æµ±ÖĞµÄÊı¾İÈ«²¿Ğ´ÅÌ
-	bool putIndexNode(IndexNode* indexNode);												//Íâ²¿Ê¹ÓÃÍêÁË¸æËßËµÍâ²¿ÒÑ¾­²»ÔÙÒıÓÃ
+	IndexNode* newIndexNode(unsigned char nodeType, unsigned long long preCmpLen);			//åˆ›å»ºæ–°çš„èŠ‚ç‚¹
+	bool deleteIndexNode(unsigned long long indexId);										//åˆ é™¤èŠ‚ç‚¹
+	void setRootIndexId(unsigned long long rootIndexId);									//è®¾ç½®æ ¹èŠ‚ç‚¹id
+	unsigned long long getRootIndexId();													//è·å–æ ¹èŠ‚ç‚¹id
+	bool writeEveryCache();																	//æŠŠç¼“å­˜å½“ä¸­çš„æ•°æ®å…¨éƒ¨å†™ç›˜
+	bool putIndexNode(IndexNode* indexNode);												//å¤–éƒ¨ä½¿ç”¨å®Œäº†å‘Šè¯‰è¯´å¤–éƒ¨å·²ç»ä¸å†å¼•ç”¨
 private:
 	Myfile indexFile;
 	Index* pIndex;

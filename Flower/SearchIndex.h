@@ -6,12 +6,12 @@ class SearchIndex
 {
 	SearchIndex();
 	bool init(const char* searchTarget, unsigned int targetLen, SetWithLock* resultSet, const char* fileName, Index* index, unsigned char skipCharNum);
-	bool search();																				//ÎÄ¼şµ±ÖĞµÄÄ¿±êÊı¾İ
+	bool search();																				//æ–‡ä»¶å½“ä¸­çš„ç›®æ ‡æ•°æ®
 	const char* searchTarget;
 	unsigned int targetLen;
 	SetWithLock* resultSet;
 	Myfile dstFile;
 	IndexFile indexFile;
-	unsigned long long dstFileSize;					//Ä¿±êÎÄ¼şµÄ´óĞ¡
-	unsigned char skipCharNum;						//ËÑË÷Ç°ĞèÒªÌø¹ıµÄ×Ö·ûÊıÁ¿
+	unsigned long long dstFileSize;					//ç›®æ ‡æ–‡ä»¶çš„å¤§å°
+	unsigned char skipCharNum;						//æœç´¢å‰éœ€è¦è·³è¿‡çš„å­—ç¬¦æ•°é‡
 };

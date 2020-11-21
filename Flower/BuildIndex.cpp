@@ -22,13 +22,13 @@ bool BuildIndex::init(const char* fileName, Index* index)
 
 	char indexFileName[4096];
 	memset(indexFileName, 0, sizeof(indexFileName));
-	//»ñÈ¡Ë÷ÒıÎÄ¼şµÄÃû×Ö
+	//è·å–ç´¢å¼•æ–‡ä»¶çš„åå­—
 	if (!GetIndexPath(fileName, indexFileName))
 	{
 		return false;
 	}
 
-	//¶ÔÄ¿±êÎÄ¼ş½øĞĞ³õÊ¼»¯
+	//å¯¹ç›®æ ‡æ–‡ä»¶è¿›è¡Œåˆå§‹åŒ–
 	if (!dstFile.init(fileName))
 	{
 		return false;
@@ -39,7 +39,7 @@ bool BuildIndex::init(const char* fileName, Index* index)
 		return false;
 	}
 
-	//»ñÈ¡ÎÄ¼şµÄ´óĞ¡
+	//è·å–æ–‡ä»¶çš„å¤§å°
 	struct stat statbuf;
 	stat(fileName, &statbuf);
 	dstFileSize = statbuf.st_size;
@@ -52,13 +52,13 @@ bool BuildIndex::cutNodeSize(unsigned long long indexId, IndexNode* indexNode)
 	{
 		return false;
 	}
-	//Ê×ÏÈÏÈÅĞ¶Ï½ÚµãµÄ´óĞ¡ÊÇ·ñ±ÈÔ¤¼ÆµÄ»¹Òª´ó
+	//é¦–å…ˆå…ˆåˆ¤æ–­èŠ‚ç‚¹çš„å¤§å°æ˜¯å¦æ¯”é¢„è®¡çš„è¿˜è¦å¤§
 	if (indexNode->getChildrenNum() <= 256)
 	{
 		return true;
 	}
 
-	//¸Ä±ä½ÚµãÀàĞÍÈÃ½ÚµãµÄº¢×Ó½áµãµÄ¼üĞ¡µãÕâÑùº¢×Ó½Úµã»áÉÙµã
+	//æ”¹å˜èŠ‚ç‚¹ç±»å‹è®©èŠ‚ç‚¹çš„å­©å­ç»“ç‚¹çš„é”®å°ç‚¹è¿™æ ·å­©å­èŠ‚ç‚¹ä¼šå°‘ç‚¹
 	IndexNode* newNode = changeNodeType(indexId, indexNode);
 
 	if (newNode == nullptr)
@@ -66,7 +66,7 @@ bool BuildIndex::cutNodeSize(unsigned long long indexId, IndexNode* indexNode)
 		return false;
 	}
 
-	//¸Ä±äÁË½ÚµãÀàĞÍµ«ÊÇ»¹ÊÇÎŞ·¨ÅÅ³ıµ±Ç°½Úµã¿ÉÄÜ±È256Òª´óºÍ²úÉúµÄĞÂµÄº¢×Ó½Úµã±È256Òª´óËùÒÔµ÷ÓÃ½ÚµãµÄº¯Êı¸Ä±ä½Úµã
+	//æ”¹å˜äº†èŠ‚ç‚¹ç±»å‹ä½†æ˜¯è¿˜æ˜¯æ— æ³•æ’é™¤å½“å‰èŠ‚ç‚¹å¯èƒ½æ¯”256è¦å¤§å’Œäº§ç”Ÿçš„æ–°çš„å­©å­èŠ‚ç‚¹æ¯”256è¦å¤§æ‰€ä»¥è°ƒç”¨èŠ‚ç‚¹çš„å‡½æ•°æ”¹å˜èŠ‚ç‚¹
 	newNode->cutNodeSize(this, indexId);
 	return true;
 }
@@ -83,20 +83,20 @@ bool BuildIndex::changePreCmpLen(unsigned long long indexId, unsigned long long 
 
 bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long parentId, IndexNodeChild& leftChildNode, const IndexNodeChild& rightChildNode)
 {
-	//Ò»ÖÖÊÇÁ½ÖÖ¶¼ÊÇÒ¶×Ó½Úµã£¬Ò»ÖÖÊÇÁ½¸ö¶¼ÊÇÆÕÍ¨µÄ½Úµã£¬Ò»ÖÖÊÇÒ»¸öÊÇÆÕÍ¨½ÚµãÒ»¸öÊÇÒ¶×Ó½Úµã¡£
+	//ä¸€ç§æ˜¯ä¸¤ç§éƒ½æ˜¯å¶å­èŠ‚ç‚¹ï¼Œä¸€ç§æ˜¯ä¸¤ä¸ªéƒ½æ˜¯æ™®é€šçš„èŠ‚ç‚¹ï¼Œä¸€ç§æ˜¯ä¸€ä¸ªæ˜¯æ™®é€šèŠ‚ç‚¹ä¸€ä¸ªæ˜¯å¶å­èŠ‚ç‚¹ã€‚
 	unsigned char leftType = leftChildNode.getType();
 	unsigned char rightType = rightChildNode.getType();
 	if (leftType == CHILD_TYPE_LEAF && rightType == CHILD_TYPE_LEAF)
 	{
 		unsigned long long leftFilePos = leftChildNode.getIndexId();
 		unsigned long long rightFilePos = rightChildNode.getIndexId();
-		//Èç¹û¿ªÊ¼±È½ÏÎ»ÖÃ²»ÊÇ8µÄÕûÊı±¶µÄÏÈ±È½ÏÇ°ÃæÄÇÒ»²¿·Ö
+		//å¦‚æœå¼€å§‹æ¯”è¾ƒä½ç½®ä¸æ˜¯8çš„æ•´æ•°å€çš„å…ˆæ¯”è¾ƒå‰é¢é‚£ä¸€éƒ¨åˆ†
 		unsigned long long offset = leftFilePos % 8;
 		unsigned long long cmpLen = 0;
 		if (offset != 0)
 		{
 			unsigned long long needChartoEight = 8 - offset;
-			//´ÓÎÄ¼şµ±ÖĞÁ½¸öÎ»ÖÃµ±ÖĞ½øĞĞ¶ÁÈ¡Ê£ÏÂ×Ö½ÚµÄÊı¾İ
+			//ä»æ–‡ä»¶å½“ä¸­ä¸¤ä¸ªä½ç½®å½“ä¸­è¿›è¡Œè¯»å–å‰©ä¸‹å­—èŠ‚çš„æ•°æ®
 			unsigned char leftData[8];
 			unsigned char rightData[8];
 			fpos_t leftPos;
@@ -154,8 +154,8 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 			if (cmpLen != needChartoEight)
 			{
-				//Ç°Ãæ²»¹»8¸ö×Ö½ÚÀïÃæÓĞ²»Ò»ÑùµÄµØ·½
-				//¸ù¾İ²»Í¬µÄ×Ö½Ú´´½¨²»Í¬µÄ¶ÔÏó
+				//å‰é¢ä¸å¤Ÿ8ä¸ªå­—èŠ‚é‡Œé¢æœ‰ä¸ä¸€æ ·çš„åœ°æ–¹
+				//æ ¹æ®ä¸åŒçš„å­—èŠ‚åˆ›å»ºä¸åŒçš„å¯¹è±¡
 				IndexNode* pNode = nullptr;
 				switch (curCmpLen)
 				{
@@ -177,7 +177,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 					return false;
 				}
 
-				//ÉèÖÃÕâ¸öĞÂÉèÖÃµÄ½ÚµãµÄ¸÷¸ö²ÎÊı
+				//è®¾ç½®è¿™ä¸ªæ–°è®¾ç½®çš„èŠ‚ç‚¹çš„å„ä¸ªå‚æ•°
 				pNode->setStart(leftFilePos);
 				pNode->setLen(cmpLen);
 				pNode->setParentID(parentId);
@@ -235,10 +235,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 					break;
 				}
 
-				//ÒÑ¾­ĞŞ¸ÄÁË½ÚµãÉèÖÃ½ÚµãÎªÒÑ¾­ĞŞ¸Ä×´Ì¬
+				//å·²ç»ä¿®æ”¹äº†èŠ‚ç‚¹è®¾ç½®èŠ‚ç‚¹ä¸ºå·²ç»ä¿®æ”¹çŠ¶æ€
 				pNode->setIsModified(true);
 
-				//Á½¸öÒ¶½ÚµãºÏ²¢³ÉÒ»¸öË÷Òı½ÚµãÁËÒÔºóÉèÖÃ×ó±ßµÄÄÇ¸öº¢×Ó½Úµã
+				//ä¸¤ä¸ªå¶èŠ‚ç‚¹åˆå¹¶æˆä¸€ä¸ªç´¢å¼•èŠ‚ç‚¹äº†ä»¥åè®¾ç½®å·¦è¾¹çš„é‚£ä¸ªå­©å­èŠ‚ç‚¹
 				leftChildNode.setChildType(CHILD_TYPE_NODE);
 				leftChildNode.setIndexId(pNode->getIndexId());
 
@@ -246,8 +246,8 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			}
 		}
 
-		//Ç°Ãæ²»×ã8¸ö×Ö½ÚµÄ²¿·ÖÒÑ¾­±È½ÏÍê½ÓÏÂÀ´±È½Ï³¤³¤µÄÄÇ²¿·Ö¡£
-		//ÎÄ¼şÒÔÃ¿´Î¶ÁÈ¡4k¸ö×Ö½ÚÕâÑù¶Á¡£ÕâÑù±ÜÃâÒ»´Î¶ÁÌ«¶àÄÚ´æÒ²²»¹»¡£
+		//å‰é¢ä¸è¶³8ä¸ªå­—èŠ‚çš„éƒ¨åˆ†å·²ç»æ¯”è¾ƒå®Œæ¥ä¸‹æ¥æ¯”è¾ƒé•¿é•¿çš„é‚£éƒ¨åˆ†ã€‚
+		//æ–‡ä»¶ä»¥æ¯æ¬¡è¯»å–4kä¸ªå­—èŠ‚è¿™æ ·è¯»ã€‚è¿™æ ·é¿å…ä¸€æ¬¡è¯»å¤ªå¤šå†…å­˜ä¹Ÿä¸å¤Ÿã€‚
 		unsigned char* leftBuffer = (unsigned char*)malloc(4 * 1024);
 		if (leftBuffer == nullptr)
 		{
@@ -262,7 +262,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			return false;
 		}
 
-		//½ÓÏÂÀ´ĞèÒª±È½ÏµÄ×î¶à×Ö½ÚÊı
+		//æ¥ä¸‹æ¥éœ€è¦æ¯”è¾ƒçš„æœ€å¤šå­—èŠ‚æ•°
 		unsigned long long leftRemainSize = dstFileSize - leftFilePos;
 		unsigned long long rightRemainSize = dstFileSize - rightFilePos;
 		unsigned long long remainReadSize = leftRemainSize;
@@ -273,7 +273,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 		while (cmpLen + 4 * 1024 <= remainReadSize)
 		{
-			//´ÓÁ½¸öÎÄ¼şµ±ÖĞ°ÑÏàÓ¦µÄ²¿·Ö¶ÁÈ¡³öÀ´
+			//ä»ä¸¤ä¸ªæ–‡ä»¶å½“ä¸­æŠŠç›¸åº”çš„éƒ¨åˆ†è¯»å–å‡ºæ¥
 			fpos_t leftPos;
 			leftPos.__pos = leftFilePos + cmpLen;
 			if (!dstFile.read(leftPos, leftBuffer, 4 * 1024))
@@ -384,7 +384,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			return true;
 		}
 
-		//ºóÃæµÄ±È½Ï³¤¶È²»¹»4k
+		//åé¢çš„æ¯”è¾ƒé•¿åº¦ä¸å¤Ÿ4k
 		unsigned long long lastNeedReadSize = remainReadSize - cmpLen;
 
 		fpos_t leftPos;
@@ -457,7 +457,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			return true;
 		}
 
-		//½ÓÏÂÀ´»¹ÓĞÊ£ÏÂ²»¹»8¸ö×Ö½ÚµÄ²¿·Ö
+		//æ¥ä¸‹æ¥è¿˜æœ‰å‰©ä¸‹ä¸å¤Ÿ8ä¸ªå­—èŠ‚çš„éƒ¨åˆ†
 		unsigned long long suppleSize = 0;
 		for (; subCmpLen + suppleSize < lastNeedReadSize; ++suppleSize)
 		{
@@ -469,7 +469,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 		if ((subCmpLen + suppleSize) == lastNeedReadSize)
 		{
-			//Á½¸öÒ¶×Ó½ÚµãÇ°ÃæµÄ²¿·ÖÈ«²¿¶¼Ò»Ñù
+			//ä¸¤ä¸ªå¶å­èŠ‚ç‚¹å‰é¢çš„éƒ¨åˆ†å…¨éƒ¨éƒ½ä¸€æ ·
 			IndexNode* pNode = indexFile.newIndexNode(NODE_TYPE_ONE, preCmpLen);
 
 			if (pNode == nullptr)
@@ -504,7 +504,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			return true;
 		}
 
-		//×îºó¼¸¸ö×Ö½Ú²»Ò»Ñù
+		//æœ€åå‡ ä¸ªå­—èŠ‚ä¸ä¸€æ ·
 		IndexNode* pNode = indexFile.newIndexNode(NODE_TYPE_ONE, preCmpLen);
 
 		if (pNode == nullptr)
@@ -524,7 +524,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			chooseBuffer = rightBuffer;
 		}
 
-		//¶ÁÈ¡ÍêÕûµÄkeyÖµ
+		//è¯»å–å®Œæ•´çš„keyå€¼
 		fpos_t pos;
 		pos.__pos = chooseFilePos + remainReadSize;
 		if (!dstFile.read(pos, &chooseBuffer[lastNeedReadSize], subCmpLen + 8 - lastNeedReadSize))
@@ -561,7 +561,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 	}
 	else if (leftType == CHILD_TYPE_NODE && rightType == CHILD_TYPE_NODE)
 	{
-		//ºÏ²¢µÄÁ½¸öº¢×Ó½Úµã¶¼ÊÇ·ÇÒ¶×Ó½Úµã
+		//åˆå¹¶çš„ä¸¤ä¸ªå­©å­èŠ‚ç‚¹éƒ½æ˜¯éå¶å­èŠ‚ç‚¹
 		IndexNode* leftNode = indexFile.getIndexNode(leftChildNode.getIndexId());
 		if (leftNode == nullptr)
 		{
@@ -585,20 +585,20 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			remainReadSize = rightRemainSize;
 		}
 
-		//Èç¹û¿ªÊ¼±È½ÏÎ»ÖÃ²»ÊÇ8µÄÕûÊı±¶µÄÏÈ±È½ÏÇ°ÃæÄÇÒ»²¿·Ö
+		//å¦‚æœå¼€å§‹æ¯”è¾ƒä½ç½®ä¸æ˜¯8çš„æ•´æ•°å€çš„å…ˆæ¯”è¾ƒå‰é¢é‚£ä¸€éƒ¨åˆ†
 		unsigned long long offset = leftFilePos % 8;
 		unsigned long long cmpLen = 0;
 		if (offset != 0)
 		{
 			unsigned long long needChartoEight = 8 - offset;
 
-			//ÓĞ¿ÉÄÜÊ£ÏÂµÄ¶ÁÈ¡´óĞ¡±È8¸ö×Ö½Ú»¹ÒªĞ¡
+			//æœ‰å¯èƒ½å‰©ä¸‹çš„è¯»å–å¤§å°æ¯”8ä¸ªå­—èŠ‚è¿˜è¦å°
 			if (remainReadSize < needChartoEight)
 			{
 				needChartoEight = remainReadSize;
 			}
 
-			//´ÓÎÄ¼şµ±ÖĞÁ½¸öÎ»ÖÃµ±ÖĞ¶ÁÈ¡Ê£ÏÂµÄ×Ö½ÚµÄÊı¾İ
+			//ä»æ–‡ä»¶å½“ä¸­ä¸¤ä¸ªä½ç½®å½“ä¸­è¯»å–å‰©ä¸‹çš„å­—èŠ‚çš„æ•°æ®
 			unsigned char leftData[8];
 			unsigned char rightData[8];
 			fpos_t leftPos;
@@ -657,8 +657,8 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 			if (cmpLen != needChartoEight)
 			{
-				//Ç°Ãæ²»¹»8¸ö×Ö½ÚÀïÃæÓĞ²»Ò»ÑùµÄµØ·½
-				//¸ù¾İ²»Í¬µÄ×Ö½Ú´´½¨²»Í¬µÄ¶ÔÏó
+				//å‰é¢ä¸å¤Ÿ8ä¸ªå­—èŠ‚é‡Œé¢æœ‰ä¸ä¸€æ ·çš„åœ°æ–¹
+				//æ ¹æ®ä¸åŒçš„å­—èŠ‚åˆ›å»ºä¸åŒçš„å¯¹è±¡
 				IndexNode* pNode = nullptr;
 				switch (curCmpLen)
 				{
@@ -680,7 +680,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 					return false;
 				}
 
-				//ÉèÖÃÕâ¸öĞÂÉèÖÃµÄ½ÚµãµÄ¸÷¸ö²ÎÊı
+				//è®¾ç½®è¿™ä¸ªæ–°è®¾ç½®çš„èŠ‚ç‚¹çš„å„ä¸ªå‚æ•°
 				pNode->setStart(leftFilePos);
 				pNode->setLen(cmpLen);
 				pNode->setParentID(parentId);
@@ -691,10 +691,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 					IndexNodeTypeTwo* tmpNode = (IndexNodeTypeTwo*)pNode;
 
-					//×ó±ß½ÚµãĞŞ¸ÄÏàÓ¦µÄ½Úµã³¤¶È
+					//å·¦è¾¹èŠ‚ç‚¹ä¿®æ”¹ç›¸åº”çš„èŠ‚ç‚¹é•¿åº¦
 					leftNode->setStart(leftNode->getStart() + cmpLen + 4);
 					leftNode->setLen(leftNode->getLen() - cmpLen - 4);
-					//ÒªĞŞ¸ÄpreCmpLenÒ²ÒªĞŞ¸ÄÓÅÏÈ¼¶
+					//è¦ä¿®æ”¹preCmpLenä¹Ÿè¦ä¿®æ”¹ä¼˜å…ˆçº§
 					if (!indexFile.changePreCmpLen(leftNode->getIndexId(), leftNode->getPreCmpLen(), leftNode->getPreCmpLen() + cmpLen + 4))
 					{
 						return false;
@@ -709,10 +709,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 						return false;
 					}
 
-					//ÓÒ±ß½ÚµãĞŞ¸ÄÏàÓ¦½ÚµãµÄ³¤¶È
+					//å³è¾¹èŠ‚ç‚¹ä¿®æ”¹ç›¸åº”èŠ‚ç‚¹çš„é•¿åº¦
 					rightNode->setStart(rightNode->getStart() + cmpLen + 4);
 					rightNode->setLen(rightNode->getLen() - cmpLen - 4);
-					//ÒªĞŞ¸ÄpreCmpLenÒ²ÒªĞŞ¸ÄÓÅÏÈ¼¶
+					//è¦ä¿®æ”¹preCmpLenä¹Ÿè¦ä¿®æ”¹ä¼˜å…ˆçº§
 					if (!indexFile.changePreCmpLen(rightNode->getIndexId(), rightNode->getPreCmpLen(), rightNode->getPreCmpLen() + cmpLen + 4))
 					{
 						return false;
@@ -732,10 +732,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 					IndexNodeTypeThree* tmpNode = (IndexNodeTypeThree*)pNode;
 
-					//×ó±ß½ÚµãĞŞ¸ÄÏàÓ¦½Úµã³¤¶È
+					//å·¦è¾¹èŠ‚ç‚¹ä¿®æ”¹ç›¸åº”èŠ‚ç‚¹é•¿åº¦
 					leftNode->setStart(leftNode->getStart() + cmpLen + 2);
 					leftNode->setLen(leftNode->getLen() - cmpLen - 2);
-					//ÒªĞŞ¸ÄpreCmpLenÒ²ÒªĞŞ¸ÄÓÅÏÈ¼¶
+					//è¦ä¿®æ”¹preCmpLenä¹Ÿè¦ä¿®æ”¹ä¼˜å…ˆçº§
 					if (!indexFile.changePreCmpLen(leftNode->getIndexId(), leftNode->getPreCmpLen(), leftNode->getPreCmpLen() + cmpLen + 2))
 					{
 						return false;
@@ -750,10 +750,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 						return false;
 					}
 
-					//ÓÒ±ß½ÚµãĞŞ¸ÄÏàÓ¦½ÚµãµÄ³¤¶È
+					//å³è¾¹èŠ‚ç‚¹ä¿®æ”¹ç›¸åº”èŠ‚ç‚¹çš„é•¿åº¦
 					rightNode->setStart(rightNode->getStart() + cmpLen + 2);
 					rightNode->setLen(rightNode->getLen() - cmpLen - 2);
-					//ÒªĞŞ¸ÄpreCmpLenÒ²ÒªĞŞ¸ÄÓÅÏÈ¼¶
+					//è¦ä¿®æ”¹preCmpLenä¹Ÿè¦ä¿®æ”¹ä¼˜å…ˆçº§
 					if (!indexFile.changePreCmpLen(rightNode->getIndexId(), rightNode->getPreCmpLen(), rightNode->getPreCmpLen() + cmpLen + 2))
 					{
 						return false;
@@ -774,10 +774,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 					IndexNodeTypeFour* tmpNode = (IndexNodeTypeFour*)pNode;
 
-					//×ó±ß½ÚµãĞŞ¸ÄÏàÓ¦½Úµã³¤¶È
+					//å·¦è¾¹èŠ‚ç‚¹ä¿®æ”¹ç›¸åº”èŠ‚ç‚¹é•¿åº¦
 					leftNode->setStart(leftNode->getStart() + cmpLen + 1);
 					leftNode->setLen(leftNode->getLen() - cmpLen - 1);
-					//ÒªĞŞ¸ÄpreCmpLenÒ²ÒªĞŞ¸ÄÓÅÏÈ¼¶
+					//è¦ä¿®æ”¹preCmpLenä¹Ÿè¦ä¿®æ”¹ä¼˜å…ˆçº§
 					if (!indexFile.changePreCmpLen(leftNode->getIndexId(), leftNode->getPreCmpLen(), leftNode->getPreCmpLen() + cmpLen + 1))
 					{
 						return false;
@@ -792,10 +792,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 						return false;
 					}
 
-					//ÓÒ±ß½ÚµãĞŞ¸ÄÏàÓ¦½ÚµãµÄ³¤¶È
+					//å³è¾¹èŠ‚ç‚¹ä¿®æ”¹ç›¸åº”èŠ‚ç‚¹çš„é•¿åº¦
 					rightNode->setStart(rightNode->getStart() + cmpLen + 1);
 					rightNode->setLen(rightNode->getLen() - cmpLen - 1);
-					//ÒªĞŞ¸ÄpreCmpLenÒ²ÒªĞŞ¸ÄÓÅÏÈ¼¶
+					//è¦ä¿®æ”¹preCmpLenä¹Ÿè¦ä¿®æ”¹ä¼˜å…ˆçº§
 					if (!indexFile.changePreCmpLen(rightNode->getIndexId(), rightNode->getPreCmpLen(), rightNode->getPreCmpLen() + cmpLen + 1))
 					{
 						return false;
@@ -815,10 +815,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 					break;
 				}
 
-				//ÒÑ¾­ĞŞ¸ÄÁË½ÚµãÉèÖÃ½ÚµãÎªÒÑ¾­ĞŞ¸Ä×´Ì¬
+				//å·²ç»ä¿®æ”¹äº†èŠ‚ç‚¹è®¾ç½®èŠ‚ç‚¹ä¸ºå·²ç»ä¿®æ”¹çŠ¶æ€
 				pNode->setIsModified(true);
 
-				//Á½¸ö½ÚµãºÏ²¢³ÉÒ»¸ö½ÚµãÁËÒÔºóÉèÖÃ×ó±ßµÄÄÇ¸öº¢×Ó½Úµã
+				//ä¸¤ä¸ªèŠ‚ç‚¹åˆå¹¶æˆä¸€ä¸ªèŠ‚ç‚¹äº†ä»¥åè®¾ç½®å·¦è¾¹çš„é‚£ä¸ªå­©å­èŠ‚ç‚¹
 				leftChildNode.setIndexId(pNode->getIndexId());
 
 				return true;
@@ -827,10 +827,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 		if (cmpLen == remainReadSize)
 		{
-			//ÆäÖĞÒ»¸ö½ÚµãµÄËùÓĞ²¿·ÖºÍÁíÍâÒ»¸ö½ÚµãÏàÍ¬Õâ¸öÊ±ºòÓĞÁ½ÖÖÇé¿ö,Ò»ÖÖÇé¿öÊÇ³¤¶ÈÏàÍ¬,ÁíÒ»ÖÖÇé¿öÊÇ³¤¶È²»Í¬
+			//å…¶ä¸­ä¸€ä¸ªèŠ‚ç‚¹çš„æ‰€æœ‰éƒ¨åˆ†å’Œå¦å¤–ä¸€ä¸ªèŠ‚ç‚¹ç›¸åŒè¿™ä¸ªæ—¶å€™æœ‰ä¸¤ç§æƒ…å†µ,ä¸€ç§æƒ…å†µæ˜¯é•¿åº¦ç›¸åŒ,å¦ä¸€ç§æƒ…å†µæ˜¯é•¿åº¦ä¸åŒ
 			if (leftRemainSize == rightRemainSize)
 			{
-				//¸Ä±ä½ÚµãµÄÀàĞÍÈÃÁ½¸ö½ÚµãµÄÀàĞÍÏàÍ¬
+				//æ”¹å˜èŠ‚ç‚¹çš„ç±»å‹è®©ä¸¤ä¸ªèŠ‚ç‚¹çš„ç±»å‹ç›¸åŒ
 				while (leftNode->getType() != rightNode->getType())
 				{
 					if (compareTwoType(leftNode->getType(), rightNode->getType()))
@@ -851,13 +851,13 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 					}
 				}
 
-				//°ÑÁ½¸ö³¤¶ÈÏàÍ¬ÀàĞÍÏàÍ¬µÄ½ÚµãºÏ²¢
+				//æŠŠä¸¤ä¸ªé•¿åº¦ç›¸åŒç±»å‹ç›¸åŒçš„èŠ‚ç‚¹åˆå¹¶
 				if (!leftNode->mergeSameLenNode(this, rightNode))
 				{
 					return false;
 				}
 
-				//ºÏ²¢Íê³ÉÁËÒÔºó×ó±ßµÄ½Úµã¿ÉÄÜ±È½Ï´óÒªËõĞ¡Ò»ÏÂ½Úµã
+				//åˆå¹¶å®Œæˆäº†ä»¥åå·¦è¾¹çš„èŠ‚ç‚¹å¯èƒ½æ¯”è¾ƒå¤§è¦ç¼©å°ä¸€ä¸‹èŠ‚ç‚¹
 				if (!cutNodeSize(leftNode->getIndexId(), leftNode))
 				{
 					return false;
@@ -865,7 +865,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 				leftNode->setIsModified(true);
 
-				//ÓÒ±ßµÄ½ÚµãÍêÈ«ÈÚÈëÁË×ó±ßµÄ½ÚµãËùÒÔÓÒ±ßµÄ½Úµã¿ÉÒÔËµÊÇÍêÈ«²»´æÔÚÉ¾³ı
+				//å³è¾¹çš„èŠ‚ç‚¹å®Œå…¨èå…¥äº†å·¦è¾¹çš„èŠ‚ç‚¹æ‰€ä»¥å³è¾¹çš„èŠ‚ç‚¹å¯ä»¥è¯´æ˜¯å®Œå…¨ä¸å­˜åœ¨åˆ é™¤
 				indexFile.deleteIndexNode(rightNode->getIndexId());
 
 				leftChildNode.setIndexId(leftNode->getIndexId());
@@ -873,7 +873,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				return true;
 			}
 
-			//ÓĞÒ»¸ö½Úµã±È½Ï³¤Ò»¸ö½Úµã±È½Ï¶Ì
+			//æœ‰ä¸€ä¸ªèŠ‚ç‚¹æ¯”è¾ƒé•¿ä¸€ä¸ªèŠ‚ç‚¹æ¯”è¾ƒçŸ­
 			IndexNode* longNode = leftNode;
 			IndexNode* anotherNode = rightNode;
 			unsigned long long longNodeStart = leftFilePos;
@@ -884,13 +884,13 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				longNodeStart = rightFilePos;
 			}
 
-			//´ÓÒ»¸ö½ÚµãÌí¼Ó½øÁíÒ»¸ö½Úµã
+			//ä»ä¸€ä¸ªèŠ‚ç‚¹æ·»åŠ è¿›å¦ä¸€ä¸ªèŠ‚ç‚¹
 			switch (anotherNode->getType())
 			{
 			case NODE_TYPE_ONE:
 			{
 				unsigned long long key;
-				//´ÓÎÄ¼şµ±ÖĞ¶ÁÈ¡key
+				//ä»æ–‡ä»¶å½“ä¸­è¯»å–key
 				fpos_t pos;
 				pos.__pos = longNodeStart + cmpLen;
 				if (!dstFile.read(pos, &key, 8))
@@ -900,7 +900,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 				anotherNode->setParentID(parentId);
 				
-				//ĞŞ¸Ä³¤½ÚµãµÄ³¤¶È
+				//ä¿®æ”¹é•¿èŠ‚ç‚¹çš„é•¿åº¦
 				longNode->setStart(longNode->getStart() + cmpLen + 8);
 				longNode->setLen(longNode->getLen - cmpLen - 8);
 
@@ -925,7 +925,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			case NODE_TYPE_TWO:
 			{
 				unsigned int key;
-				//´ÓÎÄ¼şµ±ÖĞ¶ÁÈ¡key
+				//ä»æ–‡ä»¶å½“ä¸­è¯»å–key
 				fpos_t pos;
 				pos.__pos = longNodeStart + cmpLen;
 				if (!dstFile.read(pos, &key, 4))
@@ -935,7 +935,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 				anotherNode->setParentID(parentId);
 
-				//ĞŞ¸Ä³¤½ÚµãµÄ³¤¶È
+				//ä¿®æ”¹é•¿èŠ‚ç‚¹çš„é•¿åº¦
 				longNode->setStart(longNode->getStart() + cmpLen + 4);
 				longNode->setLen(longNode->getLen() - cmpLen - 4);
 
@@ -960,7 +960,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			case NODE_TYPE_THREE:
 			{
 				unsigned short key;
-				//´ÓÎÄ¼şµ±ÖĞ¶ÁÈ¡key
+				//ä»æ–‡ä»¶å½“ä¸­è¯»å–key
 				fpos_t pos;
 				pos.__pos = longNodeStart + cmpLen;
 				if (!dstFile.read(pos, &key, 2))
@@ -970,7 +970,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 				anotherNode->setParentID(parentId);
 
-				//ĞŞ¸Ä³¤½ÚµãµÄ³¤¶È
+				//ä¿®æ”¹é•¿èŠ‚ç‚¹çš„é•¿åº¦
 				longNode->setStart(longNode->getStart() + cmpLen + 2);
 				longNode->setLen(longNode->getLen() - cmpLen - 2);
 
@@ -995,7 +995,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			case NODE_TYPE_FOUR:
 			{
 				unsigned char key;
-				//´ÓÎÄ¼şµ±ÖĞ¶ÁÈ¡key
+				//ä»æ–‡ä»¶å½“ä¸­è¯»å–key
 				fpos_t pos;
 				pos.__pos = longNodeStart + cmpLen;
 				if (!dstFile.read(pos, &key, 1))
@@ -1005,7 +1005,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 				anotherNode->setParentID(parentId);
 
-				//ĞŞ¸Ä³¤½ÚµãµÄ³¤¶È
+				//ä¿®æ”¹é•¿èŠ‚ç‚¹çš„é•¿åº¦
 				longNode->setStart(longNode->getStart() + cmpLen + 1);
 				longNode->setLen(longNode->getLen - cmpLen - 1);
 
@@ -1031,7 +1031,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				break;
 			}
 
-			//±È½ÏĞ¡µÄ½Úµã¼ÓÈëÁËĞÂµÄ½Úµã¿ÉÄÜ±È½Ï´óËõĞ¡ÏÂ´óĞ¡
+			//æ¯”è¾ƒå°çš„èŠ‚ç‚¹åŠ å…¥äº†æ–°çš„èŠ‚ç‚¹å¯èƒ½æ¯”è¾ƒå¤§ç¼©å°ä¸‹å¤§å°
 			if (!cutNodeSize(anotherNode->getIndexId(), anotherNode))
 			{
 				return false;
@@ -1044,8 +1044,8 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			return true;
 		}
 
-		//Ç°Ãæ²»¹»8¸ö×Ö½ÚµÄ±È½ÏÍêÁËÏÂÃæ´¦Àí³¤³¤µÄÄÇÒ»´®
-		//ÎÄ¼şÒÔÃ¿´Î¶ÁÈ¡4k¸ö×Ö½ÚÕâÑù¶Á¡£ÕâÑù±ÜÃâÒ»´Î¶ÁÌ«¶àÄÚ´æÒ²²»¹»¡£
+		//å‰é¢ä¸å¤Ÿ8ä¸ªå­—èŠ‚çš„æ¯”è¾ƒå®Œäº†ä¸‹é¢å¤„ç†é•¿é•¿çš„é‚£ä¸€ä¸²
+		//æ–‡ä»¶ä»¥æ¯æ¬¡è¯»å–4kä¸ªå­—èŠ‚è¿™æ ·è¯»ã€‚è¿™æ ·é¿å…ä¸€æ¬¡è¯»å¤ªå¤šå†…å­˜ä¹Ÿä¸å¤Ÿã€‚
 		unsigned char* leftBuffer = (unsigned char*)malloc(4 * 1024);
 		if (leftBuffer == nullptr)
 		{
@@ -1062,7 +1062,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 		while (cmpLen + 4 * 1024 <= remainReadSize)
 		{
-			//´ÓÁ½¸öÎÄ¼şµ±ÖĞ°ÑÏàÓ¦µÄ²¿·Ö¶ÁÈ¡³öÀ´
+			//ä»ä¸¤ä¸ªæ–‡ä»¶å½“ä¸­æŠŠç›¸åº”çš„éƒ¨åˆ†è¯»å–å‡ºæ¥
 			fpos_t leftPos;
 			leftPos.__pos = leftFilePos + cmpLen;
 			if (!dstFile.read(leftPos, leftBuffer, 4 * 1024))
@@ -1091,7 +1091,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 			if (subCmpLen != 4 * 1024)
 			{
-				//ÖĞ¼äÓĞ²»Ò»ÑùµÄµØ·½
+				//ä¸­é—´æœ‰ä¸ä¸€æ ·çš„åœ°æ–¹
 				IndexNode* pNode = indexFile.newIndexNode(NODE_TYPE_ONE, preCmpLen);
 
 				if (pNode == nullptr)
@@ -1105,7 +1105,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				pNode->setLen(cmpLen + subCmpLen);
 				pNode->setParentID(parentId);
 
-				//´ÓÁ½¸ö½Úµãµ±ÖĞµÄÏàÍ¬²¿·ÖÇ°ÃæµÄÒ¶×Ó½Úµã½ÓÈëµ½¹«¹²½Úµã
+				//ä»ä¸¤ä¸ªèŠ‚ç‚¹å½“ä¸­çš„ç›¸åŒéƒ¨åˆ†å‰é¢çš„å¶å­èŠ‚ç‚¹æ¥å…¥åˆ°å…¬å…±èŠ‚ç‚¹
 				if (!pNode->appendLeafSet(leftNode, cmpLen + subCmpLen + 8, dstFileSize))
 				{
 					free(leftBuffer);
@@ -1120,7 +1120,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 					return false;
 				}
 
-				//ĞŞ¸Ä×ó±ß½ÚµãµÄ³¤¶È
+				//ä¿®æ”¹å·¦è¾¹èŠ‚ç‚¹çš„é•¿åº¦
 				leftNode->setStart(leftNode->getStart() + cmpLen + subCmpLen + 8);
 				leftNode->setLen(leftNode->getLen() - cmpLen - subCmpLen - 8);
 
@@ -1145,7 +1145,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 					return false;
 				}
 
-				//ÓÒ±ß½ÚµãĞŞ¸ÄÏàÓ¦½ÚµãµÄ³¤¶È
+				//å³è¾¹èŠ‚ç‚¹ä¿®æ”¹ç›¸åº”èŠ‚ç‚¹çš„é•¿åº¦
 				rightNode->setStart(rightNode->getStart() + cmpLen + subCmpLen + 8);
 				rightNode->setLen(rightNode->getLen() - cmpLen - subCmpLen - 8);
 
@@ -1180,7 +1180,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			cmpLen += 4 * 1024;
 		}
 
-		//ºóÃæ±È½ÏµÄ³¤¶È²»¹»4k
+		//åé¢æ¯”è¾ƒçš„é•¿åº¦ä¸å¤Ÿ4k
 		unsigned long long lastNeedReadSize = remainReadSize - cmpLen;
 		if (lastNeedReadSize != 0)
 		{
@@ -1213,7 +1213,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 		if (subCmpLen < lastNeedReadSize)
 		{
-			//ÕâÒ»¶ÎÓĞ²»Ò»ÑùµÄµØ·½
+			//è¿™ä¸€æ®µæœ‰ä¸ä¸€æ ·çš„åœ°æ–¹
 			IndexNode* pNode = indexFile.newIndexNode(NODE_TYPE_ONE, preCmpLen);
 
 			if (pNode == nullptr)
@@ -1227,7 +1227,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			pNode->setLen(cmpLen + subCmpLen);
 			pNode->setParentID(parentId);
 
-			//´ÓÁ½¸ö½Úµãµ±ÖĞµÄÏàÍ¬²¿·ÖÇ°ÃæµÄÒ¶×Ó½Úµã½ÓÈëµ½¹«¹²½Úµã
+			//ä»ä¸¤ä¸ªèŠ‚ç‚¹å½“ä¸­çš„ç›¸åŒéƒ¨åˆ†å‰é¢çš„å¶å­èŠ‚ç‚¹æ¥å…¥åˆ°å…¬å…±èŠ‚ç‚¹
 			if (!pNode->appendLeafSet(leftNode, cmpLen + subCmpLen + 8, dstFileSize))
 			{
 				free(leftBuffer);
@@ -1242,7 +1242,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				return false;
 			}
 
-			//ĞŞ¸Ä×ó±ß½ÚµãµÄ³¤¶È
+			//ä¿®æ”¹å·¦è¾¹èŠ‚ç‚¹çš„é•¿åº¦
 			leftNode->setStart(leftNode->getStart() + cmpLen + subCmpLen + 8);
 			leftNode->setLen(leftNode->getLen() - cmpLen - subCmpLen - 8);
 
@@ -1267,7 +1267,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				return false;
 			}
 
-			//ÓÒ±ß½ÚµãĞŞ¸ÄÏàÓ¦½ÚµãµÄ³¤¶È
+			//å³è¾¹èŠ‚ç‚¹ä¿®æ”¹ç›¸åº”èŠ‚ç‚¹çš„é•¿åº¦
 			rightNode->setStart(rightNode->getStart() + cmpLen + subCmpLen + 8);
 			rightNode->setLen(rightNode->getLen() - cmpLen - subCmpLen + 8);
 
@@ -1301,10 +1301,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 		cmpLen += subCmpLen;
 
-		//Ç°ÃæËùÓĞµÄ±È½Ï¶¼ÊÇÒ»ÑùµÄ
+		//å‰é¢æ‰€æœ‰çš„æ¯”è¾ƒéƒ½æ˜¯ä¸€æ ·çš„
 		if (leftRemainSize == rightRemainSize)
 		{
-			//¸Ä±ä½ÚµãµÄÀàĞÍÈÃÁ½¸ö½ÚµãµÄÀàĞÍÏàÍ¬
+			//æ”¹å˜èŠ‚ç‚¹çš„ç±»å‹è®©ä¸¤ä¸ªèŠ‚ç‚¹çš„ç±»å‹ç›¸åŒ
 			while (leftNode->getType() != rightNode->getType())
 			{
 				if (compareTwoType(leftNode->getType(), rightNode->getType()))
@@ -1329,7 +1329,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				}
 			}
 
-			//°ÑÁ½¸ö³¤¶ÈÏàÍ¬ÀàĞÍÏàÍ¬µÄ½ÚµãºÏ²¢
+			//æŠŠä¸¤ä¸ªé•¿åº¦ç›¸åŒç±»å‹ç›¸åŒçš„èŠ‚ç‚¹åˆå¹¶
 			if (!leftNode->mergeSameLenNode(this, rightNode))
 			{
 				free(leftBuffer);
@@ -1337,7 +1337,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				return false;
 			}
 
-			//ºÏ²¢Íê³ÉÁËÒÔºó×ó±ßµÄ½Úµã¿ÉÄÜ±È½Ï´óÒªËõĞ¡Ò»ÏÂ½Úµã
+			//åˆå¹¶å®Œæˆäº†ä»¥åå·¦è¾¹çš„èŠ‚ç‚¹å¯èƒ½æ¯”è¾ƒå¤§è¦ç¼©å°ä¸€ä¸‹èŠ‚ç‚¹
 			if (!cutNodeSize(leftNode->getIndexId(), leftNode))
 			{
 				free(leftBuffer);
@@ -1347,7 +1347,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 			leftNode->setIsModified(true);
 
-			//ÓÒ±ßµÄ½ÚµãÍêÈ«ÈÚÈëÁË×ó±ßµÄ½ÚµãËùÒÔÓÒ±ßµÄ½Úµã¿ÉÒÔËµÍêÈ«²»´æÔÚÉ¾³ı
+			//å³è¾¹çš„èŠ‚ç‚¹å®Œå…¨èå…¥äº†å·¦è¾¹çš„èŠ‚ç‚¹æ‰€ä»¥å³è¾¹çš„èŠ‚ç‚¹å¯ä»¥è¯´å®Œå…¨ä¸å­˜åœ¨åˆ é™¤
 			indexFile.deleteIndexNode(rightNode->getIndexId());
 
 			leftChildNode.setIndexId(leftNode->getIndexId());
@@ -1357,7 +1357,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			return true;
 		}
 
-		//ÓĞÒ»¸ö½Úµã±È½Ï³¤Ò»¸ö½Úµã±È½Ï¶Ì
+		//æœ‰ä¸€ä¸ªèŠ‚ç‚¹æ¯”è¾ƒé•¿ä¸€ä¸ªèŠ‚ç‚¹æ¯”è¾ƒçŸ­
 		IndexNode* longNode = leftNode;
 		IndexNode* anotherNode = rightNode;
 		unsigned long long longNodeStart = leftFilePos;
@@ -1368,13 +1368,13 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			longNodeStart = rightFilePos;
 		}
 
-		//´ÓÒ»¸ö½ÚµãÌí¼Ó½øÁíÒ»¸ö½Úµã
+		//ä»ä¸€ä¸ªèŠ‚ç‚¹æ·»åŠ è¿›å¦ä¸€ä¸ªèŠ‚ç‚¹
 		switch (anotherNode->getType())
 		{
 		case NODE_TYPE_ONE:
 		{
 			unsigned long long key;
-			//´ÓÎÄ¼şµ±ÖĞ¶ÁÈ¡key
+			//ä»æ–‡ä»¶å½“ä¸­è¯»å–key
 			fpos_t pos;
 			pos.__pos = longNodeStart + cmpLen;
 			if (!dstFile.read(pos, &key, 8))
@@ -1386,10 +1386,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 			anotherNode->setParentID(parentId);
 
-			//°Ñ³¤½ÚµãÇ°ÃæÏàÍ¬²¿·ÖµÄÒ¶×Ó½Úµã¼Ó½øÈ¥
+			//æŠŠé•¿èŠ‚ç‚¹å‰é¢ç›¸åŒéƒ¨åˆ†çš„å¶å­èŠ‚ç‚¹åŠ è¿›å»
 			anotherNode->appendLeafSet(longNode, cmpLen + 8, dstFileSize);
 
-			//ĞŞ¸Ä³¤½ÚµãµÄ³¤¶È
+			//ä¿®æ”¹é•¿èŠ‚ç‚¹çš„é•¿åº¦
 			longNode->setStart(longNode->getStart() + cmpLen + 8);
 			longNode->setLen(longNode->getLen() - cmpLen - 8);
 
@@ -1418,7 +1418,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		case NODE_TYPE_TWO:
 		{
 			unsigned int key;
-			//´ÓÎÄ¼şµ±ÖĞ¶ÁÈ¡key
+			//ä»æ–‡ä»¶å½“ä¸­è¯»å–key
 			fpos_t pos;
 			pos.__pos = longNodeStart + cmpLen;
 			if (!dstFile.read(pos, &key, 4))
@@ -1430,10 +1430,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 			anotherNode->setParentID(parentId);
 
-			//°Ñ³¤½ÚµãÇ°ÃæÏàÍ¬²¿·ÖµÄÒ¶×Ó½Úµã¼Ó½øÈ¥
+			//æŠŠé•¿èŠ‚ç‚¹å‰é¢ç›¸åŒéƒ¨åˆ†çš„å¶å­èŠ‚ç‚¹åŠ è¿›å»
 			anotherNode->appendLeafSet(longNode, cmpLen + 8, dstFileSize);
 
-			//ĞŞ¸Ä³¤½ÚµãµÄ³¤¶È
+			//ä¿®æ”¹é•¿èŠ‚ç‚¹çš„é•¿åº¦
 
 			longNode->setStart(longNode->getStart() + cmpLen + 4);
 			longNode->setLen(longNode->getLen() - cmpLen - 4);
@@ -1463,7 +1463,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		case NODE_TYPE_THREE:
 		{
 			unsigned short key;
-			//´ÓÎÄ¼şµ±ÖĞ¶ÁÈ¡key
+			//ä»æ–‡ä»¶å½“ä¸­è¯»å–key
 			fpos_t pos;
 			pos.__pos = longNodeStart + cmpLen;
 			if (!dstFile.read(pos, &key, 2))
@@ -1475,10 +1475,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 			anotherNode->setParentID(parentId);
 
-			//°Ñ³¤½ÚµãÇ°ÃæÏàÍ¬²¿·ÖµÄÒ¶×Ó½Úµã¼Ó½øÈ¥
+			//æŠŠé•¿èŠ‚ç‚¹å‰é¢ç›¸åŒéƒ¨åˆ†çš„å¶å­èŠ‚ç‚¹åŠ è¿›å»
 			anotherNode->appendLeafSet(longNode, cmpLen + 8, dstFileSize);
 
-			//ĞŞ¸Ä³¤½ÚµãµÄ³¤¶È
+			//ä¿®æ”¹é•¿èŠ‚ç‚¹çš„é•¿åº¦
 			longNode->setStart(longNode->getStart() + cmpLen + 2);
 			longNode->setLen(longNode->getLen() - cmpLen - 2);
 
@@ -1507,7 +1507,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		case NODE_TYPE_FOUR:
 		{
 			unsigned char key;
-			//´ÓÎÄ¼şµ±ÖĞ¶ÁÈ¡key
+			//ä»æ–‡ä»¶å½“ä¸­è¯»å–key
 			fpos_t pos;
 			pos.__pos = longNodeStart + cmpLen;
 			if (!dstFile.read(pos, &key, 1))
@@ -1519,10 +1519,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 			anotherNode->setParentID(parentId);
 
-			//°Ñ³¤½ÚµãÇ°ÃæÏàÍ¬µÄ²¿·ÖµÄÒ¶×Ó½Úµã¼Ó½øÈ¥
+			//æŠŠé•¿èŠ‚ç‚¹å‰é¢ç›¸åŒçš„éƒ¨åˆ†çš„å¶å­èŠ‚ç‚¹åŠ è¿›å»
 			anotherNode->appendLeafSet(longNode, cmpLen + 8, dstFileSize);
 
-			//ĞŞ¸Ä³¤½ÚµãµÄ³¤¶È
+			//ä¿®æ”¹é•¿èŠ‚ç‚¹çš„é•¿åº¦
 			longNode->setParentID(anotherNode->getIndexId());
 			longNode->setIsModified(true);
 
@@ -1542,7 +1542,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			break;
 		}
 
-		//±È½ÏĞ¡µÄ½Úµã¼ÓÈëÁËĞÂµÄ½Úµã¿ÉÄÜ±È½Ï´óËõĞ¡ÏÂ´óĞ¡
+		//æ¯”è¾ƒå°çš„èŠ‚ç‚¹åŠ å…¥äº†æ–°çš„èŠ‚ç‚¹å¯èƒ½æ¯”è¾ƒå¤§ç¼©å°ä¸‹å¤§å°
 		if (!cutNodeSize(anotherNode->getIndexId(), anotherNode))
 		{
 			free(leftBuffer);
@@ -1560,7 +1560,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 	}
 	else
 	{
-		//ÆäÖĞÒ»¸ö½ÚµãÊÇ·ÇÒ¶×Ó½Úµã,ÁíÒ»¸ö½ÚµãÊÇÒ¶×Ó½Úµã
+		//å…¶ä¸­ä¸€ä¸ªèŠ‚ç‚¹æ˜¯éå¶å­èŠ‚ç‚¹,å¦ä¸€ä¸ªèŠ‚ç‚¹æ˜¯å¶å­èŠ‚ç‚¹
 		unsigned long long nodeIndexId = leftChildNode.getIndexId();
 		unsigned long long leafFilePos = rightChildNode.getIndexId();
 		if (rightChildNode.getType() == CHILD_TYPE_NODE)
@@ -1584,20 +1584,20 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			remainReadSize = nodeRemainSize;
 		}
 
-		//Èç¹û¿ªÊ¼±È½ÏÎ»ÖÃ²»ÊÇ8µÄÕûÊı±¶µÄÏÈ±È½ÏÇ°ÃæÄÇÒ»²¿·Ö
+		//å¦‚æœå¼€å§‹æ¯”è¾ƒä½ç½®ä¸æ˜¯8çš„æ•´æ•°å€çš„å…ˆæ¯”è¾ƒå‰é¢é‚£ä¸€éƒ¨åˆ†
 		unsigned long long offset = leafFilePos % 8;
 		unsigned long long cmpLen = 0;
 		if (offset != 0)
 		{
 			unsigned long long needChartoEight = 8 - offset;
 
-			//ÓĞ¿ÉÄÜÊ£ÏÂµÄ¶ÁÈ¡´óĞ¡±È8¸ö×Ö½Ú»¹Ğ¡
+			//æœ‰å¯èƒ½å‰©ä¸‹çš„è¯»å–å¤§å°æ¯”8ä¸ªå­—èŠ‚è¿˜å°
 			if (remainReadSize < needChartoEight)
 			{
 				needChartoEight = remainReadSize;
 			}
 
-			//´ÓÎÄ¼şµ±ÖĞÁ½¸öÎ»ÖÃµ±ÖĞ¶ÁÈ¡Ê£ÏÂµÄ×Ö½ÚµÄÊı¾İ
+			//ä»æ–‡ä»¶å½“ä¸­ä¸¤ä¸ªä½ç½®å½“ä¸­è¯»å–å‰©ä¸‹çš„å­—èŠ‚çš„æ•°æ®
 			unsigned char leafData[8];
 			unsigned char nodeData[8];
 			fpos_t leafPos;
@@ -1656,8 +1656,8 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 			if (cmpLen != needChartoEight)
 			{
-				//Ç°Ãæ²»¹»8¸ö×Ö½ÚÀïÃæÓĞ²»Ò»ÑùµÄµØ·½
-				//¸ù¾İ²»Í¬µÄ×Ö½Ú´´½¨²»Í¬µÄ¶ÔÏó
+				//å‰é¢ä¸å¤Ÿ8ä¸ªå­—èŠ‚é‡Œé¢æœ‰ä¸ä¸€æ ·çš„åœ°æ–¹
+				//æ ¹æ®ä¸åŒçš„å­—èŠ‚åˆ›å»ºä¸åŒçš„å¯¹è±¡
 				IndexNode* pNode = nullptr;
 				switch (curCmpLen)
 				{
@@ -1679,7 +1679,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 					return false;
 				}
 
-				//ÉèÖÃÕâ¸öĞÂÉèÖÃµÄ½ÚµãµÄ¸÷¸ö²ÎÊı
+				//è®¾ç½®è¿™ä¸ªæ–°è®¾ç½®çš„èŠ‚ç‚¹çš„å„ä¸ªå‚æ•°
 				pNode->setStart(leafFilePos);
 				pNode->setLen(cmpLen);
 				pNode->setParentID(parentId);
@@ -1689,7 +1689,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				{
 					IndexNodeTypeTwo* tmpNode = (IndexNodeTypeTwo*)pNode;
 
-					//·ÇÒ¶×Ó½ÚµãĞŞ¸ÄÏàÓ¦µÄ½Úµã³¤¶È
+					//éå¶å­èŠ‚ç‚¹ä¿®æ”¹ç›¸åº”çš„èŠ‚ç‚¹é•¿åº¦
 					pNotLeafNode->setStart(pNotLeafNode->getStart() + cmpLen + 4);
 					pNotLeafNode->setLen(pNotLeafNode->getLen() - cmpLen - 4);
 					
@@ -1707,7 +1707,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 						return false;
 					}
 
-					//²åÈëÒ¶×Ó½Úµã
+					//æ’å…¥å¶å­èŠ‚ç‚¹
 					IndexNodeChild lIndexNodeChild(CHILD_TYPE_LEAF, leafFilePos + cmpLen + 4);
 					if (!tmpNode->insertChildNode(this, *(unsigned int*)(&leafData[cmpLen]), lIndexNodeChild))
 					{
@@ -1719,7 +1719,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				{
 					IndexNodeTypeThree* tmpNode = (IndexNodeTypeThree*)pNode;
 
-					//·ÇÒ¶×Ó½ÚµãĞŞ¸ÄÏàÓ¦µÄ½Úµã³¤¶È
+					//éå¶å­èŠ‚ç‚¹ä¿®æ”¹ç›¸åº”çš„èŠ‚ç‚¹é•¿åº¦
 					pNotLeafNode->setStart(pNotLeafNode->getStart() + cmpLen + 2);
 					pNotLeafNode->setLen(pNotLeafNode->getLen() - cmpLen - 2);
 
@@ -1776,10 +1776,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 					break;
 				}
 
-				//ÒÑ¾­ĞŞ¸ÄÁË½ÚµãÉèÖÃ½ÚµãÎªÒÑ¾­ĞŞ¸Ä×´Ì¬
+				//å·²ç»ä¿®æ”¹äº†èŠ‚ç‚¹è®¾ç½®èŠ‚ç‚¹ä¸ºå·²ç»ä¿®æ”¹çŠ¶æ€
 				pNode->setIsModified(true);
 
-				//Á½¸ö½ÚµãºÏ²¢³ÉÒ»¸ö½ÚµãÁËÒÔºóÉèÖÃ×ó±ßµÄÄÇ¸öº¢×Ó½Úµã
+				//ä¸¤ä¸ªèŠ‚ç‚¹åˆå¹¶æˆä¸€ä¸ªèŠ‚ç‚¹äº†ä»¥åè®¾ç½®å·¦è¾¹çš„é‚£ä¸ªå­©å­èŠ‚ç‚¹
 				leftChildNode.setChildType(CHILD_TYPE_NODE);
 				leftChildNode.setIndexId(pNode->getIndexId());
 
@@ -1789,10 +1789,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 		if (cmpLen == remainReadSize)
 		{
-			//ÆäÖĞÒ»¸ö½ÚµãµÄËùÓĞ²¿·ÖºÍÁíÍâÒ»¸ö½ÚµãÏàÍ¬Õâ¸öÊ±ºòÓĞ2ÖÖÇé¿ö,Ò»ÖÖÊÇ¿ÉÒÔÖ±½Ó²åÈëÒ¶×Ó½Úµã,ÁíÒ»ÖÖÊÇÔÚº¢×Ó½Úµãµ±ÖĞ²åÈë
+			//å…¶ä¸­ä¸€ä¸ªèŠ‚ç‚¹çš„æ‰€æœ‰éƒ¨åˆ†å’Œå¦å¤–ä¸€ä¸ªèŠ‚ç‚¹ç›¸åŒè¿™ä¸ªæ—¶å€™æœ‰2ç§æƒ…å†µ,ä¸€ç§æ˜¯å¯ä»¥ç›´æ¥æ’å…¥å¶å­èŠ‚ç‚¹,å¦ä¸€ç§æ˜¯åœ¨å­©å­èŠ‚ç‚¹å½“ä¸­æ’å…¥
 			if (offset + remainReadSize == 8 && leafRemainSize - remainReadSize < 8)
 			{
-				//Ö±½Ó°ÑÒ¶×Ó½Úµã¼ÓÈëµ½½Úµãµ±ÖĞ
+				//ç›´æ¥æŠŠå¶å­èŠ‚ç‚¹åŠ å…¥åˆ°èŠ‚ç‚¹å½“ä¸­
 				pNotLeafNode->setParentID(parentId);
 				pNotLeafNode->insertLeafSet(leafFilePos - preCmpLen);
 
@@ -1804,13 +1804,13 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				return true;
 			}
 
-			//Ò¶×Ó½Úµã±È½Ï³¤
+			//å¶å­èŠ‚ç‚¹æ¯”è¾ƒé•¿
 			switch (pNotLeafNode->getType())
 			{
 			case NODE_TYPE_ONE:
 			{
 				unsigned long long key;
-				//´ÓÎÄ¼şµ±ÖĞ¶ÁÈ¡key
+				//ä»æ–‡ä»¶å½“ä¸­è¯»å–key
 				fpos_t pos;
 				pos.__pos = leafFilePos + cmpLen;
 				if (!dstFile.read(pos, &key, 8))
@@ -1832,7 +1832,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			case NODE_TYPE_TWO:
 			{
 				unsigned int key;
-				//´ÓÎÄ¼şµ±ÖĞ¶ÁÈ¡key
+				//ä»æ–‡ä»¶å½“ä¸­è¯»å–key
 				fpos_t pos;
 				pos.__pos = leafFilePos + cmpLen;
 				if (!dstFile.read(pos, &key, 4))
@@ -1854,7 +1854,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			case NODE_TYPE_THREE:
 			{
 				unsigned short key;
-				//´ÓÎÄ¼şµ±ÖĞ¶ÁÈ¡key
+				//ä»æ–‡ä»¶å½“ä¸­è¯»å–key
 				fpos_t pos;
 				pos.__pos = leafFilePos + cmpLen;
 				if (!dstFile.read(pos, &key, 2))
@@ -1876,7 +1876,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			case NODE_TYPE_FOUR:
 			{
 				unsigned char key;
-				//´ÓÎÄ¼şµ±ÖĞ¶ÁÈ¡key
+				//ä»æ–‡ä»¶å½“ä¸­è¯»å–key
 				fpos_t pos;
 				pos.__pos = leafFilePos + cmpLen;
 				if (!dstFile.read(pos, &key, 1))
@@ -1899,7 +1899,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				break;
 			}
 
-			//Ò¶×Ó½Úµã¼ÓÈëµ½ÁË·ÇÒ¶×Ó½Úµã¿ÉÄÜ±È½Ï´óËõĞ¡ÏÂ´óĞ¡
+			//å¶å­èŠ‚ç‚¹åŠ å…¥åˆ°äº†éå¶å­èŠ‚ç‚¹å¯èƒ½æ¯”è¾ƒå¤§ç¼©å°ä¸‹å¤§å°
 			if (!cutNodeSize(pNotLeafNode->getIndexId(), pNotLeafNode))
 			{
 				return false;
@@ -1912,8 +1912,8 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			return true;
 		}
 
-		//Ç°Ãæ²»¹»8¸ö×Ö½ÚµÄ±È½ÏÍêÁËÏÂÃæ´¦Àí³¤³¤µÄÄÇÒ»´®
-		//ÎÄ¼şÒÔÃ¿´Î¶ÁÈ¡4k¸ö×Ö½ÚÕâÑù¶Á¡£ÕâÑù±ÜÃâÒ»´Î¶ÁÌ«¶àÄÚ´æÒ²²»¹»¡£
+		//å‰é¢ä¸å¤Ÿ8ä¸ªå­—èŠ‚çš„æ¯”è¾ƒå®Œäº†ä¸‹é¢å¤„ç†é•¿é•¿çš„é‚£ä¸€ä¸²
+		//æ–‡ä»¶ä»¥æ¯æ¬¡è¯»å–4kä¸ªå­—èŠ‚è¿™æ ·è¯»ã€‚è¿™æ ·é¿å…ä¸€æ¬¡è¯»å¤ªå¤šå†…å­˜ä¹Ÿä¸å¤Ÿã€‚
 		unsigned char* leafBuffer = (unsigned char*)malloc(4 * 1024);
 		if (leafBuffer == nullptr)
 		{
@@ -1928,7 +1928,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 		while (cmpLen + 4 * 1024 <= remainReadSize)
 		{
-			//´ÓÁ½¸öÎÄ¼şµ±ÖĞ°ÑÏàÓ¦µÄ²¿·Ö¶ÁÈ¡³öÀ´
+			//ä»ä¸¤ä¸ªæ–‡ä»¶å½“ä¸­æŠŠç›¸åº”çš„éƒ¨åˆ†è¯»å–å‡ºæ¥
 			fpos_t leafPos;
 			leafPos.__pos = leafFilePos + cmpLen;
 			if (!dstFile.read(leafPos, leafBuffer, 4 * 1024))
@@ -1957,7 +1957,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 			if (subCmpLen != 4 * 1024)
 			{
-				//ÖĞ¼äÓĞ²»Ò»ÑùµÄµØ·½
+				//ä¸­é—´æœ‰ä¸ä¸€æ ·çš„åœ°æ–¹
 				IndexNode* pNode = indexFile.newIndexNode(NODE_TYPE_ONE, preCmpLen);
 
 				if (pNode == nullptr)
@@ -1971,7 +1971,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				pNode->setLen(cmpLen + subCmpLen);
 				pNode->setParentID(parentId);
 
-				//°Ñ·ÇÒ¶×Ó½ÚµãÇ°ÃæµÄ²¿·Ö¼ÓÈëµ½¹«¹²½Úµã
+				//æŠŠéå¶å­èŠ‚ç‚¹å‰é¢çš„éƒ¨åˆ†åŠ å…¥åˆ°å…¬å…±èŠ‚ç‚¹
 				if (!pNode->appendLeafSet(pNotLeafNode, cmpLen + subCmpLen + 8, dstFileSize))
 				{
 					free(leafBuffer);
@@ -1979,7 +1979,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 					return false;
 				}
 
-				//ĞŞ¸Ä·ÇÒ¶×Ó½ÚµãµÄ³¤¶È
+				//ä¿®æ”¹éå¶å­èŠ‚ç‚¹çš„é•¿åº¦
 				pNotLeafNode->setStart(pNotLeafNode->getStart() + cmpLen + subCmpLen + 8);
 				pNotLeafNode->setLen(pNotLeafNode->getLen() - cmpLen - subCmpLen - 8);
 
@@ -2004,7 +2004,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 					return false;
 				}
 
-				//²åÈëÒ¶×Ó½Úµã
+				//æ’å…¥å¶å­èŠ‚ç‚¹
 				IndexNodeChild lIndexNodeChild(CHILD_TYPE_LEAF, leafFilePos + cmpLen + subCmpLen + 8);
 
 				if (!tmpNode->insertChildNode(this, *(unsigned long long*)(&leafBuffer[subCmpLen]), lIndexNodeChild))
@@ -2027,7 +2027,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			cmpLen += 4 * 1024;
 		}
 
-		//ºóÃæ±È½ÏµÄ³¤¶È²»¹»4k
+		//åé¢æ¯”è¾ƒçš„é•¿åº¦ä¸å¤Ÿ4k
 		unsigned long long lastNeedReadSize = remainReadSize - cmpLen;
 		if (lastNeedReadSize != 0)
 		{
@@ -2061,7 +2061,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 		if (subCmpLen + 8 <= lastNeedReadSize)
 		{
-			//ÕâÒ»¶ÎÓĞ²»Ò»ÑùµÄµØ·½
+			//è¿™ä¸€æ®µæœ‰ä¸ä¸€æ ·çš„åœ°æ–¹
 			IndexNode* pNode = indexFile.newIndexNode(NODE_TYPE_ONE, preCmpLen);
 
 			if (pNode == nullptr)
@@ -2075,7 +2075,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			pNode->setLen(cmpLen + subCmpLen);
 			pNode->setParentID(parentId);
 
-			//°Ñ·ÇÒ¶×Ó½Úµãµ±ÖĞµÄÏàÍ¬²¿·ÖÇ°ÃæµÄÒ¶×Ó½Úµã½ÓÈëµ½¹«¹²½Úµã
+			//æŠŠéå¶å­èŠ‚ç‚¹å½“ä¸­çš„ç›¸åŒéƒ¨åˆ†å‰é¢çš„å¶å­èŠ‚ç‚¹æ¥å…¥åˆ°å…¬å…±èŠ‚ç‚¹
 			if (!pNode->appendLeafSet(pNotLeafNode, cmpLen + subCmpLen + 8, dstFileSize))
 			{
 				free(leafBuffer);
@@ -2083,7 +2083,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				return false;
 			}
 
-			//ĞŞ¸Ä·ÇÒ¶×Ó½ÚµãµÄ³¤¶È
+			//ä¿®æ”¹éå¶å­èŠ‚ç‚¹çš„é•¿åº¦
 			pNotLeafNode->setStart(pNotLeafNode->getStart() + cmpLen + subCmpLen + 8);
 			pNotLeafNode->setLen(pNotLeafNode->getLen() - cmpLen - subCmpLen - 8);
 
@@ -2108,7 +2108,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				return false;
 			}
 
-			//²åÈëÒ¶×Ó½Úµã
+			//æ’å…¥å¶å­èŠ‚ç‚¹
 
 			IndexNodeChild lIndexNodeChild(CHILD_TYPE_LEAF, leafFilePos + cmpLen + subCmpLen + 8);
 
@@ -2129,7 +2129,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			return true;
 		}
 
-		//½ÓÏÂÀ´»¹ÓĞÊ£ÏÂ²»¹»8¸ö×Ö½ÚµÄ²¿·Ö
+		//æ¥ä¸‹æ¥è¿˜æœ‰å‰©ä¸‹ä¸å¤Ÿ8ä¸ªå­—èŠ‚çš„éƒ¨åˆ†
 		unsigned long long suppleSize = 0;
 		for (; subCmpLen + suppleSize < lastNeedReadSize; ++suppleSize)
 		{
@@ -2141,7 +2141,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 		if ((subCmpLen + suppleSize) == lastNeedReadSize)
 		{
-			//Á½¸ö½ÚµãÇ°ÃæµÄ²¿·ÖÈ«²¿¶¼Ò»Ñù
+			//ä¸¤ä¸ªèŠ‚ç‚¹å‰é¢çš„éƒ¨åˆ†å…¨éƒ¨éƒ½ä¸€æ ·
 			if (leafRemainSize - remainReadSize < 8)
 			{
 				pNotLeafNode->setParentID(parentId);
@@ -2157,13 +2157,13 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				return true;
 			}
 
-			//Ò¶×Ó½Úµã±È½Ï³¤
+			//å¶å­èŠ‚ç‚¹æ¯”è¾ƒé•¿
 			switch (pNotLeafNode->getType())
 			{
 			case NODE_TYPE_ONE:
 			{
 				unsigned long long key;
-				//´ÓÎÄ¼şµ±ÖĞ¶ÁÈ¡key
+				//ä»æ–‡ä»¶å½“ä¸­è¯»å–key
 				fpos_t pos;
 				pos.__pos = leafFilePos + cmpLen + subCmpLen + suppleSize;
 				if (!dstFile.read(pos, &key, 8))
@@ -2189,7 +2189,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			case NODE_TYPE_TWO:
 			{
 				unsigned int key;
-				//´ÓÎÄ¼şµ±ÖĞ¶ÁÈ¡key
+				//ä»æ–‡ä»¶å½“ä¸­è¯»å–key
 				fpos_t pos;
 				pos.__pos = leafFilePos + cmpLen + subCmpLen + suppleSize;
 				if (!dstFile.read(pos, &key, 4))
@@ -2266,7 +2266,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				break;
 			}
 
-			//Ò¶×Ó½Úµã¼ÓÈëµ½ÁË·ÇÒ¶×Ó½Úµã¿ÉÄÜ±È½Ï´óËõĞ¡ÏÂ´óĞ¡
+			//å¶å­èŠ‚ç‚¹åŠ å…¥åˆ°äº†éå¶å­èŠ‚ç‚¹å¯èƒ½æ¯”è¾ƒå¤§ç¼©å°ä¸‹å¤§å°
 			if (!cutNodeSize(pNotLeafNode->getIndexId(), pNotLeafNode))
 			{
 				free(leafBuffer);
@@ -2282,7 +2282,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			return true;
 		}
 
-		//×îºó8¸ö×Ö½ÚÀïÃæÓĞ²»Ò»ÑùµÄµØ·½
+		//æœ€å8ä¸ªå­—èŠ‚é‡Œé¢æœ‰ä¸ä¸€æ ·çš„åœ°æ–¹
 		IndexNode* pNode = indexFile.newIndexNode(NODE_TYPE_ONE, preCmpLen);
 
 		if (pNode == nullptr)
@@ -2292,7 +2292,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			return false;
 		}
 
-		//¶ÁÈ¡ÍêÕûµÄkeyÖµ
+		//è¯»å–å®Œæ•´çš„keyå€¼
 		fpos_t pos;
 		pos.__pos = nodeFilePos + remainReadSize;
 		if (!dstFile.read(pos, &nodeBuffer[lastNeedReadSize], subCmpLen + 8 - lastNeedReadSize))
@@ -2306,7 +2306,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		pNode->setLen(cmpLen + subCmpLen);
 		pNode->setParentID(parentId);
 
-		//°Ñ·ÇÒ¶×Ó½Úµãµ±ÖĞÏàÍ¬²¿·ÖÇ°ÃæµÄ½Úµã¼ÓÈëµ½¹«¹²½Úµã
+		//æŠŠéå¶å­èŠ‚ç‚¹å½“ä¸­ç›¸åŒéƒ¨åˆ†å‰é¢çš„èŠ‚ç‚¹åŠ å…¥åˆ°å…¬å…±èŠ‚ç‚¹
 		if (!pNode->appendLeafSet(pNotLeafNode, cmpLen + subCmpLen + 8, dstFileSize))
 		{
 			free(leafBuffer);
@@ -2316,7 +2316,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 		IndexNodeTypeOne* tmpNode = (IndexNodeTypeOne*)pNode;
 		
-		//ËõĞ¡·ÇÒ¶×Ó½ÚµãµÄ´óĞ¡
+		//ç¼©å°éå¶å­èŠ‚ç‚¹çš„å¤§å°
 		pNotLeafNode->setStart(pNotLeafNode->getStart() + cmpLen + subCmpLen + 8);
 		pNotLeafNode->setLen(pNotLeafNode->getLen() - cmpLen - subCmpLen - 8);
 
@@ -2339,7 +2339,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			return false;
 		}
 
-		//²åÈëÒ¶×Ó½Úµã
+		//æ’å…¥å¶å­èŠ‚ç‚¹
 		pNode->insertLeafSet(leafFilePos - preCmpLen);
 
 		pNode->setIsModified(true);
@@ -2363,28 +2363,28 @@ IndexNode* BuildIndex::changeNodeType(unsigned long long indexId, IndexNode* ind
 		return nullptr;
 	}
 
-	//Ö±½Óµ÷ÓÃ½ÚµãµÄº¯Êı¸Ä±ä½ÚµãµÄÀàĞÍ
+	//ç›´æ¥è°ƒç”¨èŠ‚ç‚¹çš„å‡½æ•°æ”¹å˜èŠ‚ç‚¹çš„ç±»å‹
 	IndexNode* newNode = indexNode->changeType(this);
 	if (newNode == nullptr)
 	{
 		return nullptr;
 	}
 
-	//´´½¨ÁËÒÑ¾­¼õĞ¡ÁËµÄ½ÚµãºÍÔ­À´µÄ½Úµã½»»»
+	//åˆ›å»ºäº†å·²ç»å‡å°äº†çš„èŠ‚ç‚¹å’ŒåŸæ¥çš„èŠ‚ç‚¹äº¤æ¢
 	if (!indexFile.swapNode(indexId, newNode))
 	{
 		delete newNode;
 		return nullptr;
 	}
 
-	//³É¹¦½»»»ÁË½ÚµãÁËÒÔºó½»»»³öÀ´µÄ½ÚµãÒª±»É¾µô
+	//æˆåŠŸäº¤æ¢äº†èŠ‚ç‚¹äº†ä»¥åäº¤æ¢å‡ºæ¥çš„èŠ‚ç‚¹è¦è¢«åˆ æ‰
 	delete indexNode;
 	return newNode;
 }
 
 bool BuildIndex::build()
 {
-	//Ê×ÏÈ¹¹½¨¸ù½Úµã
+	//é¦–å…ˆæ„å»ºæ ¹èŠ‚ç‚¹
 	IndexNode* pNode = indexFile.newIndexNode(NODE_TYPE_ONE, 0);
 
 	if (pNode == nullptr)
@@ -2392,15 +2392,15 @@ bool BuildIndex::build()
 		return false;
 	}
 
-	pNode->setStart(0);						//¸ù½ÚµãµÄ¿ªÊ¼Î»ÖÃÎªÎÄ¼şµÄ¿ªÍ·
+	pNode->setStart(0);						//æ ¹èŠ‚ç‚¹çš„å¼€å§‹ä½ç½®ä¸ºæ–‡ä»¶çš„å¼€å¤´
 	pNode->setLen(dstFileSize - dstFileSize % 8);
-	pNode->setParentID(0);					//¸ù½ÚµãÃ»ÓĞ¸¸½ÚµãidÎª0
+	pNode->setParentID(0);					//æ ¹èŠ‚ç‚¹æ²¡æœ‰çˆ¶èŠ‚ç‚¹idä¸º0
 
-	pNode->insertLeafSet(0);				//¸ù½ÚµãÊÇÌØÊâµÄÓĞÒ»¸öÒ¶×Ó½Úµã´Ó¿ªÍ·Ö±µ½½áÎ²
+	pNode->insertLeafSet(0);				//æ ¹èŠ‚ç‚¹æ˜¯ç‰¹æ®Šçš„æœ‰ä¸€ä¸ªå¶å­èŠ‚ç‚¹ä»å¼€å¤´ç›´åˆ°ç»“å°¾
 
 	IndexNodeChild rootIndex(CHILD_TYPE_NODE, pNode->getIndexId());
 
-	//½ÓÏÂÀ´°Ñ¸÷¸ö8×Ö½Ú¿ªÊ¼µÄÎ»ÖÃ×öÒ»¸ö½ÚµãÈ»ºó²»Í£µÄºÏ²¢µ½Ò»Æğ
+	//æ¥ä¸‹æ¥æŠŠå„ä¸ª8å­—èŠ‚å¼€å§‹çš„ä½ç½®åšä¸€ä¸ªèŠ‚ç‚¹ç„¶åä¸åœçš„åˆå¹¶åˆ°ä¸€èµ·
 	for (unsigned long long filePos = 8; filePos < dstFileSize; filePos += 8)
 	{
 		IndexNodeChild indexNodeChild(CHILD_TYPE_LEAF, filePos);
@@ -2410,14 +2410,14 @@ bool BuildIndex::build()
 			return false;
 		}
 
-		//Ò»Ö±´´½¨½Úµãµ½»º´æ»òÕßÊÇ´ÓÓ²ÅÌ¶ÁÈ¡Êı¾İµ½»º´æÄÚ´æÌ«´ó¿ÉÄÜ²»¹»ÓÃËùÒÔÕâÀïµ÷Õû»º´æ
+		//ä¸€ç›´åˆ›å»ºèŠ‚ç‚¹åˆ°ç¼“å­˜æˆ–è€…æ˜¯ä»ç¡¬ç›˜è¯»å–æ•°æ®åˆ°ç¼“å­˜å†…å­˜å¤ªå¤§å¯èƒ½ä¸å¤Ÿç”¨æ‰€ä»¥è¿™é‡Œè°ƒæ•´ç¼“å­˜
 		indexFile.reduceCache();
 	}
 
-	//ÉèÖÃÎÄ¼şµÄË÷ÒıÎÄ¼şµÄ¸ù½Úµã
+	//è®¾ç½®æ–‡ä»¶çš„ç´¢å¼•æ–‡ä»¶çš„æ ¹èŠ‚ç‚¹
 	indexFile.setRootIndexId(rootIndex.getIndexId());
 
-	//»¹ÓĞºÜ¶à»º´æÀïÃæµÄÊı¾İ´ÓÀ´¶¼Ã»ÓĞĞ´¹ıÅÌµÄÈ«²¿Ğ´ÅÌ¸ù½ÚµãidÒ²Ğ´ÈëÎÄ¼ş
+	//è¿˜æœ‰å¾ˆå¤šç¼“å­˜é‡Œé¢çš„æ•°æ®ä»æ¥éƒ½æ²¡æœ‰å†™è¿‡ç›˜çš„å…¨éƒ¨å†™ç›˜æ ¹èŠ‚ç‚¹idä¹Ÿå†™å…¥æ–‡ä»¶
 	if (!indexFile.writeEveryCache())
 	{
 		return false;

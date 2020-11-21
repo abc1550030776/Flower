@@ -3,7 +3,7 @@
 
 bool GetIndexPath(const char* dstFilePath, char* indexPath)
 {
-	//ÅÐ¶ÏÂ·¾¢³¤¶È¼ÓÉÏºó×ºÁËÒÔºóÊÇ·ñ»á³¬¹ý×î³¤³¤¶È
+	//åˆ¤æ–­è·¯åŠ²é•¿åº¦åŠ ä¸ŠåŽç¼€äº†ä»¥åŽæ˜¯å¦ä¼šè¶…è¿‡æœ€é•¿é•¿åº¦
 	size_t len = strlen(dstFilePath);
 	if (len + 5 > 4096)
 	{
@@ -19,7 +19,7 @@ bool GetIndexPath(const char* dstFilePath, char* indexPath)
 
 bool compareTwoType(const unsigned char leftType, const unsigned char rightType)
 {
-	//±È½Ïº¢×Ó½ÚµãkeyÖµ´óÐ¡,×ó±ßÐ¡µÄ»¯·µ»Øtrue
+	//æ¯”è¾ƒå­©å­èŠ‚ç‚¹keyå€¼å¤§å°,å·¦è¾¹å°çš„åŒ–è¿”å›žtrue
 	if (leftType > rightType)
 	{
 		return true;

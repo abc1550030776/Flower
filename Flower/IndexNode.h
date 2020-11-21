@@ -5,11 +5,11 @@
 #include "BuildIndex.h"
 #include "ReadWriteLock.h"
 
-//Ë÷Òıº¢×Ó½ÚµãµÄÀàĞÍ
+//ç´¢å¼•å­©å­èŠ‚ç‚¹çš„ç±»å‹
 const unsigned char CHILD_TYPE_NODE = 0;
 const unsigned char CHILD_TYPE_LEAF = 1;
 
-//Ë÷Òı½ÚµãµÄÀàĞÍ
+//ç´¢å¼•èŠ‚ç‚¹çš„ç±»å‹
 const unsigned char NODE_TYPE_ONE = 0;
 const unsigned char NODE_TYPE_TWO = 1;
 const unsigned char NODE_TYPE_THREE = 2;
@@ -19,46 +19,46 @@ class IndexNode
 {
 public:
 	IndexNode();
-	virtual bool toBinary(char *buffer, int len) = 0;					//°ÑÕâ¸ö½á¹¹Ìå×ª³É¶ş½øÖÆºÃ½øĞĞ´æ´¢
-	virtual bool toObject(char* buffer, int len) = 0;					//°Ñ¶ş½øÖÆ×ª³É½á¹¹Ìå
-	void setIsBig(bool isBig);											//ÉèÖÃÊÇ²»ÊÇ´óµÄ½Úµã¿é
-	unsigned long long getPreCmpLen();									//»ñÈ¡Õâ¸ö½ÚµãÇ°ÃæÒÑ¾­±È½Ï¹ıµÄ³¤¶È
-	bool getIsModified();												//»ñÈ¡½ÚµãÊÇ·ñÒÑ¾­ĞŞ¸Ä¹ı
-	bool getIsBig();													//»ñÈ¡ÊÇ·ñÊÇ±È½Ï´óµÄ½Úµã
-	unsigned long long getParentId();									//»ñÈ¡¸¸½ÚµãId;
-	virtual unsigned char getType() = 0;								//»ñÈ¡½ÚµãµÄÀàĞÍ
+	virtual bool toBinary(char *buffer, int len) = 0;					//æŠŠè¿™ä¸ªç»“æ„ä½“è½¬æˆäºŒè¿›åˆ¶å¥½è¿›è¡Œå­˜å‚¨
+	virtual bool toObject(char* buffer, int len) = 0;					//æŠŠäºŒè¿›åˆ¶è½¬æˆç»“æ„ä½“
+	void setIsBig(bool isBig);											//è®¾ç½®æ˜¯ä¸æ˜¯å¤§çš„èŠ‚ç‚¹å—
+	unsigned long long getPreCmpLen();									//è·å–è¿™ä¸ªèŠ‚ç‚¹å‰é¢å·²ç»æ¯”è¾ƒè¿‡çš„é•¿åº¦
+	bool getIsModified();												//è·å–èŠ‚ç‚¹æ˜¯å¦å·²ç»ä¿®æ”¹è¿‡
+	bool getIsBig();													//è·å–æ˜¯å¦æ˜¯æ¯”è¾ƒå¤§çš„èŠ‚ç‚¹
+	unsigned long long getParentId();									//è·å–çˆ¶èŠ‚ç‚¹Id;
+	virtual unsigned char getType() = 0;								//è·å–èŠ‚ç‚¹çš„ç±»å‹
 	virtual bool changeChildIndexId(unsigned long long orgIndexId, unsigned long long newIndexId) = 0;
 	virtual bool getAllChildNodeId(std::vector<unsigned long long>& childIndexId) = 0;
-	void setParentID(unsigned long long parentID);								//ÉèÖÃ¸¸½Úµãid
-	virtual size_t getChildrenNum() = 0;										//»ñÈ¡º¢×ÓµÄÊıÁ¿
-	virtual  IndexNode* changeType(BuildIndex* buildIndex) = 0;					//¸Ä±ä½ÚµãµÄÀàĞÍËõĞ¡Ã¿¸öË÷Òı²éÕÒÊ¹ÓÃµÄ¼üµÄ´óĞ¡
-	void setStart(unsigned long long start);													//ÉèÖÃÔÚÔ­ÎÄ¼şµÄ¿ªÊ¼Î»ÖÃ
-	unsigned long long getStart();										//»ñÈ¡½ÚµãÔÚÔ¶ÎÄ¼şµÄ¿ªÊ¼Î»ÖÃ
-	void setLen(unsigned long long len);								//ÉèÖÃ½ÚµãÔÚÎÄ¼şµ±ÖĞµÄ³¤¶È
-	unsigned long long getLen();										//»ñÈ¡½ÚµãÔÚÎÄ¼şµ±ÖĞµÄ³¤¶È
-	void setPreCmpLen(unsigned long long preCmpLen);												//ÉèÖÃÕâ¸ö½ÚµãÇ°ÃæÒÑ¾­±È½Ï¹ıµÄ³¤¶È
-	void setIsModified(bool isModified);								//ÉèÖÃÊÇ·ñÒÑ¾­¸Ä±ä¹ı
-	virtual bool cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId) = 0;				//¼õĞ¡½ÚµãµÄ´óĞ¡
+	void setParentID(unsigned long long parentID);								//è®¾ç½®çˆ¶èŠ‚ç‚¹id
+	virtual size_t getChildrenNum() = 0;										//è·å–å­©å­çš„æ•°é‡
+	virtual  IndexNode* changeType(BuildIndex* buildIndex) = 0;					//æ”¹å˜èŠ‚ç‚¹çš„ç±»å‹ç¼©å°æ¯ä¸ªç´¢å¼•æŸ¥æ‰¾ä½¿ç”¨çš„é”®çš„å¤§å°
+	void setStart(unsigned long long start);													//è®¾ç½®åœ¨åŸæ–‡ä»¶çš„å¼€å§‹ä½ç½®
+	unsigned long long getStart();										//è·å–èŠ‚ç‚¹åœ¨è¿œæ–‡ä»¶çš„å¼€å§‹ä½ç½®
+	void setLen(unsigned long long len);								//è®¾ç½®èŠ‚ç‚¹åœ¨æ–‡ä»¶å½“ä¸­çš„é•¿åº¦
+	unsigned long long getLen();										//è·å–èŠ‚ç‚¹åœ¨æ–‡ä»¶å½“ä¸­çš„é•¿åº¦
+	void setPreCmpLen(unsigned long long preCmpLen);												//è®¾ç½®è¿™ä¸ªèŠ‚ç‚¹å‰é¢å·²ç»æ¯”è¾ƒè¿‡çš„é•¿åº¦
+	void setIsModified(bool isModified);								//è®¾ç½®æ˜¯å¦å·²ç»æ”¹å˜è¿‡
+	virtual bool cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId) = 0;				//å‡å°èŠ‚ç‚¹çš„å¤§å°
 	void setIndexId(unsigned long long indexId);
-	unsigned long long getIndexId();									//»ñÈ¡½ÚµãµÄË÷Òıid
-	void insertLeafSet(unsigned long long start);												//²åÈëÒ¶×Ó½Úµã
-	bool mergeSameLenNode(BuildIndex* buildIndex, IndexNode* indexNode);//ºÏ²¢ÏàÍ¬³¤¶ÈµÄ½Úµã
-	bool appendLeafSet(IndexNode* indexNode, unsigned long long beforeNumber, unsigned long long fileSize);		//°ÑÄ³¸ö³¤¶ÈÒÔÇ°µÄÒ¶×Ó½Úµã¼ÓÈëµ½ÏÖÔÚµÄ½Úµã
-	void increaseRef();													//Ôö¼ÓË÷Òı
-	void decreaseRef();													//¼õÉÙË÷Òı
-	bool isZeroRef();													//ÅĞ¶ÏÊÇ·ñÊÇÃ»ÓĞÈÎºÎË÷Òı
-	bool decreaseAndTestZero();											//¼õÉÙË÷Òı²¢ÅĞ¶ÏÊÇ·ñÊÇ0
+	unsigned long long getIndexId();									//è·å–èŠ‚ç‚¹çš„ç´¢å¼•id
+	void insertLeafSet(unsigned long long start);												//æ’å…¥å¶å­èŠ‚ç‚¹
+	bool mergeSameLenNode(BuildIndex* buildIndex, IndexNode* indexNode);//åˆå¹¶ç›¸åŒé•¿åº¦çš„èŠ‚ç‚¹
+	bool appendLeafSet(IndexNode* indexNode, unsigned long long beforeNumber, unsigned long long fileSize);		//æŠŠæŸä¸ªé•¿åº¦ä»¥å‰çš„å¶å­èŠ‚ç‚¹åŠ å…¥åˆ°ç°åœ¨çš„èŠ‚ç‚¹
+	void increaseRef();													//å¢åŠ ç´¢å¼•
+	void decreaseRef();													//å‡å°‘ç´¢å¼•
+	bool isZeroRef();													//åˆ¤æ–­æ˜¯å¦æ˜¯æ²¡æœ‰ä»»ä½•ç´¢å¼•
+	bool decreaseAndTestZero();											//å‡å°‘ç´¢å¼•å¹¶åˆ¤æ–­æ˜¯å¦æ˜¯0
 	virtual ~IndexNode();
 protected:
-	unsigned long long start;	//ÔÚÔ­ÎÄ¼şµ±ÖĞµÄÎ»ÖÃ
-	unsigned long long len;		//ÎÄ¼şÖĞÖ¸¶¨Î»ÖÃµÄÕâ¸ö½Úµã¶ÔÓ¦¶ÎµÄ³¤¶È
-	unsigned long long preCmpLen;	//²éÑ¯µ½Õâ¸ö½áµãµÄÊ±ºòÇ°ÃæÒÑ¾­±È½Ï¹ıµÄ×Ö·ûµÄ³¤¶È
-	unsigned long long parentID;	//¸¸½ÚµãµÄId
-	unsigned long long indexId;		//½ÚµãµÄid;
-	std::unordered_set<unsigned long long> leafSet;	//ÓĞĞ©Ò¶×Ó½ÚµãÊÇÖ¸Ïò½áÎ²µÄ,ÎªÁË½ÚÊ¡¿Õ¼äÕâÀï¼ÇÂ¼ÕâĞ©±È½Ïµ½Õâ¸ö½ÚµãÒ»²¿·ÖÈ«²¿Ò»ÑùµÄÒ¶×Ó½ÚµãµÄ¿ªÊ¼±È½ÏÎ»ÖÃ
-	bool isBig;					//ÓĞĞ©½ÚµãĞ´ÈëÓ²ÅÌ´óÓÚ4k×Ö½Ú¾ÍÊÇbig
-	bool isModified;			//´Ó»º´æÖĞÉ¾³ıÁËÒÔºóÊÇ·ñĞèÒªĞ´ÈëÓ²ÅÌ
-	volatile unsigned long refCount;		//ËÑË÷ÎÄ¼şµÄÊ±ºòÊÇ²ÉÓÃ¶àÏß³ÌµÄÕâ¸öÊ±ºòÓĞ¿ÉÄÜ¶à¸öÏß³ÌÍ¬Ê±Ê¹ÓÃÍ¬Ò»¸öµÄÇé¿ö²»ºÃÅĞ¶ÏÉ¾³ıµÄÊ±»úËùÒÔÕâÀï¼ÓÒ»¸öÒıÓÃÊıÁ¿
+	unsigned long long start;	//åœ¨åŸæ–‡ä»¶å½“ä¸­çš„ä½ç½®
+	unsigned long long len;		//æ–‡ä»¶ä¸­æŒ‡å®šä½ç½®çš„è¿™ä¸ªèŠ‚ç‚¹å¯¹åº”æ®µçš„é•¿åº¦
+	unsigned long long preCmpLen;	//æŸ¥è¯¢åˆ°è¿™ä¸ªç»“ç‚¹çš„æ—¶å€™å‰é¢å·²ç»æ¯”è¾ƒè¿‡çš„å­—ç¬¦çš„é•¿åº¦
+	unsigned long long parentID;	//çˆ¶èŠ‚ç‚¹çš„Id
+	unsigned long long indexId;		//èŠ‚ç‚¹çš„id;
+	std::unordered_set<unsigned long long> leafSet;	//æœ‰äº›å¶å­èŠ‚ç‚¹æ˜¯æŒ‡å‘ç»“å°¾çš„,ä¸ºäº†èŠ‚çœç©ºé—´è¿™é‡Œè®°å½•è¿™äº›æ¯”è¾ƒåˆ°è¿™ä¸ªèŠ‚ç‚¹ä¸€éƒ¨åˆ†å…¨éƒ¨ä¸€æ ·çš„å¶å­èŠ‚ç‚¹çš„å¼€å§‹æ¯”è¾ƒä½ç½®
+	bool isBig;					//æœ‰äº›èŠ‚ç‚¹å†™å…¥ç¡¬ç›˜å¤§äº4kå­—èŠ‚å°±æ˜¯big
+	bool isModified;			//ä»ç¼“å­˜ä¸­åˆ é™¤äº†ä»¥åæ˜¯å¦éœ€è¦å†™å…¥ç¡¬ç›˜
+	volatile unsigned long refCount;		//æœç´¢æ–‡ä»¶çš„æ—¶å€™æ˜¯é‡‡ç”¨å¤šçº¿ç¨‹çš„è¿™ä¸ªæ—¶å€™æœ‰å¯èƒ½å¤šä¸ªçº¿ç¨‹åŒæ—¶ä½¿ç”¨åŒä¸€ä¸ªçš„æƒ…å†µä¸å¥½åˆ¤æ–­åˆ é™¤çš„æ—¶æœºæ‰€ä»¥è¿™é‡ŒåŠ ä¸€ä¸ªå¼•ç”¨æ•°é‡
 };
 
 class IndexNodeChild
@@ -75,12 +75,12 @@ public:
 	void setIndexId(unsigned long long indexId);
 	void setChildType(unsigned char childType);
 private:
-	//0±íÊ¾·ÇÒ¶×Ó½Úµã, 1±íÊ¾Ò¶×Ó½Úµã¡£
+	//0è¡¨ç¤ºéå¶å­èŠ‚ç‚¹, 1è¡¨ç¤ºå¶å­èŠ‚ç‚¹ã€‚
 	unsigned char childType;
-	unsigned long long indexId;	//Èç¹ûÊÇ·ÇÒ¶×Ó½Úµã¾ÍÊÇË÷Òı½ÚµãµÄId,Èç¹ûÊÇÒ¶×Ó½Úµã¾ÍÊÇ³ı¿ªÖ®Ç°µÄ±È½ÏºóÃæ´ÓÎÄ¼ş¿ªÊ¼µÄ±È½Ï´¦
+	unsigned long long indexId;	//å¦‚æœæ˜¯éå¶å­èŠ‚ç‚¹å°±æ˜¯ç´¢å¼•èŠ‚ç‚¹çš„Id,å¦‚æœæ˜¯å¶å­èŠ‚ç‚¹å°±æ˜¯é™¤å¼€ä¹‹å‰çš„æ¯”è¾ƒåé¢ä»æ–‡ä»¶å¼€å§‹çš„æ¯”è¾ƒå¤„
 };
 
-//µÚÒ»ÖÖ½ÚµãÊÇÒÔ8¸ö×Ö½ÚÀ´±È½ÏµÃµ½º¢×Ó½ÚµãµÄ
+//ç¬¬ä¸€ç§èŠ‚ç‚¹æ˜¯ä»¥8ä¸ªå­—èŠ‚æ¥æ¯”è¾ƒå¾—åˆ°å­©å­èŠ‚ç‚¹çš„
 class IndexNodeTypeOne : public IndexNode
 {
 	friend class BuildIndex;
@@ -98,7 +98,7 @@ class IndexNodeTypeOne : public IndexNode
 	std::unordered_map<unsigned long long, IndexNodeChild> children;
 };
 
-//µÚ¶şÖÖ½ÚµãÊÇÒÔ4¸ö×Ö½ÚÀ´±È½ÏµÃµ½º¢×Ó½ÚµãµÄ
+//ç¬¬äºŒç§èŠ‚ç‚¹æ˜¯ä»¥4ä¸ªå­—èŠ‚æ¥æ¯”è¾ƒå¾—åˆ°å­©å­èŠ‚ç‚¹çš„
 class IndexNodeTypeTwo : public IndexNode
 {
 	friend class BuildIndex;
@@ -118,7 +118,7 @@ class IndexNodeTypeTwo : public IndexNode
 	std::unordered_map<unsigned int, IndexNodeChild> children;
 };
 
-//µÚÈıÖÖ½ÚµãÊÇÒÔ2¸ö×Ö½ÚÀ´±È½ÏµÃµ½º¢×Ó½ÚµãµÄ
+//ç¬¬ä¸‰ç§èŠ‚ç‚¹æ˜¯ä»¥2ä¸ªå­—èŠ‚æ¥æ¯”è¾ƒå¾—åˆ°å­©å­èŠ‚ç‚¹çš„
 class IndexNodeTypeThree : public IndexNode
 {
 	friend class BuildIndex;
@@ -138,7 +138,7 @@ class IndexNodeTypeThree : public IndexNode
 	std::unordered_map<unsigned short, IndexNodeChild> children;
 };
 
-//µÚËÄÖÖ½ÚµãÊÇÒÔÒ»¸ö×Ö½ÚÀ´±È½ÏµÃµ½º¢×Ó½ÚµãµÄ
+//ç¬¬å››ç§èŠ‚ç‚¹æ˜¯ä»¥ä¸€ä¸ªå­—èŠ‚æ¥æ¯”è¾ƒå¾—åˆ°å­©å­èŠ‚ç‚¹çš„
 class IndexNodeTypeFour : public IndexNode
 {
 	friend class BuildIndex;

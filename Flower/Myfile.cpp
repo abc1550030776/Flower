@@ -50,7 +50,7 @@ bool Myfile::write(fpos_t pos, void* data, size_t size)
 	int flag = fsetpos(file, &pos);
 	if (flag != 0)
 	{
-		//ÓÐ¿ÉÄÜÐ´ÈëµÄÎ»ÖÃÊÇÔÚÎÄ¼þµÄ×îºóÃæÒÔºóÕâ¸öÊ±ºòÍùºóÃæ²¹³ä×ã¹»µÄÊý¾Ý
+		//æœ‰å¯èƒ½å†™å…¥çš„ä½ç½®æ˜¯åœ¨æ–‡ä»¶çš„æœ€åŽé¢ä»¥åŽè¿™ä¸ªæ—¶å€™å¾€åŽé¢è¡¥å……è¶³å¤Ÿçš„æ•°æ®
 		fseek(file, 0, SEEK_END);
 		fpos_t endPos;
 		fgetpos(file, &endPos);

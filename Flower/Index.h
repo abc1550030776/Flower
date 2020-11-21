@@ -19,17 +19,17 @@ public:
 	bool reduceCache();
 	bool changePreCmpLen(unsigned long long indexId, unsigned long long orgPreCmpLen, unsigned long long newPreCmpLen);
 	bool swapNode(unsigned long long indexId, IndexNode* newNode);
-	IndexNode* newIndexNode(unsigned char nodeType, unsigned long long preCmpLen);			//´´½¨ĞÂµÄ½Úµã
-	bool deleteIndexNode(unsigned long long indexId);										//É¾³ı½Úµã
-	void clearCache();																		//Çå³ı»º´æ
-	unsigned char getUseType();																//»ñÈ¡Ê¹ÓÃ·½Ê½
-	bool putIndexNode(IndexNode* indexNode);												//Íâ²¿Ê¹ÓÃÍêÁË¸æËßËµÍâ²¿ÒÑ¾­²»ÔÙÒıÓÃ
-	~Index();																				//Îö¹¹»º´æ
+	IndexNode* newIndexNode(unsigned char nodeType, unsigned long long preCmpLen);			//åˆ›å»ºæ–°çš„èŠ‚ç‚¹
+	bool deleteIndexNode(unsigned long long indexId);										//åˆ é™¤èŠ‚ç‚¹
+	void clearCache();																		//æ¸…é™¤ç¼“å­˜
+	unsigned char getUseType();																//è·å–ä½¿ç”¨æ–¹å¼
+	bool putIndexNode(IndexNode* indexNode);												//å¤–éƒ¨ä½¿ç”¨å®Œäº†å‘Šè¯‰è¯´å¤–éƒ¨å·²ç»ä¸å†å¼•ç”¨
+	~Index();																				//ææ„ç¼“å­˜
 private:
-	unsigned char useType;																	//Ê¹ÓÃµÄ·½Ê½Èç¹ûÊÇÓÃÓÚ²éÑ¯µÄÊ±ºòÊÇ¶àÏß³ÌµÄ
-	std::unordered_map<unsigned long long, IndexNode*> indexNodeCache;						//ÕâÀï±£´æÒ»²¿·ÖµÄË÷Òı½Úµã»º´æÕâÑù¿ÉÒÔ¼Ó¿ìËÙ¶È
-	std::multimap<unsigned long long, unsigned long long> IndexIdPreority;					//ÕâÀï±£´æË÷ÒıµÄÓÅÏÈ¼¶keyÊÇË÷ÒıµÄÇ°ÃæÒÑ¾­±È½Ï¹ıµÄ´óĞ¡,Ô½Ğ¡ÓÅÏÈ¼¶Ô½´ó
-	RTL_SRWLOCK rwLock;																		//»º´æÔÚËÑË÷Ä£Ê½ÏÂ»á±»¶à¸öÏß³ÌÊ¹ÓÃµ½¼Ó¸ö¶ÁĞ´Ëø
+	unsigned char useType;																	//ä½¿ç”¨çš„æ–¹å¼å¦‚æœæ˜¯ç”¨äºæŸ¥è¯¢çš„æ—¶å€™æ˜¯å¤šçº¿ç¨‹çš„
+	std::unordered_map<unsigned long long, IndexNode*> indexNodeCache;						//è¿™é‡Œä¿å­˜ä¸€éƒ¨åˆ†çš„ç´¢å¼•èŠ‚ç‚¹ç¼“å­˜è¿™æ ·å¯ä»¥åŠ å¿«é€Ÿåº¦
+	std::multimap<unsigned long long, unsigned long long> IndexIdPreority;					//è¿™é‡Œä¿å­˜ç´¢å¼•çš„ä¼˜å…ˆçº§keyæ˜¯ç´¢å¼•çš„å‰é¢å·²ç»æ¯”è¾ƒè¿‡çš„å¤§å°,è¶Šå°ä¼˜å…ˆçº§è¶Šå¤§
+	RTL_SRWLOCK rwLock;																		//ç¼“å­˜åœ¨æœç´¢æ¨¡å¼ä¸‹ä¼šè¢«å¤šä¸ªçº¿ç¨‹ä½¿ç”¨åˆ°åŠ ä¸ªè¯»å†™é”
 };
 
-//¶àÏß³Ì¶ÁÈ¡µÄÊ±ºò»áÓÃµ½µÄº¯ÊıgetIndexNode,insert,size,reduceCache,
+//å¤šçº¿ç¨‹è¯»å–çš„æ—¶å€™ä¼šç”¨åˆ°çš„å‡½æ•°getIndexNode,insert,size,reduceCache,

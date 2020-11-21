@@ -29,23 +29,23 @@ bool IndexFile::init(const char* fileName, Index* index)
 
 IndexNode* IndexFile::getIndexNode(unsigned long long indexId)
 {
-	//ÅĞ¶ÏÊÇ·ñÒÑ¾­³õÊ¼»¯
+	//åˆ¤æ–­æ˜¯å¦å·²ç»åˆå§‹åŒ–
 	if (pIndex == nullptr)
 	{
 		return nullptr;
 	}
 
-	//ÏÈ´Ó»º´æµ±ÖĞ²éÕÒÈ»ºó·µ»Ø
+	//å…ˆä»ç¼“å­˜å½“ä¸­æŸ¥æ‰¾ç„¶åè¿”å›
 	IndexNode* pIndexNode = pIndex->getIndexNode(indexId);
 	if (pIndexNode != nullptr)
 	{
 		return pIndexNode;
 	}
 
-	//´ÓÎÄ¼şµ±ÖĞ°ÑÊı¾İ¶ÁÈ¡³öÀ´
+	//ä»æ–‡ä»¶å½“ä¸­æŠŠæ•°æ®è¯»å–å‡ºæ¥
 	char* buffer = (char*)malloc(8 * 1024);
 
-	//ÔÚÎÄ¼şµ±ÖĞµÄ´æ´¢Î»ÖÃÊÇÓÃË÷Òıid * 4 * 1024À´¶¨µÄ,ÓĞĞ©´æ´¢µÄ´æ´¢µÄ±È½Ï´ó»á´óÓÚ4k
+	//åœ¨æ–‡ä»¶å½“ä¸­çš„å­˜å‚¨ä½ç½®æ˜¯ç”¨ç´¢å¼•id * 4 * 1024æ¥å®šçš„,æœ‰äº›å­˜å‚¨çš„å­˜å‚¨çš„æ¯”è¾ƒå¤§ä¼šå¤§äº4k
 	fpos_t pos;
 	pos.__pos = indexId * 4 * 1024;
 	if (!indexFile.read(pos, buffer, 4 * 1024))
@@ -54,7 +54,7 @@ IndexNode* IndexFile::getIndexNode(unsigned long long indexId)
 		return nullptr;
 	}
 
-	//¸ù¾İ²»Í¬µÄ½ÚµãÀàĞÍ´´½¨½Úµã
+	//æ ¹æ®ä¸åŒçš„èŠ‚ç‚¹ç±»å‹åˆ›å»ºèŠ‚ç‚¹
 	char* p = buffer;
 	switch (*((unsigned char*)p))
 	{
@@ -80,7 +80,7 @@ IndexNode* IndexFile::getIndexNode(unsigned long long indexId)
 	p += 2;
 	if ((len + 3) > 4 * 1024)
 	{
-		//°ÑÊ£ÏÂµÄ×Ö½Ú¸ø¶ÁÈ¡³öÀ´
+		//æŠŠå‰©ä¸‹çš„å­—èŠ‚ç»™è¯»å–å‡ºæ¥
 		fpos_t pos;
 		pos.__pos = (indexId + 1) * 4 * 1024;
 		if (!indexFile.read(pos, &buffer[4 * 1024], len + 3 - 4 * 1024))
@@ -92,7 +92,7 @@ IndexNode* IndexFile::getIndexNode(unsigned long long indexId)
 		pIndexNode->setIsBig(true);
 	}
 
-	//°Ñ¶ş½øÖÆ×ª³É½ÚµãµÄÀïÃæµÄÊı¾İ
+	//æŠŠäºŒè¿›åˆ¶è½¬æˆèŠ‚ç‚¹çš„é‡Œé¢çš„æ•°æ®
 	if (!pIndexNode->toObject(p, len))
 	{
 		delete pIndexNode;
@@ -103,45 +103,45 @@ IndexNode* IndexFile::getIndexNode(unsigned long long indexId)
 	free(buffer);
 
 	pIndexNode->setIndexId(indexId);
-	//¼ÓÔØÍê³ÉÁËÒÔºó¼ÓÈëµ½Ë÷Òı½ÚµãÀïÃæ
+	//åŠ è½½å®Œæˆäº†ä»¥ååŠ å…¥åˆ°ç´¢å¼•èŠ‚ç‚¹é‡Œé¢
 	if (!pIndex->insert(indexId, pIndexNode))
 	{
 		delete pIndexNode;
 		return nullptr;
 	}
-	//¼ÓÈëµ½»º´æÀïÃæÁËÒÔºóÔÙ°ÑË÷Òı·µ»Ø
+	//åŠ å…¥åˆ°ç¼“å­˜é‡Œé¢äº†ä»¥åå†æŠŠç´¢å¼•è¿”å›
 	return pIndexNode;
 }
 
-//»ñÈ¡ÁÙÊ±½Úµã
+//è·å–ä¸´æ—¶èŠ‚ç‚¹
 IndexNode* IndexFile::getTempIndexNode(unsigned long long indexId)
 {
-	//ÅĞ¶ÏÊÇ·ñÒÑ¾­³õÊ¼»¯
+	//åˆ¤æ–­æ˜¯å¦å·²ç»åˆå§‹åŒ–
 	if (pIndex == nullptr)
 	{
 		return nullptr;
 	}
 
-	//ÏÈ´Ó»º´æµ±ÖĞ²éÕÒÈ»ºó·µ»Ø
+	//å…ˆä»ç¼“å­˜å½“ä¸­æŸ¥æ‰¾ç„¶åè¿”å›
 	IndexNode* pIndexNode = pIndex->getIndexNode(indexId);
 	if (pIndexNode != nullptr)
 	{
-		//µ±Ç°»º´æµ±ÖĞ´æÔÚµÄ½ÚµãËùÒÔ´òÒ»¸ö±ê¼Ç
+		//å½“å‰ç¼“å­˜å½“ä¸­å­˜åœ¨çš„èŠ‚ç‚¹æ‰€ä»¥æ‰“ä¸€ä¸ªæ ‡è®°
 		tempIndexNodeId.insert(indexId);
 		return pIndexNode;
 	}
 
-	//´ÓÎÄ¼şµ±ÖĞ¶ÁÈ¡µ«ÊÇ²»·ÅÈë»º´æ
+	//ä»æ–‡ä»¶å½“ä¸­è¯»å–ä½†æ˜¯ä¸æ”¾å…¥ç¼“å­˜
 
-	//´ÓÎÄ¼şµ±ÖĞ°ÑÊı¾İ¶ÁÈ¡³öÀ´
+	//ä»æ–‡ä»¶å½“ä¸­æŠŠæ•°æ®è¯»å–å‡ºæ¥
 	char* buffer = (char*)malloc(8 * 1024);
 
-	//ÔÚÎÄ¼şµ±ÖĞµÄ´æ´¢Î»ÖÃÊÇÓÃË÷Òıid * 4 * 1024À´¶¨µÄ,ÓĞĞ©´æ´¢µÄ´æ´¢µÄ±È½Ï´ó»á´óÓÚ4k
+	//åœ¨æ–‡ä»¶å½“ä¸­çš„å­˜å‚¨ä½ç½®æ˜¯ç”¨ç´¢å¼•id * 4 * 1024æ¥å®šçš„,æœ‰äº›å­˜å‚¨çš„å­˜å‚¨çš„æ¯”è¾ƒå¤§ä¼šå¤§äº4k
 	fpos_t pos;
 	pos.__pos = indexId * 4 * 1024;
 	indexFile.read(pos, buffer, 4 * 1024);
 
-	//¸ù¾İ²»Í¬µÄ½ÚµãÀàĞÍ´´½¨½Úµã
+	//æ ¹æ®ä¸åŒçš„èŠ‚ç‚¹ç±»å‹åˆ›å»ºèŠ‚ç‚¹
 	char* p = buffer;
 	switch (*((unsigned char*)p))
 	{
@@ -166,7 +166,7 @@ IndexNode* IndexFile::getTempIndexNode(unsigned long long indexId)
 	p += 2;
 	if ((len + 3) > 4 * 1024)
 	{
-		//°ÑÊ£ÏÂµÄ×Ö½Ú¸ø¶ÁÈ¡³öÀ´
+		//æŠŠå‰©ä¸‹çš„å­—èŠ‚ç»™è¯»å–å‡ºæ¥
 		fpos_t pos;
 		pos.__pos = (indexId + 1) * 4 * 1024;
 		if (!indexFile.read(pos, &buffer[4 * 1024], len + 3 - 4 * 1024))
@@ -178,7 +178,7 @@ IndexNode* IndexFile::getTempIndexNode(unsigned long long indexId)
 		pIndexNode->setIsBig(true);
 	}
 
-	//°Ñ¶ş½øÖÆ×ª³É½ÚµãµÄÀïÃæµÄÊı¾İ
+	//æŠŠäºŒè¿›åˆ¶è½¬æˆèŠ‚ç‚¹çš„é‡Œé¢çš„æ•°æ®
 	if (!pIndexNode->toObject(p, len))
 	{
 		delete pIndexNode;
@@ -193,14 +193,14 @@ IndexNode* IndexFile::getTempIndexNode(unsigned long long indexId)
 	return pIndexNode;
 }
 
-//°ÑÄ³¸ö½ÚµãĞ´Èëµ½ÎÄ¼şµ±ÖĞ
+//æŠŠæŸä¸ªèŠ‚ç‚¹å†™å…¥åˆ°æ–‡ä»¶å½“ä¸­
 bool IndexFile::writeFile(unsigned long long indexId, IndexNode* pIndexNode)
 {
 	if (pIndexNode == nullptr)
 	{
 		return false;
 	}
-	//ÅĞ¶Ï½ÚµãÊÇ·ñÊÇÒÑ¾­ĞŞ¸Ä¹ıÁËµÄ
+	//åˆ¤æ–­èŠ‚ç‚¹æ˜¯å¦æ˜¯å·²ç»ä¿®æ”¹è¿‡äº†çš„
 	if (!pIndexNode->getIsModified())
 	{
 		return true;
@@ -219,12 +219,12 @@ bool IndexFile::writeFile(unsigned long long indexId, IndexNode* pIndexNode)
 	{
 		std::vector<unsigned long long> indexIdVec;
 		std::vector<IndexNode*> indexNodeVec;
-		//½ÚµãµÄ´óĞ¡±ÈÄ¬ÈÏµÄ4kµÄ´óĞ¡»¹Òª´óÕâ¸öÊ±ºò»»Ò»¸ö¿ÉÒÔ±£´æ8k´óĞ¡µÄid
+		//èŠ‚ç‚¹çš„å¤§å°æ¯”é»˜è®¤çš„4kçš„å¤§å°è¿˜è¦å¤§è¿™ä¸ªæ—¶å€™æ¢ä¸€ä¸ªå¯ä»¥ä¿å­˜8kå¤§å°çš„id
 		unsigned long long newIndexId = UniqueGenerator::getUGenerator().acquireTwoNumber();
 
-		//ÓÉÓÚ½ÚµãµÄidÒÑ¾­¸Ä±äÁËËùÒÔÒ²Òª°Ñ¸¸½Úµã¶ÔÓ¦µÄº¢×Ó½ÚµãidºÍº¢×Ó½Úµã¶ÔÓ¦µÄ¸¸½ÚµãidĞŞ¸Ä
+		//ç”±äºèŠ‚ç‚¹çš„idå·²ç»æ”¹å˜äº†æ‰€ä»¥ä¹Ÿè¦æŠŠçˆ¶èŠ‚ç‚¹å¯¹åº”çš„å­©å­èŠ‚ç‚¹idå’Œå­©å­èŠ‚ç‚¹å¯¹åº”çš„çˆ¶èŠ‚ç‚¹idä¿®æ”¹
 		
-		//ÓÉÓÚÕâÀïÊÇÁÙÊ±ÄÃÊı¾İµÄÒ²¾ÍÊÇËµÄÃ³öÀ´ÁËÒÔºóÒªÁ¢Âí·Å»ØÈ¥µÄ
+		//ç”±äºè¿™é‡Œæ˜¯ä¸´æ—¶æ‹¿æ•°æ®çš„ä¹Ÿå°±æ˜¯è¯´æ‹¿å‡ºæ¥äº†ä»¥åè¦ç«‹é©¬æ”¾å›å»çš„
 		unsigned long long parentIndexId = pIndexNode->getParentId();
 		if (parentIndexId != 0)
 		{
@@ -242,7 +242,7 @@ bool IndexFile::writeFile(unsigned long long indexId, IndexNode* pIndexNode)
 			indexIdVec.push_back(parentIndexId);
 			indexNodeVec.push_back(pTempIndexNode);
 			
-			//ĞŞ¸Ä¸¸½Úµã¶ÔÓ¦µÄ×Ó½ÚµãµÄid
+			//ä¿®æ”¹çˆ¶èŠ‚ç‚¹å¯¹åº”çš„å­èŠ‚ç‚¹çš„id
 			if (!pTempIndexNode->changeChildIndexId(indexId, newIndexId))
 			{
 				for (unsigned int i = 0; i < indexIdVec.size(); ++i)
@@ -254,13 +254,13 @@ bool IndexFile::writeFile(unsigned long long indexId, IndexNode* pIndexNode)
 			}
 		}
 
-		//ĞŞ¸ÄËùÓĞ×Ó½ÚµãµÄ¸¸½Úµãid
+		//ä¿®æ”¹æ‰€æœ‰å­èŠ‚ç‚¹çš„çˆ¶èŠ‚ç‚¹id
 
-		//ÏÈ°ÑËùÓĞµÄ×Ó½ÚµãidÕÒ³öÀ´
+		//å…ˆæŠŠæ‰€æœ‰çš„å­èŠ‚ç‚¹idæ‰¾å‡ºæ¥
 		std::vector<unsigned long long> childIndexId;
 		pIndexNode->getAllChildNodeId(childIndexId);
 
-		//°ÑËùÓĞµÄº¢×Ó½ÚµãµÄÊı¾İ¶ÁÈ¡³öÀ´
+		//æŠŠæ‰€æœ‰çš„å­©å­èŠ‚ç‚¹çš„æ•°æ®è¯»å–å‡ºæ¥
 		std::vector< IndexNode*> childIndexNode;
 		for (auto& value : childIndexId)
 		{
@@ -280,31 +280,31 @@ bool IndexFile::writeFile(unsigned long long indexId, IndexNode* pIndexNode)
 			childIndexNode.push_back(childNode);
 		}
 
-		//°ÑËùÓĞµÄº¢×Ó½ÚµãµÄ¸¸½Úµãid¸Äµô
+		//æŠŠæ‰€æœ‰çš„å­©å­èŠ‚ç‚¹çš„çˆ¶èŠ‚ç‚¹idæ”¹æ‰
 		for (auto& value : childIndexNode)
 		{
 			value->setParentID(newIndexId);
 		}
 
-		//°ÑËùÓĞÁÙÊ±´ò¿ªµÄÎÄ¼ş±£´æ»ØÈ¥
+		//æŠŠæ‰€æœ‰ä¸´æ—¶æ‰“å¼€çš„æ–‡ä»¶ä¿å­˜å›å»
 		for (unsigned int i = 0; i < indexIdVec.size(); ++i)
 		{
 			writeTempFile(indexIdVec[i], indexNodeVec[i]);
 		}
 
-		//¸¸½Úµã»¹ÓĞËùÓĞµÄº¢×Ó½ÚµãµÄ¸¸½Úµãid¶¼¸Ä±äÁËÒÔºóÕâ¸ö½Úµã¾ÍÊÇÓÃĞÂ½ÚµãidÁË¡£
-		//´´½¨ÁËĞÂµÄ½ÚµãµÄidËùÒÔ¾ÉµÄ½ÚµãµÄid¾ÍÎŞĞ§ÁË·Å»ØÈ¥
+		//çˆ¶èŠ‚ç‚¹è¿˜æœ‰æ‰€æœ‰çš„å­©å­èŠ‚ç‚¹çš„çˆ¶èŠ‚ç‚¹idéƒ½æ”¹å˜äº†ä»¥åè¿™ä¸ªèŠ‚ç‚¹å°±æ˜¯ç”¨æ–°èŠ‚ç‚¹idäº†ã€‚
+		//åˆ›å»ºäº†æ–°çš„èŠ‚ç‚¹çš„idæ‰€ä»¥æ—§çš„èŠ‚ç‚¹çš„idå°±æ— æ•ˆäº†æ”¾å›å»
 		UniqueGenerator::getUGenerator().recycleNumber(indexId);
 		indexId = newIndexId;
 		pIndexNode->setIndexId(indexId);
 	}
 	else if ((len + 3) <= 4 * 1024 && pIndexNode->getIsBig())
 	{
-		//Ğ´ÈëµÄÊ±ºò·¢ÏÖÖ»ĞèÒª4kµÄ´æ´¢¿Õ¼ä¾Í¹»ÁË,µ«ÊÇ´ÓÓ²ÅÌÀïÃæ¶Á³öÀ´µÄÊ±ºòÊÇ³¬¹ı4kµÄ,´óÓÚ4kµÄ²¿·ÖÒÑ¾­²»ĞèÒªÁË°ÑÒ»¸öid»ØÊÕ
+		//å†™å…¥çš„æ—¶å€™å‘ç°åªéœ€è¦4kçš„å­˜å‚¨ç©ºé—´å°±å¤Ÿäº†,ä½†æ˜¯ä»ç¡¬ç›˜é‡Œé¢è¯»å‡ºæ¥çš„æ—¶å€™æ˜¯è¶…è¿‡4kçš„,å¤§äº4kçš„éƒ¨åˆ†å·²ç»ä¸éœ€è¦äº†æŠŠä¸€ä¸ªidå›æ”¶
 		UniqueGenerator::getUGenerator().recycleNumber(indexId + 1);
 	}
 
-	//°ÑÕâ¸ö½ÚµãµÄÊı¾İĞ´½ø´ÅÅÌÀïÃæ
+	//æŠŠè¿™ä¸ªèŠ‚ç‚¹çš„æ•°æ®å†™è¿›ç£ç›˜é‡Œé¢
 	*((unsigned char*)buffer) = pIndexNode->getType();
 	fpos_t pos;
 	pos.__pos = indexId * 4 * 1024;
@@ -320,7 +320,7 @@ bool IndexFile::writeTempFile(unsigned long long indexId, IndexNode* pIndexNode)
 	{
 		return false;
 	}
-	//Ê×ÏÈ¼ì²éÏÂ»º´æÊÇ·ñÒÑ¾­ÓĞÁË
+	//é¦–å…ˆæ£€æŸ¥ä¸‹ç¼“å­˜æ˜¯å¦å·²ç»æœ‰äº†
 	auto it = tempIndexNodeId.find(indexId);
 	if (it != end(tempIndexNodeId))
 	{
@@ -329,7 +329,7 @@ bool IndexFile::writeTempFile(unsigned long long indexId, IndexNode* pIndexNode)
 		return true;
 	}
 
-	//°ÑÊı¾İĞ´ÈëÎÄ¼şµ±ÖĞ
+	//æŠŠæ•°æ®å†™å…¥æ–‡ä»¶å½“ä¸­
 	char* buffer = (char*)malloc(8 * 1024);
 	char* p = buffer + 1;
 	bool ok = pIndexNode->toBinary(p, 8 * 1024 - 1);
@@ -340,22 +340,22 @@ bool IndexFile::writeTempFile(unsigned long long indexId, IndexNode* pIndexNode)
 		return false;
 	}
 
-	//ÓÉÓÚ¶ÁÈ¡ÁÙÊ±ÎÄ¼şµÄÊ±ºòÖ»ÊÇ¶ÔÀïÃæµÄid×Ö¶Î½øĞĞÁË¸Ä¶¯ËùÒÔ´óĞ¡ÊÇ²»»áÓĞ¸Ä±äµÄÖ±½Ó´æÈëµ½ÎÄ¼şÀïÃæ¾Í¿ÉÒÔÁË
+	//ç”±äºè¯»å–ä¸´æ—¶æ–‡ä»¶çš„æ—¶å€™åªæ˜¯å¯¹é‡Œé¢çš„idå­—æ®µè¿›è¡Œäº†æ”¹åŠ¨æ‰€ä»¥å¤§å°æ˜¯ä¸ä¼šæœ‰æ”¹å˜çš„ç›´æ¥å­˜å…¥åˆ°æ–‡ä»¶é‡Œé¢å°±å¯ä»¥äº†
 
-	//¸ù¾İÀàĞÍÌîĞ´ÏàÓ¦ÀàĞÍµÄ×Ö¶Î
+	//æ ¹æ®ç±»å‹å¡«å†™ç›¸åº”ç±»å‹çš„å­—æ®µ
 	*((unsigned char*)buffer) = pIndexNode->getType();
 	short len = *((short*)p);
 	fpos_t pos;
 	pos.__pos = indexId * 4 * 1024;
 	indexFile.write(pos, buffer, len + 3);
 	
-	//Ğ´ÈëÍê³ÉÁËÒÔºó¶ÑÄÚ´æ½øĞĞÊÍ·Å
+	//å†™å…¥å®Œæˆäº†ä»¥åå †å†…å­˜è¿›è¡Œé‡Šæ”¾
 	free(buffer);
 	delete pIndexNode;
 	return true;
 }
 
-//»º´æÎ¬³ÖÒ»¸ö´óĞ¡²»ÒªÌ«´ó
+//ç¼“å­˜ç»´æŒä¸€ä¸ªå¤§å°ä¸è¦å¤ªå¤§
 bool IndexFile::reduceCache()
 {
 	if (pIndex == nullptr)
@@ -363,7 +363,7 @@ bool IndexFile::reduceCache()
 		return false;
 	}
 
-	//¸ù¾İÊ¹ÓÃµÄ·½·¨¼õÉÙÄÚ´æËÑË÷µÄÊ±ºòÊÇ²»ĞèÒªĞ´ÈçÓ²ÅÌµÄËùÒÔÖ±½ÓÇå³ı»º´æ¾Í¿ÉÒÔÁË
+	//æ ¹æ®ä½¿ç”¨çš„æ–¹æ³•å‡å°‘å†…å­˜æœç´¢çš„æ—¶å€™æ˜¯ä¸éœ€è¦å†™å¦‚ç¡¬ç›˜çš„æ‰€ä»¥ç›´æ¥æ¸…é™¤ç¼“å­˜å°±å¯ä»¥äº†
 	if (pIndex->getUseType() == USE_TYPE_SEARCH)
 	{
 		if (!pIndex->reduceCache())
@@ -381,7 +381,7 @@ bool IndexFile::reduceCache()
 
 		unsigned int needReduceNum = size - 1024;
 
-		//°ÑÓÅÏÈ¼¶×îµÍµÄÄÇĞ©½ÚµãÈ¡³öÀ´¡£
+		//æŠŠä¼˜å…ˆçº§æœ€ä½çš„é‚£äº›èŠ‚ç‚¹å–å‡ºæ¥ã€‚
 		std::vector<unsigned long long> indexIdVec;
 		std::vector<IndexNode*> indexNodeVec;
 		indexIdVec.reserve(needReduceNum);
@@ -392,7 +392,7 @@ bool IndexFile::reduceCache()
 			return false;
 		}
 
-		//°ÑËùÓĞĞèÒª¼õÉÙµÄ½ÚµãÈ«²¿Ğ´ÅÌ
+		//æŠŠæ‰€æœ‰éœ€è¦å‡å°‘çš„èŠ‚ç‚¹å…¨éƒ¨å†™ç›˜
 		for (unsigned int i = 0; i < needReduceNum; ++i)
 		{
 			if (!writeFile(indexIdVec[i], indexNodeVec[i]))
@@ -401,7 +401,7 @@ bool IndexFile::reduceCache()
 			}
 		}
 
-		//¼õÉÙË÷ÒıÀïÃæµÄÏàÓ¦ÊıÁ¿µÄÊı¾İ
+		//å‡å°‘ç´¢å¼•é‡Œé¢çš„ç›¸åº”æ•°é‡çš„æ•°æ®
 		if (!pIndex->reduceCache(needReduceNum))
 		{
 			return false;
@@ -465,7 +465,7 @@ unsigned long long IndexFile::getRootIndexId()
 	return rootIndexId;
 }
 
-bool IndexFile::writeEveryCache()																	//°Ñ»º´æµ±ÖĞµÄÊı¾İÈ«²¿Ğ´ÅÌ
+bool IndexFile::writeEveryCache()																	//æŠŠç¼“å­˜å½“ä¸­çš„æ•°æ®å…¨éƒ¨å†™ç›˜
 {
 	if (pIndex == nullptr)
 	{
@@ -484,7 +484,7 @@ bool IndexFile::writeEveryCache()																	//°Ñ»º´æµ±ÖĞµÄÊı¾İÈ«²¿Ğ´ÅÌ
 		return false;
 	}
 
-	//°ÑËùÓĞĞèÒª¼õÉÙµÄ½ÚµãÈ«²¿Ğ´ÅÌ
+	//æŠŠæ‰€æœ‰éœ€è¦å‡å°‘çš„èŠ‚ç‚¹å…¨éƒ¨å†™ç›˜
 	for (unsigned int i = 0; i < size; ++i)
 	{
 		if (!writeFile(indexIdVec[i], indexNodeVec[i]))
@@ -495,7 +495,7 @@ bool IndexFile::writeEveryCache()																	//°Ñ»º´æµ±ÖĞµÄÊı¾İÈ«²¿Ğ´ÅÌ
 
 	pIndex->clearCache();
 
-	//°Ñ¸ù½ÚµãµÄidĞ´Èëµ½ÎÄ¼ş¿ªÍ·
+	//æŠŠæ ¹èŠ‚ç‚¹çš„idå†™å…¥åˆ°æ–‡ä»¶å¼€å¤´
 	fpos_t pos;
 	pos.__pos = 0;
 	if (!indexFile.write(pos, &rootIndexId, 8))

@@ -35,7 +35,7 @@ bool SearchIndex::init(const char* searchTarget, unsigned int targetLen, SetWith
 
 	char indexFileName[4096];
 	memset(indexFileName, 0, sizeof(indexFileName));
-	//»ñÈ¡Ë÷ÒıÎÄ¼şµÄÃû×Ö
+	//è·å–ç´¢å¼•æ–‡ä»¶çš„åå­—
 	if (!GetIndexPath(fileName, indexFileName))
 	{
 		return false;
@@ -55,7 +55,7 @@ bool SearchIndex::init(const char* searchTarget, unsigned int targetLen, SetWith
 	this->targetLen = targetLen;
 	this->resultSet = resultSet;
 
-	//¶ÁÈ¡Ä¿±êÎÄ¼şµÄ´óĞ¡
+	//è¯»å–ç›®æ ‡æ–‡ä»¶çš„å¤§å°
 	struct stat statbuf;
 	stat(fileName, &statbuf);
 	dstFileSize = statbuf.st_size;

@@ -40,7 +40,7 @@ bool Index::insert(unsigned long long indexId, IndexNode*& pIndexNode)
 	auto pair = indexNodeCache.insert({ indexId, pIndexNode });
 	if (!pair.second)
 	{
-		//ÔÚËÑË÷Ä£Ê½ÏÂÃæ¿ÉÄÜÍ¬Ê±¶ÁÈ¡ÎÄ¼þ½øÐÐ²åÈëµÄ²Ù×÷Õâ¸öÊ±ºòÆäÖÐÒ»¸öÒÑ¾­²åÈëÁËÕâ±ß¾ÍÖ±½Ó·µ»Ø¾ÍÐÐÁË
+		//åœ¨æœç´¢æ¨¡å¼ä¸‹é¢å¯èƒ½åŒæ—¶è¯»å–æ–‡ä»¶è¿›è¡Œæ’å…¥çš„æ“ä½œè¿™ä¸ªæ—¶å€™å…¶ä¸­ä¸€ä¸ªå·²ç»æ’å…¥äº†è¿™è¾¹å°±ç›´æŽ¥è¿”å›žå°±è¡Œäº†
 		if (useType == USE_TYPE_SEARCH)
 		{
 			delete pIndexNode;
@@ -53,7 +53,7 @@ bool Index::insert(unsigned long long indexId, IndexNode*& pIndexNode)
 		return false;
 	}
 
-	//Ìí¼ÓÁËË÷Òý»º´æµÄÍ¬Ê±Ò²ÒªÌí¼ÓÓÅÏÈ¼¶»º´æ
+	//æ·»åŠ äº†ç´¢å¼•ç¼“å­˜çš„åŒæ—¶ä¹Ÿè¦æ·»åŠ ä¼˜å…ˆçº§ç¼“å­˜
 	IndexIdPreority.insert({ pIndexNode->getPreCmpLen(), indexId });
 	pIndexNode->increaseRef();
 	releaseSRWLockExclusive(&rwLock);
@@ -104,7 +104,7 @@ bool Index::reduceCache(unsigned int needReduceNum)
 			return false;
 		}
 
-		//É¾³ýÖ®Ç°ÏÈ°ÑÄÚ´æµÄÊý¾ÝÉ¾³ý
+		//åˆ é™¤ä¹‹å‰å…ˆæŠŠå†…å­˜çš„æ•°æ®åˆ é™¤
 		delete cacheIt->second;
 		indexNodeCache.erase(cacheIt);
 		IndexIdPreority.erase(curIt);
@@ -134,7 +134,7 @@ bool Index::reduceCache()
 			return false;
 		}
 
-		//É¾³ýÖ®Ç°ÏÈ¿´Ò»ÏÂÊÇ·ñÍâÃæÓÐÒýÓÃÕâ¸ö½Úµã
+		//åˆ é™¤ä¹‹å‰å…ˆçœ‹ä¸€ä¸‹æ˜¯å¦å¤–é¢æœ‰å¼•ç”¨è¿™ä¸ªèŠ‚ç‚¹
 		if (cacheIt->second->isZeroRef())
 		{
 			delete cacheIt->second;
@@ -148,7 +148,7 @@ bool Index::reduceCache()
 
 bool Index::changePreCmpLen(unsigned long long indexId, unsigned long long orgPreCmpLen, unsigned long long newPreCmpLen)
 {
-	//¸ù¾Ý¾ÉµÄpreCmpLenºÍindexIdÔÚÓÅÏÈ¼¶±íµ±ÖÐÕÒµ½¶ÔÓ¦Ïî
+	//æ ¹æ®æ—§çš„preCmpLenå’ŒindexIdåœ¨ä¼˜å…ˆçº§è¡¨å½“ä¸­æ‰¾åˆ°å¯¹åº”é¡¹
 	auto ret = IndexIdPreority.equal_range(orgPreCmpLen);
 	auto it = ret.first;
 	for (; it != ret.second; ++it)
@@ -164,7 +164,7 @@ bool Index::changePreCmpLen(unsigned long long indexId, unsigned long long orgPr
 		return false;
 	}
 
-	//´Ó»º´æµ±ÖÐ»ñÈ¡ÄÇ¸ö½Úµã
+	//ä»Žç¼“å­˜å½“ä¸­èŽ·å–é‚£ä¸ªèŠ‚ç‚¹
 	auto cacheIt = indexNodeCache.find(indexId);
 	if (cacheIt == end(indexNodeCache))
 	{
@@ -176,10 +176,10 @@ bool Index::changePreCmpLen(unsigned long long indexId, unsigned long long orgPr
 		return false;
 	}
 
-	//´ÓÓÅÏÈ¼¶±íµ±ÖÐÏÈÉ¾µôÔÙÐÞ¸Ä
+	//ä»Žä¼˜å…ˆçº§è¡¨å½“ä¸­å…ˆåˆ æŽ‰å†ä¿®æ”¹
 	IndexIdPreority.erase(it);
 	IndexIdPreority.insert({ newPreCmpLen, indexId });
-	//°Ñ»º´æÀïÃæµÄpreCmpId¸Äµô
+	//æŠŠç¼“å­˜é‡Œé¢çš„preCmpIdæ”¹æŽ‰
 	cacheIt->second->setPreCmpLen(newPreCmpLen);
 	return true;
 }
@@ -197,7 +197,7 @@ bool Index::swapNode(unsigned long long indexId, IndexNode* newNode)
 
 IndexNode* Index::newIndexNode(unsigned char nodeType, unsigned long long preCmpLen)
 {
-	//¸ù¾ÝÀàÐÍ´´½¨ÐÂµÄ½Úµã
+	//æ ¹æ®ç±»åž‹åˆ›å»ºæ–°çš„èŠ‚ç‚¹
 	IndexNode* pNode = nullptr;
 	switch (nodeType)
 	{
@@ -222,10 +222,10 @@ IndexNode* Index::newIndexNode(unsigned char nodeType, unsigned long long preCmp
 		return nullptr;
 	}
 
-	//»ñÈ¡ÐÂ´´½¨µÄ½ÚµãµÄid
+	//èŽ·å–æ–°åˆ›å»ºçš„èŠ‚ç‚¹çš„id
 	unsigned long long indexId = UniqueGenerator::getUGenerator().acquireNumber();
 
-	//½«ÐÂ´´½¨µÄ½Úµã²åÈëµ½»º´æµ±ÖÐ
+	//å°†æ–°åˆ›å»ºçš„èŠ‚ç‚¹æ’å…¥åˆ°ç¼“å­˜å½“ä¸­
 	bool ok = indexNodeCache.insert({ indexId, pNode }).second;
 	if (!ok)
 	{
@@ -233,13 +233,13 @@ IndexNode* Index::newIndexNode(unsigned char nodeType, unsigned long long preCmp
 		return nullptr;
 	}
 
-	//Ìí¼ÓÁËË÷Òý»º´æµÄÍ¬Ê±Ò²ÒªÌí¼ÓÓÅÏÈ¼¶»º´æ
+	//æ·»åŠ äº†ç´¢å¼•ç¼“å­˜çš„åŒæ—¶ä¹Ÿè¦æ·»åŠ ä¼˜å…ˆçº§ç¼“å­˜
 	IndexIdPreority.insert({ preCmpLen, indexId });
 
-	//ÉèÖÃpreCmdLen
+	//è®¾ç½®preCmdLen
 	pNode->setPreCmpLen(preCmpLen);
 
-	//ÉèÖÃindexId
+	//è®¾ç½®indexId
 	pNode->setIndexId(indexId);
 
 	return pNode;
@@ -300,7 +300,7 @@ bool Index::putIndexNode(IndexNode* indexNode)
 	acquireSRWLockShared(&rwLock);
 	if (indexNode->decreaseAndTestZero())
 	{
-		//ÒÑ¾­Ã»ÓÐ»º´æ»òÕßÊÇ»º´æÇå³ý´ÓÐÂÌí¼ÓÁËÐÂµÄ½Úµã¾ÍÉ¾³ý
+		//å·²ç»æ²¡æœ‰ç¼“å­˜æˆ–è€…æ˜¯ç¼“å­˜æ¸…é™¤ä»Žæ–°æ·»åŠ äº†æ–°çš„èŠ‚ç‚¹å°±åˆ é™¤
 		auto it = indexNodeCache.find(indexNode->getIndexId());
 		if (it == end(indexNodeCache) || it->second != indexNode)
 		{

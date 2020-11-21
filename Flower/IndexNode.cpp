@@ -282,7 +282,7 @@ bool IndexNodeTypeOne::toBinary(char* buffer, int len)
 				leafNum++;
 			}
 		}
-		//±£´æÖ»ÊÇÒ¶×Ó½Úµã²¿·Ö
+		//ä¿å­˜åªæ˜¯å¶å­èŠ‚ç‚¹éƒ¨åˆ†
 		if (leftSize < 1 + leafNum * 16)
 		{
 			return false;
@@ -296,7 +296,7 @@ bool IndexNodeTypeOne::toBinary(char* buffer, int len)
 	}
 	else
 	{
-		//Ã»ÓĞº¢×Ó½ÚµãÓÃ2¸ö0µÄ×Ö½Ú±íÊ¾¶şÖÖ½ÚµãÊıÄ¿¶¼ÊÇÁã
+		//æ²¡æœ‰å­©å­èŠ‚ç‚¹ç”¨2ä¸ª0çš„å­—èŠ‚è¡¨ç¤ºäºŒç§èŠ‚ç‚¹æ•°ç›®éƒ½æ˜¯é›¶
 		if (leftSize < 2)
 		{
 			return false;
@@ -307,7 +307,7 @@ bool IndexNodeTypeOne::toBinary(char* buffer, int len)
 		leftSize -= 2;
 	}
 
-	//ÓĞĞ©±È½Ïµ½Õâ¸öÖĞÍ¾¾Íµ½ÎÄ¼şÄ©Î²ÁËÕâÊ±Õâ¸ö·ÖÖ§¼ÇÂ¼ÔÚÒ¶×Ó½Úµã¼¯ÀïÃæ
+	//æœ‰äº›æ¯”è¾ƒåˆ°è¿™ä¸ªä¸­é€”å°±åˆ°æ–‡ä»¶æœ«å°¾äº†è¿™æ—¶è¿™ä¸ªåˆ†æ”¯è®°å½•åœ¨å¶å­èŠ‚ç‚¹é›†é‡Œé¢
 	if (!leafSet.empty())
 	{
 		if (leftSize < 1)
@@ -334,7 +334,7 @@ bool IndexNodeTypeOne::toBinary(char* buffer, int len)
 	}
 	else
 	{
-		//¿ÕµÄ»°Ğ´Áã±íÊ¾Õâ²¿·ÖÊÇ0
+		//ç©ºçš„è¯å†™é›¶è¡¨ç¤ºè¿™éƒ¨åˆ†æ˜¯0
 		if (leftSize < 1)
 		{
 			return false;
@@ -342,14 +342,14 @@ bool IndexNodeTypeOne::toBinary(char* buffer, int len)
 		*p = 0;
 		totalSize += 1;
 	}
-	//×îºó°Ñ×ÜÌå´óĞ¡Ğ´Èë×îÇ°Ãæ
+	//æœ€åæŠŠæ€»ä½“å¤§å°å†™å…¥æœ€å‰é¢
 	*((short*)buffer) = totalSize;
 	return true;
 }
 
 bool IndexNodeTypeOne::toObject(char* buffer, int len)
 {
-	//´æ´¢µÄÊ±ºòÇ°ÃæÓĞ¼ÓÉÏÀàĞÍ»¹ÓĞ´æ´¢µÄ´óĞ¡ËùÒÔÇ°Ãæ¼Ó3¸ö×Ö½Ú
+	//å­˜å‚¨çš„æ—¶å€™å‰é¢æœ‰åŠ ä¸Šç±»å‹è¿˜æœ‰å­˜å‚¨çš„å¤§å°æ‰€ä»¥å‰é¢åŠ 3ä¸ªå­—èŠ‚
 	if ((len + 3) > 4 * 1024)
 	{
 		isBig = true;
@@ -370,7 +370,7 @@ bool IndexNodeTypeOne::toObject(char* buffer, int len)
 	parentID = *((unsigned long long*)p);
 	p += 8;
 	leftSize -= 32;
-	//ÏÈ¶ÁÈ¡ÓĞË÷Òı½ÚµãµÄ²¿·Ö
+	//å…ˆè¯»å–æœ‰ç´¢å¼•èŠ‚ç‚¹çš„éƒ¨åˆ†
 	if (leftSize < 1)
 	{
 		return false;
@@ -397,7 +397,7 @@ bool IndexNodeTypeOne::toObject(char* buffer, int len)
 	}
 
 	leftSize -= indexNodeNum * 16;
-	//Ìí¼ÓÖ»ÊÇÒ¶×Ó½Úµã²¿·Ö
+	//æ·»åŠ åªæ˜¯å¶å­èŠ‚ç‚¹éƒ¨åˆ†
 	unsigned char leafNum = *p;
 	p += 1;
 	leftSize -= 1;
@@ -422,7 +422,7 @@ bool IndexNodeTypeOne::toObject(char* buffer, int len)
 	leftSize -= leafNum * 16;
 
 
-	//Ìí¼Ó±È½Ïµ½ÖĞÍ¾¾Íµ½ÎÄ¼ş½áÎ²µÄÒ¶×Ó½Úµã
+	//æ·»åŠ æ¯”è¾ƒåˆ°ä¸­é€”å°±åˆ°æ–‡ä»¶ç»“å°¾çš„å¶å­èŠ‚ç‚¹
 	unsigned char endLeafNum = *p;
 	p += 1;
 	leftSize -= 1;
@@ -450,7 +450,7 @@ unsigned char IndexNodeTypeOne::getType()
 
 bool IndexNodeTypeOne::changeChildIndexId(unsigned long long orgIndexId, unsigned long long newIndexId)
 {
-	//±ãÀûËùÓĞµÄº¢×Ó½Úµã°Ñº¢×Ó½ÚµãÉèÖÃÎªĞÂµÄ½Úµãid
+	//ä¾¿åˆ©æ‰€æœ‰çš„å­©å­èŠ‚ç‚¹æŠŠå­©å­èŠ‚ç‚¹è®¾ç½®ä¸ºæ–°çš„èŠ‚ç‚¹id
 	for (auto& value : children)
 	{
 		if (value.second.childType == CHILD_TYPE_NODE && value.second.indexId == orgIndexId)
@@ -481,9 +481,9 @@ size_t IndexNodeTypeOne::getChildrenNum()
 
 IndexNode* IndexNodeTypeOne::changeType(BuildIndex* buildIndex)
 {
-	//Ê×ÏÈ´´½¨ÏÂÒ»¸öÀàĞÍµÄ½Úµã
+	//é¦–å…ˆåˆ›å»ºä¸‹ä¸€ä¸ªç±»å‹çš„èŠ‚ç‚¹
 	IndexNodeTypeTwo* ret = new IndexNodeTypeTwo();
-	//°Ñµ±Ç°½Úµãµ±Ç°È«²¿µÄ¸¸ÀàµÄÊı¾İ¿½±´¹ıÈ¥
+	//æŠŠå½“å‰èŠ‚ç‚¹å½“å‰å…¨éƒ¨çš„çˆ¶ç±»çš„æ•°æ®æ‹·è´è¿‡å»
 	ret->setStart(getStart());
 	ret->setLen(getLen());
 	ret->setPreCmpLen(getPreCmpLen());
@@ -491,10 +491,10 @@ IndexNode* IndexNodeTypeOne::changeType(BuildIndex* buildIndex)
 	ret->setIndexId(getIndexId());
 	ret->setIsBig(getIsBig());
 
-	//±éÀú×Ô¼ºµÄº¢×Ó½Úµã¶ÔÃ¿¸ö½Úµã·Åµ½ĞÂµÄmapµ±ÖĞ
+	//éå†è‡ªå·±çš„å­©å­èŠ‚ç‚¹å¯¹æ¯ä¸ªèŠ‚ç‚¹æ”¾åˆ°æ–°çš„mapå½“ä¸­
 	for (auto& value : children)
 	{
-		//°ÑÃ¿¸öº¢×Ó½ÚµãÖØĞÂÌí¼Óµ½ĞÂµÄ½Úµãµ±ÖĞ
+		//æŠŠæ¯ä¸ªå­©å­èŠ‚ç‚¹é‡æ–°æ·»åŠ åˆ°æ–°çš„èŠ‚ç‚¹å½“ä¸­
 		if (!ret->insertChildNode(buildIndex, value.first, value.second))
 		{
 			delete ret;
@@ -502,7 +502,7 @@ IndexNode* IndexNodeTypeOne::changeType(BuildIndex* buildIndex)
 		}
 	}
 
-	//°ÑÕâ¸ö½Úµã¼¼ÊõµÄÒ¶×Ó½ÚµãÒ²¸´ÖÆ¹ıÈ¥
+	//æŠŠè¿™ä¸ªèŠ‚ç‚¹æŠ€æœ¯çš„å¶å­èŠ‚ç‚¹ä¹Ÿå¤åˆ¶è¿‡å»
 	ret->leafSet.swap(leafSet);
 	ret->setIsModified(true);
 	return ret;
@@ -531,7 +531,7 @@ bool IndexNodeTypeOne::cutNodeSize(BuildIndex* buildIndex, unsigned long long in
 		}
 	}
 
-	//±¾Éí¿ÉÄÜ±È256Òª´óËùÒÔÒ²Òªµ÷ÓÃ
+	//æœ¬èº«å¯èƒ½æ¯”256è¦å¤§æ‰€ä»¥ä¹Ÿè¦è°ƒç”¨
 	if (!buildIndex->cutNodeSize(indexId, this))
 	{
 		return false;
@@ -549,12 +549,12 @@ bool IndexNodeTypeOne::insertChildNode(BuildIndex* buildIndex, unsigned long lon
 	auto it = children.find(key);
 	if (it == end(children))
 	{
-		//Ö±½Ó²åÈëµ½º¢×Ómapµ±ÖĞ
+		//ç›´æ¥æ’å…¥åˆ°å­©å­mapå½“ä¸­
 		children.insert({ key, indexNodeChild });
 	}
 	else
 	{
-		//Õâ¸öÊ±ºòºÏ²¢Á½¸öº¢×Ó½Úµã
+		//è¿™ä¸ªæ—¶å€™åˆå¹¶ä¸¤ä¸ªå­©å­èŠ‚ç‚¹
 		if (!buildIndex->mergeNode(preCmpLen + len + 8, indexId, it->second, indexNodeChild))
 		{
 			return false;
@@ -570,7 +570,7 @@ bool IndexNodeTypeOne::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeOne
 		return false;
 	}
 
-	//ºÏ²¢Ò¶×Ó½Úµã
+	//åˆå¹¶å¶å­èŠ‚ç‚¹
 	for (auto& leaf : indexNode->leafSet)
 	{
 		leafSet.insert(leaf);
@@ -581,12 +581,12 @@ bool IndexNodeTypeOne::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeOne
 		auto it = children.find(child.first);
 		if (it == end(children))
 		{
-			//Ö±½Ó²åÈëµ½º¢×ÓµÄmapµ±ÖĞ
+			//ç›´æ¥æ’å…¥åˆ°å­©å­çš„mapå½“ä¸­
 			children.insert({ child.first, child.second });
 		}
 		else
 		{
-			//Õâ¸öÊ±ºòºÏ²¢Á½¸öº¢×Ó½Úµã
+			//è¿™ä¸ªæ—¶å€™åˆå¹¶ä¸¤ä¸ªå­©å­èŠ‚ç‚¹
 			if (!buildIndex->mergeNode(preCmpLen + len + 8, indexId, it->second, child.second))
 			{
 				return false;
@@ -651,7 +651,7 @@ bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 				leafNum++;
 			}
 		}
-		//±£´æÖ»ÊÇÒ¶×Ó½Úµã²¿·Ö
+		//ä¿å­˜åªæ˜¯å¶å­èŠ‚ç‚¹éƒ¨åˆ†
 		if (leftSize < 1 + leafNum * 12)
 		{
 			return false;
@@ -665,7 +665,7 @@ bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 	}
 	else
 	{
-		//Ã»ÓĞº¢×Ó½ÚµãÓÃÈı¸ö0µÄ×Ö½Ú±íÊ¾ÈıÖÖ½ÚµãÊıÄ¿¶¼ÊÇÁã
+		//æ²¡æœ‰å­©å­èŠ‚ç‚¹ç”¨ä¸‰ä¸ª0çš„å­—èŠ‚è¡¨ç¤ºä¸‰ç§èŠ‚ç‚¹æ•°ç›®éƒ½æ˜¯é›¶
 		if (leftSize < 2)
 		{
 			return false;
@@ -676,7 +676,7 @@ bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 		leftSize -= 2;
 	}
 
-	//ÓĞĞ©±È½Ïµ½Õâ¸öÖĞÍ¾¾Íµ½ÎÄ¼şÄ©Î²ÁËÕâÊ±Õâ¸ö·ÖÖ§¼ÇÂ¼ÔÚÒ¶×Ó½Úµã¼¯ÀïÃæ
+	//æœ‰äº›æ¯”è¾ƒåˆ°è¿™ä¸ªä¸­é€”å°±åˆ°æ–‡ä»¶æœ«å°¾äº†è¿™æ—¶è¿™ä¸ªåˆ†æ”¯è®°å½•åœ¨å¶å­èŠ‚ç‚¹é›†é‡Œé¢
 	if (!leafSet.empty())
 	{
 		if (leftSize < 1)
@@ -703,7 +703,7 @@ bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 	}
 	else
 	{
-		//¿ÕµÄ»°Ğ´Áã±íÊ¾Õâ²¿·ÖÊÇ0
+		//ç©ºçš„è¯å†™é›¶è¡¨ç¤ºè¿™éƒ¨åˆ†æ˜¯0
 		if (leftSize < 1)
 		{
 			return false;
@@ -711,14 +711,14 @@ bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 		*p = 0;
 		totalSize += 1;
 	}
-	//×îºó°Ñ×ÜÌå´óĞ¡Ğ´Èë×îÇ°Ãæ
+	//æœ€åæŠŠæ€»ä½“å¤§å°å†™å…¥æœ€å‰é¢
 	*((short*)buffer) = totalSize;
 	return true;
 }
 
 bool IndexNodeTypeTwo::toObject(char* buffer, int len)
 {
-	//´æ´¢µÄÊ±ºòÇ°ÃæÓĞ¼ÓÉÏÀàĞÍ»¹ÓĞ´æ´¢µÄ´óĞ¡ËùÒÔÇ°Ãæ¼Ó3¸ö×Ö½Ú
+	//å­˜å‚¨çš„æ—¶å€™å‰é¢æœ‰åŠ ä¸Šç±»å‹è¿˜æœ‰å­˜å‚¨çš„å¤§å°æ‰€ä»¥å‰é¢åŠ 3ä¸ªå­—èŠ‚
 	if ((len + 3) > 4 * 1024)
 	{
 		isBig = true;
@@ -739,7 +739,7 @@ bool IndexNodeTypeTwo::toObject(char* buffer, int len)
 	parentID = *((unsigned long long*)p);
 	p += 8;
 	leftSize -= 32;
-	//ÏÈ¶ÁÈ¡ÓĞË÷Òı½ÚµãµÄ²¿·Ö
+	//å…ˆè¯»å–æœ‰ç´¢å¼•èŠ‚ç‚¹çš„éƒ¨åˆ†
 	if (leftSize < 1)
 	{
 		return false;
@@ -766,7 +766,7 @@ bool IndexNodeTypeTwo::toObject(char* buffer, int len)
 	}
 
 	leftSize -= indexNodeNum * 12;
-	//Ìí¼ÓÖ»ÊÇÒ¶×Ó½Úµã²¿·Ö
+	//æ·»åŠ åªæ˜¯å¶å­èŠ‚ç‚¹éƒ¨åˆ†
 	unsigned char leafNum = *p;
 	p += 1;
 	leftSize -= 1;
@@ -791,7 +791,7 @@ bool IndexNodeTypeTwo::toObject(char* buffer, int len)
 	leftSize -= leafNum * 12;
 
 
-	//Ìí¼Ó±È½Ïµ½ÖĞÍ¾¾Íµ½ÎÄ¼ş½áÎ²µÄÒ¶×Ó½Úµã
+	//æ·»åŠ æ¯”è¾ƒåˆ°ä¸­é€”å°±åˆ°æ–‡ä»¶ç»“å°¾çš„å¶å­èŠ‚ç‚¹
 	unsigned char endLeafNum = *p;
 	p += 1;
 	leftSize -= 1;
@@ -819,7 +819,7 @@ unsigned char IndexNodeTypeTwo::getType()
 
 bool IndexNodeTypeTwo::changeChildIndexId(unsigned long long orgIndexId, unsigned long long newIndexId)
 {
-	//±ãÀûËùÓĞµÄº¢×Ó½Úµã°Ñº¢×Ó½ÚµãÉèÖÃÎªĞÂµÄ½Úµãid
+	//ä¾¿åˆ©æ‰€æœ‰çš„å­©å­èŠ‚ç‚¹æŠŠå­©å­èŠ‚ç‚¹è®¾ç½®ä¸ºæ–°çš„èŠ‚ç‚¹id
 	for (auto& value : children)
 	{
 		if (value.second.childType == CHILD_TYPE_NODE && value.second.indexId == orgIndexId)
@@ -850,9 +850,9 @@ size_t IndexNodeTypeTwo::getChildrenNum()
 
 IndexNode* IndexNodeTypeTwo::changeType(BuildIndex* buildIndex)
 {
-	//Ê×ÏÈ´´½¨ÏÂÒ»¸öÀàĞÍµÄ½Úµã
+	//é¦–å…ˆåˆ›å»ºä¸‹ä¸€ä¸ªç±»å‹çš„èŠ‚ç‚¹
 	IndexNodeTypeThree* ret = new IndexNodeTypeThree();
-	//°Ñµ±Ç°½Úµãµ±Ç°È«²¿µÄ¸¸ÀàµÄÊı¾İ¿½±´¹ıÈ¥
+	//æŠŠå½“å‰èŠ‚ç‚¹å½“å‰å…¨éƒ¨çš„çˆ¶ç±»çš„æ•°æ®æ‹·è´è¿‡å»
 	ret->setStart(getStart());
 	ret->setLen(getLen());
 	ret->setPreCmpLen(getPreCmpLen());
@@ -860,10 +860,10 @@ IndexNode* IndexNodeTypeTwo::changeType(BuildIndex* buildIndex)
 	ret->setIndexId(getIndexId());
 	ret->setIsBig(getIsBig());
 
-	//±éÀú×Ô¼ºµÄº¢×Ó½Úµã¶ÔÃ¿¸ö½Úµã·Åµ½ĞÂµÄmapµ±ÖĞ
+	//éå†è‡ªå·±çš„å­©å­èŠ‚ç‚¹å¯¹æ¯ä¸ªèŠ‚ç‚¹æ”¾åˆ°æ–°çš„mapå½“ä¸­
 	for (auto& value : children)
 	{
-		//°ÑÃ¿¸öº¢×Ó½ÚµãÖØĞÂÌí¼Óµ½ĞÂµÄ½Úµãµ±ÖĞ
+		//æŠŠæ¯ä¸ªå­©å­èŠ‚ç‚¹é‡æ–°æ·»åŠ åˆ°æ–°çš„èŠ‚ç‚¹å½“ä¸­
 		if (!ret->insertChildNode(buildIndex, value.first, value.second))
 		{
 			delete ret;
@@ -871,7 +871,7 @@ IndexNode* IndexNodeTypeTwo::changeType(BuildIndex* buildIndex)
 		}
 	}
 
-	//°ÑÕâ¸ö½Úµã¼¼ÊõµÄÒ¶×Ó½ÚµãÒ²¸´ÖÆ¹ıÈ¥
+	//æŠŠè¿™ä¸ªèŠ‚ç‚¹æŠ€æœ¯çš„å¶å­èŠ‚ç‚¹ä¹Ÿå¤åˆ¶è¿‡å»
 	ret->leafSet.swap(leafSet);
 	ret->setIsModified(true);
 	return ret;
@@ -900,7 +900,7 @@ bool IndexNodeTypeTwo::cutNodeSize(BuildIndex* buildIndex, unsigned long long in
 		}
 	}
 
-	//±¾Éí¿ÉÄÜ±È256Òª´óËùÒÔÒ²Òªµ÷ÓÃ
+	//æœ¬èº«å¯èƒ½æ¯”256è¦å¤§æ‰€ä»¥ä¹Ÿè¦è°ƒç”¨
 	if (!buildIndex->cutNodeSize(indexId, this))
 	{
 		return false;
@@ -915,7 +915,7 @@ bool IndexNodeTypeTwo::insertChildNode(BuildIndex* buildIndex, unsigned long lon
 		return false;
 	}
 
-	//ÏÈ¶ÔÌí¼Ó½øÀ´µÄ½Úµã½øĞĞ´¦Àí
+	//å…ˆå¯¹æ·»åŠ è¿›æ¥çš„èŠ‚ç‚¹è¿›è¡Œå¤„ç†
 	IndexNodeChild newIndexNodeChild(indexNodeChild.getType(), indexNodeChild.getIndexId());
 	if (indexNodeChild.getType() == CHILD_TYPE_LEAF)
 	{
@@ -923,7 +923,7 @@ bool IndexNodeTypeTwo::insertChildNode(BuildIndex* buildIndex, unsigned long lon
 	}
 	else if (indexNodeChild.getType() == CHILD_TYPE_NODE)
 	{
-		//Èç¹ûÊÇÆÕÍ¨µÄ½áµãµÄ»°Òª¶Ô½ÚµãÀïÃæµÄÄÚÈİ½øĞĞĞŞ¸ÄÊ¹Æä°üº¬Ç°ÃæµÄÁ½¸ö×Ö½Ú
+		//å¦‚æœæ˜¯æ™®é€šçš„ç»“ç‚¹çš„è¯è¦å¯¹èŠ‚ç‚¹é‡Œé¢çš„å†…å®¹è¿›è¡Œä¿®æ”¹ä½¿å…¶åŒ…å«å‰é¢çš„ä¸¤ä¸ªå­—èŠ‚
 		IndexNode* childIndexNode = buildIndex->getIndexNode(indexNodeChild.getIndexId());
 		if (childIndexNode == nullptr)
 		{
@@ -931,7 +931,7 @@ bool IndexNodeTypeTwo::insertChildNode(BuildIndex* buildIndex, unsigned long lon
 		}
 		childIndexNode->setStart(childIndexNode->getStart() - 4);
 		childIndexNode->setLen(childIndexNode->getLen() + 4);
-		//¸Ä±äpreCmpLenµÄÊ±ºòÓĞĞŞ¸Äµ½ÓÅÏÈ¼¶ĞèÒªµ½»º´æµ±ÖĞ°ÑÄÇ¸ö»º´æ±íÒ²¸øĞŞ¸Äµô
+		//æ”¹å˜preCmpLençš„æ—¶å€™æœ‰ä¿®æ”¹åˆ°ä¼˜å…ˆçº§éœ€è¦åˆ°ç¼“å­˜å½“ä¸­æŠŠé‚£ä¸ªç¼“å­˜è¡¨ä¹Ÿç»™ä¿®æ”¹æ‰
 		if (!buildIndex->changePreCmpLen(indexNodeChild.getIndexId(), childIndexNode->getPreCmpLen(), childIndexNode->getPreCmpLen() - 4))
 		{
 			return false;
@@ -947,12 +947,12 @@ bool IndexNodeTypeTwo::insertChildNode(BuildIndex* buildIndex, unsigned long lon
 	auto it = children.find(nodeKey);
 	if (it == end(children))
 	{
-		//Ö±½Ó²åÈëµ½º¢×Ómapµ±ÖĞ
+		//ç›´æ¥æ’å…¥åˆ°å­©å­mapå½“ä¸­
 		children.insert({ nodeKey, newIndexNodeChild });
 	}
 	else
 	{
-		//Õâ¸öÊ±ºòºÏ²¢Á½¸öº¢×Ó½Úµã
+		//è¿™ä¸ªæ—¶å€™åˆå¹¶ä¸¤ä¸ªå­©å­èŠ‚ç‚¹
 		if (!buildIndex->mergeNode(preCmpLen + len + 4, indexId, it->second, newIndexNodeChild))
 		{
 			return false;
@@ -971,12 +971,12 @@ bool IndexNodeTypeTwo::insertChildNode(BuildIndex* buildIndex, unsigned int key,
 	auto it = children.find(key);
 	if (it == end(children))
 	{
-		//Ö±½Ó²åÈëµ½º¢×Ómapµ±ÖĞ
+		//ç›´æ¥æ’å…¥åˆ°å­©å­mapå½“ä¸­
 		children.insert({ key, indexNodeChild });
 	}
 	else
 	{
-		//Õâ¸öÊ±ºòºÏ²¢Á½¸öº¢×Ó½Úµã
+		//è¿™ä¸ªæ—¶å€™åˆå¹¶ä¸¤ä¸ªå­©å­èŠ‚ç‚¹
 		if (!buildIndex->mergeNode(preCmpLen + len + 4, indexId, it->second, indexNodeChild))
 		{
 			return false;
@@ -997,12 +997,12 @@ bool IndexNodeTypeTwo::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeTwo
 		auto it = children.find(child.first);
 		if (it == end(children))
 		{
-			//Ö±½Ó²åÈëµ½º¢×ÓµÄmapµ±ÖĞ
+			//ç›´æ¥æ’å…¥åˆ°å­©å­çš„mapå½“ä¸­
 			children.insert({ child.first, child.second });
 		}
 		else
 		{
-			//Õâ¸öÊ±ºòºÏ²¢Á½¸öº¢×Ó½Úµã
+			//è¿™ä¸ªæ—¶å€™åˆå¹¶ä¸¤ä¸ªå­©å­èŠ‚ç‚¹
 			if (!buildIndex->mergeNode(preCmpLen + len + 4, indexId, it->second, child.second))
 			{
 				return false;
@@ -1067,7 +1067,7 @@ bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 				leafNum++;
 			}
 		}
-		//±£´æÖ»ÊÇÒ¶×Ó½Úµã²¿·Ö
+		//ä¿å­˜åªæ˜¯å¶å­èŠ‚ç‚¹éƒ¨åˆ†
 		if (leftSize < 1 + leafNum * 10)
 		{
 			return false;
@@ -1081,7 +1081,7 @@ bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 	}
 	else
 	{
-		//Ã»ÓĞº¢×Ó½ÚµãÓÃÈı¸ö0µÄ×Ö½Ú±íÊ¾ÈıÖÖ½ÚµãÊıÄ¿¶¼ÊÇÁã
+		//æ²¡æœ‰å­©å­èŠ‚ç‚¹ç”¨ä¸‰ä¸ª0çš„å­—èŠ‚è¡¨ç¤ºä¸‰ç§èŠ‚ç‚¹æ•°ç›®éƒ½æ˜¯é›¶
 		if (leftSize < 2)
 		{
 			return false;
@@ -1092,7 +1092,7 @@ bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 		leftSize -= 2;
 	}
 
-	//ÓĞĞ©±È½Ïµ½Õâ¸öÖĞÍ¾¾Íµ½ÎÄ¼şÄ©Î²ÁËÕâÊ±Õâ¸ö·ÖÖ§¼ÇÂ¼ÔÚÒ¶×Ó½Úµã¼¯ÀïÃæ
+	//æœ‰äº›æ¯”è¾ƒåˆ°è¿™ä¸ªä¸­é€”å°±åˆ°æ–‡ä»¶æœ«å°¾äº†è¿™æ—¶è¿™ä¸ªåˆ†æ”¯è®°å½•åœ¨å¶å­èŠ‚ç‚¹é›†é‡Œé¢
 	if (!leafSet.empty())
 	{
 		if (leftSize < 1)
@@ -1119,7 +1119,7 @@ bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 	}
 	else
 	{
-		//¿ÕµÄ»°Ğ´Áã±íÊ¾Õâ²¿·ÖÊÇ0
+		//ç©ºçš„è¯å†™é›¶è¡¨ç¤ºè¿™éƒ¨åˆ†æ˜¯0
 		if (leftSize < 1)
 		{
 			return false;
@@ -1127,14 +1127,14 @@ bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 		*p = 0;
 		totalSize += 1;
 	}
-	//×îºó°Ñ×ÜÌå´óĞ¡Ğ´Èë×îÇ°Ãæ
+	//æœ€åæŠŠæ€»ä½“å¤§å°å†™å…¥æœ€å‰é¢
 	*((short*)buffer) = totalSize;
 	return true;
 }
 
 bool IndexNodeTypeThree::toObject(char* buffer, int len)
 {
-	//´æ´¢µÄÊ±ºòÇ°ÃæÓĞ¼ÓÉÏÀàĞÍ»¹ÓĞ´æ´¢µÄ´óĞ¡ËùÒÔÇ°Ãæ¼Ó3¸ö×Ö½Ú
+	//å­˜å‚¨çš„æ—¶å€™å‰é¢æœ‰åŠ ä¸Šç±»å‹è¿˜æœ‰å­˜å‚¨çš„å¤§å°æ‰€ä»¥å‰é¢åŠ 3ä¸ªå­—èŠ‚
 	if ((len + 3) > 4 * 1024)
 	{
 		isBig = true;
@@ -1155,7 +1155,7 @@ bool IndexNodeTypeThree::toObject(char* buffer, int len)
 	parentID = *((unsigned long long*)p);
 	p += 8;
 	leftSize -= 32;
-	//ÏÈ¶ÁÈ¡ÓĞË÷Òı½ÚµãµÄ²¿·Ö
+	//å…ˆè¯»å–æœ‰ç´¢å¼•èŠ‚ç‚¹çš„éƒ¨åˆ†
 	if (leftSize < 1)
 	{
 		return false;
@@ -1182,7 +1182,7 @@ bool IndexNodeTypeThree::toObject(char* buffer, int len)
 	}
 
 	leftSize -= indexNodeNum * 10;
-	//Ìí¼ÓÖ»ÊÇÒ¶×Ó½Úµã²¿·Ö
+	//æ·»åŠ åªæ˜¯å¶å­èŠ‚ç‚¹éƒ¨åˆ†
 	unsigned char leafNum = *p;
 	p += 1;
 	leftSize -= 1;
@@ -1207,7 +1207,7 @@ bool IndexNodeTypeThree::toObject(char* buffer, int len)
 	leftSize -= leafNum * 10;
 
 
-	//Ìí¼Ó±È½Ïµ½ÖĞÍ¾¾Íµ½ÎÄ¼ş½áÎ²µÄÒ¶×Ó½Úµã
+	//æ·»åŠ æ¯”è¾ƒåˆ°ä¸­é€”å°±åˆ°æ–‡ä»¶ç»“å°¾çš„å¶å­èŠ‚ç‚¹
 	unsigned char endLeafNum = *p;
 	p += 1;
 	leftSize -= 1;
@@ -1235,7 +1235,7 @@ unsigned char IndexNodeTypeThree::getType()
 
 bool IndexNodeTypeThree::changeChildIndexId(unsigned long long orgIndexId, unsigned long long newIndexId)
 {
-	//±ãÀûËùÓĞµÄº¢×Ó½Úµã°Ñº¢×Ó½ÚµãÉèÖÃÎªĞÂµÄ½Úµãid
+	//ä¾¿åˆ©æ‰€æœ‰çš„å­©å­èŠ‚ç‚¹æŠŠå­©å­èŠ‚ç‚¹è®¾ç½®ä¸ºæ–°çš„èŠ‚ç‚¹id
 	for (auto& value : children)
 	{
 		if (value.second.childType == CHILD_TYPE_NODE && value.second.indexId == orgIndexId)
@@ -1266,9 +1266,9 @@ size_t IndexNodeTypeThree::getChildrenNum()
 
 IndexNode* IndexNodeTypeThree::changeType(BuildIndex* buildIndex)
 {
-	//Ê×ÏÈ´´½¨ÏÂÒ»¸öÀàĞÍµÄ½Úµã
+	//é¦–å…ˆåˆ›å»ºä¸‹ä¸€ä¸ªç±»å‹çš„èŠ‚ç‚¹
 	IndexNodeTypeFour* ret = new IndexNodeTypeFour();
-	//°Ñµ±Ç°½Úµãµ±Ç°È«²¿µÄ¸¸ÀàµÄÊı¾İ¿½±´¹ıÈ¥
+	//æŠŠå½“å‰èŠ‚ç‚¹å½“å‰å…¨éƒ¨çš„çˆ¶ç±»çš„æ•°æ®æ‹·è´è¿‡å»
 	ret->setStart(getStart());
 	ret->setLen(getLen());
 	ret->setPreCmpLen(getPreCmpLen());
@@ -1276,10 +1276,10 @@ IndexNode* IndexNodeTypeThree::changeType(BuildIndex* buildIndex)
 	ret->setIndexId(getIndexId());
 	ret->setIsBig(getIsBig());
 
-	//±éÀú×Ô¼ºµÄº¢×Ó½Úµã¶ÔÃ¿¸ö½Úµã·Åµ½ĞÂµÄmapµ±ÖĞ
+	//éå†è‡ªå·±çš„å­©å­èŠ‚ç‚¹å¯¹æ¯ä¸ªèŠ‚ç‚¹æ”¾åˆ°æ–°çš„mapå½“ä¸­
 	for (auto& value : children)
 	{
-		//°ÑÃ¿¸öº¢×Ó½ÚµãÖØĞÂÌí¼Óµ½ĞÂµÄ½Úµãµ±ÖĞ
+		//æŠŠæ¯ä¸ªå­©å­èŠ‚ç‚¹é‡æ–°æ·»åŠ åˆ°æ–°çš„èŠ‚ç‚¹å½“ä¸­
 		if (!ret->insertChildNode(buildIndex, value.first, value.second))
 		{
 			delete ret;
@@ -1287,7 +1287,7 @@ IndexNode* IndexNodeTypeThree::changeType(BuildIndex* buildIndex)
 		}
 	}
 
-	//°ÑÕâ¸ö½Úµã¼¼ÊõµÄÒ¶×Ó½ÚµãÒ²¸´ÖÆ¹ıÈ¥
+	//æŠŠè¿™ä¸ªèŠ‚ç‚¹æŠ€æœ¯çš„å¶å­èŠ‚ç‚¹ä¹Ÿå¤åˆ¶è¿‡å»
 	ret->leafSet.swap(leafSet);
 	ret->setIsModified(true);
 	return ret;
@@ -1316,7 +1316,7 @@ bool IndexNodeTypeThree::cutNodeSize(BuildIndex* buildIndex, unsigned long long 
 		}
 	}
 
-	//±¾Éí¿ÉÄÜ±È256Òª´óËùÒÔÒ²Òªµ÷ÓÃ
+	//æœ¬èº«å¯èƒ½æ¯”256è¦å¤§æ‰€ä»¥ä¹Ÿè¦è°ƒç”¨
 	if (!buildIndex->cutNodeSize(indexId, this))
 	{
 		return false;
@@ -1331,7 +1331,7 @@ bool IndexNodeTypeThree::insertChildNode(BuildIndex* buildIndex, unsigned int ke
 		return false;
 	}
 
-	//ÏÈ¶ÔÌí¼Ó½øÀ´µÄ½Úµã½øĞĞ´¦Àí
+	//å…ˆå¯¹æ·»åŠ è¿›æ¥çš„èŠ‚ç‚¹è¿›è¡Œå¤„ç†
 	IndexNodeChild newIndexNodeChild(indexNodeChild.getType(), indexNodeChild.getIndexId());
 	if (indexNodeChild.getType() == CHILD_TYPE_LEAF)
 	{
@@ -1339,7 +1339,7 @@ bool IndexNodeTypeThree::insertChildNode(BuildIndex* buildIndex, unsigned int ke
 	}
 	else if (indexNodeChild.getType() == CHILD_TYPE_NODE)
 	{
-		//Èç¹ûÊÇÆÕÍ¨µÄ½áµãµÄ»°Òª¶Ô½ÚµãÀïÃæµÄÄÚÈİ½øĞĞĞŞ¸ÄÊ¹Æä°üº¬Ç°ÃæµÄÁ½¸ö×Ö½Ú
+		//å¦‚æœæ˜¯æ™®é€šçš„ç»“ç‚¹çš„è¯è¦å¯¹èŠ‚ç‚¹é‡Œé¢çš„å†…å®¹è¿›è¡Œä¿®æ”¹ä½¿å…¶åŒ…å«å‰é¢çš„ä¸¤ä¸ªå­—èŠ‚
 		IndexNode* childIndexNode = buildIndex->getIndexNode(indexNodeChild.getIndexId());
 		if (childIndexNode == nullptr)
 		{
@@ -1347,7 +1347,7 @@ bool IndexNodeTypeThree::insertChildNode(BuildIndex* buildIndex, unsigned int ke
 		}
 		childIndexNode->setStart(childIndexNode->getStart() - 2);
 		childIndexNode->setLen(childIndexNode->getLen() + 2);
-		//¸Ä±äpreCmpLenµÄÊ±ºòÓĞĞŞ¸Äµ½ÓÅÏÈ¼¶ĞèÒªµ½»º´æµ±ÖĞ°ÑÄÇ¸ö»º´æ±íÒ²¸øĞŞ¸Äµô
+		//æ”¹å˜preCmpLençš„æ—¶å€™æœ‰ä¿®æ”¹åˆ°ä¼˜å…ˆçº§éœ€è¦åˆ°ç¼“å­˜å½“ä¸­æŠŠé‚£ä¸ªç¼“å­˜è¡¨ä¹Ÿç»™ä¿®æ”¹æ‰
 		if (!buildIndex->changePreCmpLen(indexNodeChild.getIndexId(), childIndexNode->getPreCmpLen(), childIndexNode->getPreCmpLen() - 2))
 		{
 			return false;
@@ -1363,12 +1363,12 @@ bool IndexNodeTypeThree::insertChildNode(BuildIndex* buildIndex, unsigned int ke
 	auto it = children.find(nodeKey);
 	if (it == end(children))
 	{
-		//Ö±½Ó²åÈëµ½º¢×Ómapµ±ÖĞ
+		//ç›´æ¥æ’å…¥åˆ°å­©å­mapå½“ä¸­
 		children.insert({ nodeKey, newIndexNodeChild });
 	}
 	else
 	{
-		//Õâ¸öÊ±ºòºÏ²¢Á½¸öº¢×Ó½Úµã
+		//è¿™ä¸ªæ—¶å€™åˆå¹¶ä¸¤ä¸ªå­©å­èŠ‚ç‚¹
 		if (!buildIndex->mergeNode(preCmpLen + len + 2, indexId, it->second, newIndexNodeChild))
 		{
 			return false;
@@ -1387,12 +1387,12 @@ bool IndexNodeTypeThree::insertChildNode(BuildIndex* buildIndex, unsigned short 
 	auto it = children.find(key);
 	if (it == end(children))
 	{
-		//Ö±½Ó²åÈëµ½º¢×Ómapµ±ÖĞ
+		//ç›´æ¥æ’å…¥åˆ°å­©å­mapå½“ä¸­
 		children.insert({ key, indexNodeChild });
 	}
 	else
 	{
-		//Õâ¸öÊ±ºòºÏ²¢Á½¸öº¢×Ó½Úµã
+		//è¿™ä¸ªæ—¶å€™åˆå¹¶ä¸¤ä¸ªå­©å­èŠ‚ç‚¹
 		if (!buildIndex->mergeNode(preCmpLen + len + 2, indexId, it->second, indexNodeChild))
 		{
 			return false;
@@ -1413,12 +1413,12 @@ bool IndexNodeTypeThree::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeT
 		auto it = children.find(child.first);
 		if (it == end(children))
 		{
-			//Ö±½Ó²åÈëµ½º¢×ÓµÄmapµ±ÖĞ
+			//ç›´æ¥æ’å…¥åˆ°å­©å­çš„mapå½“ä¸­
 			children.insert({ child.first, child.second });
 		}
 		else
 		{
-			//Õâ¸öÊ±ºòºÏ²¢Á½¸öº¢×Ó½Úµã
+			//è¿™ä¸ªæ—¶å€™åˆå¹¶ä¸¤ä¸ªå­©å­èŠ‚ç‚¹
 			if (!buildIndex->mergeNode(preCmpLen + len + 2, indexId, it->second, child.second))
 			{
 				return false;
@@ -1483,7 +1483,7 @@ bool IndexNodeTypeFour::toBinary(char* buffer, int len)
 				leafNum++;
 			}
 		}
-		//±£´æÖ»ÊÇÒ¶×Ó½Úµã²¿·Ö
+		//ä¿å­˜åªæ˜¯å¶å­èŠ‚ç‚¹éƒ¨åˆ†
 		if (leftSize < 1 + leafNum * 9)
 		{
 			return false;
@@ -1497,7 +1497,7 @@ bool IndexNodeTypeFour::toBinary(char* buffer, int len)
 	}
 	else
 	{
-		//Ã»ÓĞº¢×Ó½ÚµãÓÃÈı¸ö0µÄ×Ö½Ú±íÊ¾ÈıÖÖ½ÚµãÊıÄ¿¶¼ÊÇÁã
+		//æ²¡æœ‰å­©å­èŠ‚ç‚¹ç”¨ä¸‰ä¸ª0çš„å­—èŠ‚è¡¨ç¤ºä¸‰ç§èŠ‚ç‚¹æ•°ç›®éƒ½æ˜¯é›¶
 		if (leftSize < 2)
 		{
 			return false;
@@ -1508,7 +1508,7 @@ bool IndexNodeTypeFour::toBinary(char* buffer, int len)
 		leftSize -= 2;
 	}
 
-	//ÓĞĞ©±È½Ïµ½Õâ¸öÖĞÍ¾¾Íµ½ÎÄ¼şÄ©Î²ÁËÕâÊ±Õâ¸ö·ÖÖ§¼ÇÂ¼ÔÚÒ¶×Ó½Úµã¼¯ÀïÃæ
+	//æœ‰äº›æ¯”è¾ƒåˆ°è¿™ä¸ªä¸­é€”å°±åˆ°æ–‡ä»¶æœ«å°¾äº†è¿™æ—¶è¿™ä¸ªåˆ†æ”¯è®°å½•åœ¨å¶å­èŠ‚ç‚¹é›†é‡Œé¢
 	if (!leafSet.empty())
 	{
 		if (leftSize < 1)
@@ -1535,7 +1535,7 @@ bool IndexNodeTypeFour::toBinary(char* buffer, int len)
 	}
 	else
 	{
-		//¿ÕµÄ»°Ğ´Áã±íÊ¾Õâ²¿·ÖÊÇ0
+		//ç©ºçš„è¯å†™é›¶è¡¨ç¤ºè¿™éƒ¨åˆ†æ˜¯0
 		if (leftSize < 1)
 		{
 			return false;
@@ -1543,14 +1543,14 @@ bool IndexNodeTypeFour::toBinary(char* buffer, int len)
 		*p = 0;
 		totalSize += 1;
 	}
-	//×îºó°Ñ×ÜÌå´óĞ¡Ğ´Èë×îÇ°Ãæ
+	//æœ€åæŠŠæ€»ä½“å¤§å°å†™å…¥æœ€å‰é¢
 	*((short*)buffer) = totalSize;
 	return true;
 }
 
 bool IndexNodeTypeFour::toObject(char* buffer, int len)
 {
-	//´æ´¢µÄÊ±ºòÇ°ÃæÓĞ¼ÓÉÏÀàĞÍ»¹ÓĞ´æ´¢µÄ´óĞ¡ËùÒÔÇ°Ãæ¼Ó3¸ö×Ö½Ú
+	//å­˜å‚¨çš„æ—¶å€™å‰é¢æœ‰åŠ ä¸Šç±»å‹è¿˜æœ‰å­˜å‚¨çš„å¤§å°æ‰€ä»¥å‰é¢åŠ 3ä¸ªå­—èŠ‚
 	if ((len + 3) > 4 * 1024)
 	{
 		isBig = true;
@@ -1571,7 +1571,7 @@ bool IndexNodeTypeFour::toObject(char* buffer, int len)
 	parentID = *((unsigned long long*)p);
 	p += 8;
 	leftSize -= 32;
-	//ÏÈ¶ÁÈ¡ÓĞË÷Òı½ÚµãµÄ²¿·Ö
+	//å…ˆè¯»å–æœ‰ç´¢å¼•èŠ‚ç‚¹çš„éƒ¨åˆ†
 	if (leftSize < 1)
 	{
 		return false;
@@ -1598,7 +1598,7 @@ bool IndexNodeTypeFour::toObject(char* buffer, int len)
 	}
 
 	leftSize -= indexNodeNum * 9;
-	//Ìí¼ÓÖ»ÊÇÒ¶×Ó½Úµã²¿·Ö
+	//æ·»åŠ åªæ˜¯å¶å­èŠ‚ç‚¹éƒ¨åˆ†
 	unsigned char leafNum = *p;
 	p += 1;
 	leftSize -= 1;
@@ -1623,7 +1623,7 @@ bool IndexNodeTypeFour::toObject(char* buffer, int len)
 	leftSize -= leafNum * 9;
 
 
-	//Ìí¼Ó±È½Ïµ½ÖĞÍ¾¾Íµ½ÎÄ¼ş½áÎ²µÄÒ¶×Ó½Úµã
+	//æ·»åŠ æ¯”è¾ƒåˆ°ä¸­é€”å°±åˆ°æ–‡ä»¶ç»“å°¾çš„å¶å­èŠ‚ç‚¹
 	unsigned char endLeafNum = *p;
 	p += 1;
 	leftSize -= 1;
@@ -1651,7 +1651,7 @@ unsigned char IndexNodeTypeFour::getType()
 
 bool IndexNodeTypeFour::changeChildIndexId(unsigned long long orgIndexId, unsigned long long newIndexId)
 {
-	//±ãÀûËùÓĞµÄº¢×Ó½Úµã°Ñº¢×Ó½ÚµãÉèÖÃÎªĞÂµÄ½Úµãid
+	//ä¾¿åˆ©æ‰€æœ‰çš„å­©å­èŠ‚ç‚¹æŠŠå­©å­èŠ‚ç‚¹è®¾ç½®ä¸ºæ–°çš„èŠ‚ç‚¹id
 	for (auto& value : children)
 	{
 		if (value.second.childType == CHILD_TYPE_NODE && value.second.indexId == orgIndexId)
@@ -1708,7 +1708,7 @@ bool IndexNodeTypeFour::cutNodeSize(BuildIndex* buildIndex, unsigned long long i
 		}
 	}
 
-	//±¾Éí¿ÉÄÜ±È256Òª´óËùÒÔÒ²Òªµ÷ÓÃ
+	//æœ¬èº«å¯èƒ½æ¯”256è¦å¤§æ‰€ä»¥ä¹Ÿè¦è°ƒç”¨
 	if (!buildIndex->cutNodeSize(indexId, this))
 	{
 		return false;
@@ -1723,7 +1723,7 @@ bool IndexNodeTypeFour::insertChildNode(BuildIndex* buildIndex, unsigned short k
 		return false;
 	}
 
-	//ÏÈ¶ÔÌí¼Ó½øÀ´µÄ½Úµã½øĞĞ´¦Àí
+	//å…ˆå¯¹æ·»åŠ è¿›æ¥çš„èŠ‚ç‚¹è¿›è¡Œå¤„ç†
 	IndexNodeChild newIndexNodeChild(indexNodeChild.getType(), indexNodeChild.getIndexId());
 	if (indexNodeChild.getType() == CHILD_TYPE_LEAF)
 	{
@@ -1731,7 +1731,7 @@ bool IndexNodeTypeFour::insertChildNode(BuildIndex* buildIndex, unsigned short k
 	}
 	else if (indexNodeChild.getType() == CHILD_TYPE_NODE)
 	{
-		//Èç¹ûÊÇÆÕÍ¨µÄ½áµãµÄ»°Òª¶Ô½ÚµãÀïÃæµÄÄÚÈİ½øĞĞĞŞ¸ÄÊ¹Æä°üº¬Ç°ÃæµÄÁ½¸ö×Ö½Ú
+		//å¦‚æœæ˜¯æ™®é€šçš„ç»“ç‚¹çš„è¯è¦å¯¹èŠ‚ç‚¹é‡Œé¢çš„å†…å®¹è¿›è¡Œä¿®æ”¹ä½¿å…¶åŒ…å«å‰é¢çš„ä¸¤ä¸ªå­—èŠ‚
 		IndexNode* childIndexNode = buildIndex->getIndexNode(indexNodeChild.getIndexId());
 		if (childIndexNode == nullptr)
 		{
@@ -1739,7 +1739,7 @@ bool IndexNodeTypeFour::insertChildNode(BuildIndex* buildIndex, unsigned short k
 		}
 		childIndexNode->setStart(childIndexNode->getStart() - 1);
 		childIndexNode->setLen(childIndexNode->getLen() + 1);
-		//¸Ä±äpreCmpLenµÄÊ±ºòÓĞĞŞ¸Äµ½ÓÅÏÈ¼¶ĞèÒªµ½»º´æµ±ÖĞ°ÑÄÇ¸ö»º´æ±íÒ²¸øĞŞ¸Äµô
+		//æ”¹å˜preCmpLençš„æ—¶å€™æœ‰ä¿®æ”¹åˆ°ä¼˜å…ˆçº§éœ€è¦åˆ°ç¼“å­˜å½“ä¸­æŠŠé‚£ä¸ªç¼“å­˜è¡¨ä¹Ÿç»™ä¿®æ”¹æ‰
 		if (!buildIndex->changePreCmpLen(indexNodeChild.getIndexId(), childIndexNode->getPreCmpLen(), childIndexNode->getPreCmpLen() - 1))
 		{
 			return false;
@@ -1755,12 +1755,12 @@ bool IndexNodeTypeFour::insertChildNode(BuildIndex* buildIndex, unsigned short k
 	auto it = children.find(nodeKey);
 	if (it == end(children))
 	{
-		//Ö±½Ó²åÈëµ½º¢×Ómapµ±ÖĞ
+		//ç›´æ¥æ’å…¥åˆ°å­©å­mapå½“ä¸­
 		children.insert({ nodeKey, newIndexNodeChild });
 	}
 	else
 	{
-		//Õâ¸öÊ±ºòºÏ²¢Á½¸öº¢×Ó½Úµã
+		//è¿™ä¸ªæ—¶å€™åˆå¹¶ä¸¤ä¸ªå­©å­èŠ‚ç‚¹
 		if (!buildIndex->mergeNode(preCmpLen + len + 1, indexId, it->second, newIndexNodeChild))
 		{
 			return false;
@@ -1779,12 +1779,12 @@ bool IndexNodeTypeFour::insertChildNode(BuildIndex* buildIndex, unsigned char ke
 	auto it = children.find(key);
 	if (it == end(children))
 	{
-		//Ö±½Ó²åÈëµ½º¢×Ómapµ±ÖĞ
+		//ç›´æ¥æ’å…¥åˆ°å­©å­mapå½“ä¸­
 		children.insert({ key, indexNodeChild });
 	}
 	else
 	{
-		//Õâ¸öÊ±ºòºÏ²¢Á½¸öº¢×Ó½Úµã
+		//è¿™ä¸ªæ—¶å€™åˆå¹¶ä¸¤ä¸ªå­©å­èŠ‚ç‚¹
 		if (!buildIndex->mergeNode(preCmpLen + len + 1, indexId, it->second, indexNodeChild))
 		{
 			return false;
@@ -1805,12 +1805,12 @@ bool IndexNodeTypeFour::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeFo
 		auto it = children.find(child.first);
 		if (it == end(children))
 		{
-			//Ö±½Ó²åÈëµ½º¢×ÓµÄmapµ±ÖĞ
+			//ç›´æ¥æ’å…¥åˆ°å­©å­çš„mapå½“ä¸­
 			children.insert({ child.first, child.second });
 		}
 		else
 		{
-			//Õâ¸öÊ±ºòºÏ²¢Á½¸öº¢×Ó½Úµã
+			//è¿™ä¸ªæ—¶å€™åˆå¹¶ä¸¤ä¸ªå­©å­èŠ‚ç‚¹
 			if (!buildIndex->mergeNode(preCmpLen + len + 1, indexId, it->second, child.second))
 			{
 				return false;
