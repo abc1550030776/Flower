@@ -14,7 +14,12 @@ bool IndexFile::init(const char* fileName, Index* index)
 		return false;
 	}
 
-	if (!indexFile.init(fileName))
+	bool createIfNExist = true;
+	if (index->getUseType() == USE_TYPE_SEARCH)
+	{
+		createIfNExist = false;
+	}
+	if (!indexFile.init(fileName, createIfNExist))
 	{
 		return false;
 	}

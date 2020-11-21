@@ -77,21 +77,27 @@
   <ItemGroup>
     <ClCompile Include="BuildIndex.cpp" />
     <ClCompile Include="common.cpp" />
+    <ClCompile Include="ExclusiveLock.cpp" />
     <ClCompile Include="Index.cpp" />
     <ClCompile Include="IndexFile.cpp" />
     <ClCompile Include="IndexNode.cpp" />
     <ClCompile Include="Myfile.cpp" />
     <ClCompile Include="ReadWriteLock.cpp" />
+    <ClCompile Include="SearchIndex.cpp" />
+    <ClCompile Include="SetWithLock.cpp" />
     <ClCompile Include="UniqueGenerator.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BuildIndex.h" />
     <ClInclude Include="common.h" />
+    <ClInclude Include="ExclusiveLock.h" />
     <ClInclude Include="Index.h" />
     <ClInclude Include="IndexFile.h" />
     <ClInclude Include="IndexNode.h" />
     <ClInclude Include="Myfile.h" />
     <ClInclude Include="ReadWriteLock.h" />
+    <ClInclude Include="SearchIndex.h" />
+    <ClInclude Include="SetWithLock.h" />
     <ClInclude Include="UniqueGenerator.h" />
   </ItemGroup>
   <ItemDefinitionGroup />

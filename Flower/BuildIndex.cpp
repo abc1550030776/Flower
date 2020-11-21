@@ -15,6 +15,11 @@ bool BuildIndex::init(const char* fileName, Index* index)
 		return false;
 	}
 
+	if (fileName == nullptr)
+	{
+		return false;
+	}
+
 	char indexFileName[4096];
 	memset(indexFileName, 0, sizeof(indexFileName));
 	//获取索引文件的名字
