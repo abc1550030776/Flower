@@ -13,5 +13,5 @@ class SearchIndex
 	Myfile dstFile;
 	IndexFile indexFile;
 	unsigned long long dstFileSize;					//目标文件的大小
-	unsigned char skipCharNum;						//搜索前需要跳过的字符数量
+	unsigned char skipCharNum;						//搜索前需要跳过的字符数量 
 };

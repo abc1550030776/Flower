@@ -192,6 +192,22 @@ bool IndexNode::decreaseAndTestZero()
 	return false;
 }
 
+bool  IndexNode::getFirstLeafSet(unsigned long long* firstLeaf)
+{
+	if (firstLeaf == nullptr)
+	{
+		return false;
+	}
+
+	if (leafSet.empty())
+	{
+		return false;
+	}
+
+	*firstLeaf = *leafSet.begin();
+	return true;
+}
+
 IndexNode::~IndexNode()
 {}
 
@@ -594,6 +610,11 @@ bool IndexNodeTypeOne::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeOne
 		}
 	}
 	return true;
+}
+
+std::unordered_map<unsigned long long, IndexNodeChild>& IndexNodeTypeOne::getChildren()
+{
+	return children;
 }
 
 bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
@@ -1012,6 +1033,11 @@ bool IndexNodeTypeTwo::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeTwo
 	return true;
 }
 
+std::unordered_map<unsigned int, IndexNodeChild>& IndexNodeTypeTwo::getChildren()
+{
+	return children;
+}
+
 bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 {
 	short totalSize = 0;
@@ -1428,6 +1454,11 @@ bool IndexNodeTypeThree::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeT
 	return true;
 }
 
+std::unordered_map<unsigned short, IndexNodeChild>& IndexNodeTypeThree::getChildren()
+{
+	return children;
+}
+
 bool IndexNodeTypeFour::toBinary(char* buffer, int len)
 {
 	short totalSize = 0;
@@ -1818,4 +1849,9 @@ bool IndexNodeTypeFour::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeFo
 		}
 	}
 	return true;
+}
+
+std::unordered_map<unsigned char, IndexNodeChild>& IndexNodeTypeFour::getChildren()
+{
+	return children;
 }

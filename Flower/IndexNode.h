@@ -1,6 +1,6 @@
 #pragma once
 #include <unordered_map>
-#include <unordered_set>
+#include <set>
 #include <vector>
 #include "BuildIndex.h"
 #include "ReadWriteLock.h"
@@ -48,6 +48,7 @@ public:
 	void decreaseRef();													//减少索引
 	bool isZeroRef();													//判断是否是没有任何索引
 	bool decreaseAndTestZero();											//减少索引并判断是否是0
+	bool  getFirstLeafSet(unsigned long long* firstLeaf);	//获得最长的叶子节点
 	virtual ~IndexNode();
 protected:
 	unsigned long long start;	//在原文件当中的位置
@@ -55,7 +56,7 @@ protected:
 	unsigned long long preCmpLen;	//查询到这个结点的时候前面已经比较过的字符的长度
 	unsigned long long parentID;	//父节点的Id
 	unsigned long long indexId;		//节点的id;
-	std::unordered_set<unsigned long long> leafSet;	//有些叶子节点是指向结尾的,为了节省空间这里记录这些比较到这个节点一部分全部一样的叶子节点的开始比较位置
+	std::set<unsigned long long> leafSet;	//有些叶子节点是指向结尾的,为了节省空间这里记录这些比较到这个节点一部分全部一样的叶子节点的开始比较位置
 	bool isBig;					//有些节点写入硬盘大于4k字节就是big
 	bool isModified;			//从缓存中删除了以后是否需要写入硬盘
 	volatile unsigned long refCount;		//搜索文件的时候是采用多线程的这个时候有可能多个线程同时使用同一个的情况不好判断删除的时机所以这里加一个引用数量
@@ -85,6 +86,7 @@ class IndexNodeTypeOne : public IndexNode
 {
 	friend class BuildIndex;
 	friend class IndexNode;
+	friend class SearchIndex;
 	bool toBinary(char* buffer, int len);
 	bool toObject(char* buffer, int len);
 	unsigned char getType();
@@ -95,6 +97,7 @@ class IndexNodeTypeOne : public IndexNode
 	bool cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId);
 	bool insertChildNode(BuildIndex* buildIndex, unsigned long long key, const IndexNodeChild& indexNodeChild);
 	bool mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeOne* indexNode);
+	std::unordered_map<unsigned long long, IndexNodeChild>& getChildren();
 	std::unordered_map<unsigned long long, IndexNodeChild> children;
 };
 
@@ -104,6 +107,7 @@ class IndexNodeTypeTwo : public IndexNode
 	friend class BuildIndex;
 	friend class IndexNodeTypeOne;
 	friend class IndexNode;
+	friend class SearchIndex;
 	bool toBinary(char* buffer, int len);
 	bool toObject(char* buffer, int len);
 	unsigned char getType();
@@ -115,6 +119,7 @@ class IndexNodeTypeTwo : public IndexNode
 	bool insertChildNode(BuildIndex* buildIndex, unsigned long long key, const IndexNodeChild& indexNodeChild);
 	bool insertChildNode(BuildIndex* buildIndex, unsigned int key, const IndexNodeChild& indexNodeChild);
 	bool mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeTwo* indexNode);
+	std::unordered_map<unsigned int, IndexNodeChild>& getChildren();
 	std::unordered_map<unsigned int, IndexNodeChild> children;
 };
 
@@ -124,6 +129,7 @@ class IndexNodeTypeThree : public IndexNode
 	friend class BuildIndex;
 	friend class IndexNodeTypeTwo;
 	friend class IndexNode;
+	friend class SearchIndex;
 	bool toBinary(char* buffer, int len);
 	bool toObject(char* buffer, int len);
 	unsigned char getType();
@@ -135,6 +141,7 @@ class IndexNodeTypeThree : public IndexNode
 	bool insertChildNode(BuildIndex* buildIndex, unsigned int key, const IndexNodeChild& indexNodeChild);
 	bool insertChildNode(BuildIndex* buildIndex, unsigned short key, const IndexNodeChild& indexNodeChild);
 	bool mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeThree* indexNode);
+	std::unordered_map<unsigned short, IndexNodeChild>& getChildren();
 	std::unordered_map<unsigned short, IndexNodeChild> children;
 };
 
@@ -144,6 +151,7 @@ class IndexNodeTypeFour : public IndexNode
 	friend class BuildIndex;
 	friend class IndexNodeTypeThree;
 	friend class IndexNode;
+	friend class SearchIndex;
 	bool toBinary(char* buffer, int len);
 	bool toObject(char* buffer, int len);
 	unsigned char getType();
@@ -155,5 +163,6 @@ class IndexNodeTypeFour : public IndexNode
 	bool insertChildNode(BuildIndex* buildIndex, unsigned short key, const IndexNodeChild& indexNodeChild);
 	bool insertChildNode(BuildIndex* buildIndex, unsigned char key, const IndexNodeChild& indexNodeChild);
 	bool mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeFour* indexNode);
+	std::unordered_map<unsigned char, IndexNodeChild>& getChildren();
 	std::unordered_map<unsigned char, IndexNodeChild> children;
 };

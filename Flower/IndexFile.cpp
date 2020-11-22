@@ -462,6 +462,16 @@ void IndexFile::setRootIndexId(unsigned long long rootIndexId)
 
 unsigned long long IndexFile::getRootIndexId()
 {
+	//刚打开文件根节点没读进来
+	if (rootIndexId == 0)
+	{
+		fpos_t pos;
+		pos.__pos = 0;
+		if (!indexFile.read(pos, &rootIndexId, 8))
+		{
+			return 0;
+		}
+	}
 	return rootIndexId;
 }
 
