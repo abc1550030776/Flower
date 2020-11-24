@@ -5,9 +5,9 @@
 class SetWithLock
 {
 public:
-	SetWithLock(EXCLOCK& lock);
+	SetWithLock(std::set<unsigned long long>& set);
 	void insert(unsigned long long startPos);
 public:
-	std::set<unsigned long long> set;
-	EXCLOCK& lock;
+	std::set<unsigned long long>& set;
+	EXCLOCK lock;
 };

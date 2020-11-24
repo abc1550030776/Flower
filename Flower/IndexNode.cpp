@@ -208,6 +208,21 @@ bool  IndexNode::getFirstLeafSet(unsigned long long* firstLeaf)
 	return true;
 }
 
+void IndexNode::addLeafPosToResult(unsigned long long leastEndPos, unsigned char skipCharNum, unsigned long long fileSize, SetWithLock& result)
+{
+	for (auto& leaf : leafSet)
+	{
+		if (fileSize - leaf - preCmpLen >= leastEndPos)
+		{
+			result.insert(leaf + skipCharNum);
+		}
+		else
+		{
+			break;
+		}
+	}
+}
+
 IndexNode::~IndexNode()
 {}
 
@@ -610,6 +625,17 @@ bool IndexNodeTypeOne::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeOne
 		}
 	}
 	return true;
+}
+
+IndexNodeChild* IndexNodeTypeOne::getIndexNodeChild(unsigned long long key)
+{
+	auto it = children.find(key);
+	if (it == end(children))
+	{
+		return nullptr;
+	}
+
+	return &it->second;
 }
 
 std::unordered_map<unsigned long long, IndexNodeChild>& IndexNodeTypeOne::getChildren()
@@ -1033,6 +1059,16 @@ bool IndexNodeTypeTwo::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeTwo
 	return true;
 }
 
+IndexNodeChild* IndexNodeTypeTwo::getIndexNodeChild(unsigned int key)
+{
+	auto it = children.find(key);
+	if (it == end(children))
+	{
+		return nullptr;
+	}
+	return &it->second;
+}
+
 std::unordered_map<unsigned int, IndexNodeChild>& IndexNodeTypeTwo::getChildren()
 {
 	return children;
@@ -1454,6 +1490,17 @@ bool IndexNodeTypeThree::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeT
 	return true;
 }
 
+IndexNodeChild* IndexNodeTypeThree::getIndexNodeChild(unsigned short key)
+{
+	auto it = children.find(key);
+	if (it == end(children))
+	{
+		return nullptr;
+	}
+
+	return &it->second;
+}
+
 std::unordered_map<unsigned short, IndexNodeChild>& IndexNodeTypeThree::getChildren()
 {
 	return children;
@@ -1849,6 +1896,16 @@ bool IndexNodeTypeFour::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeFo
 		}
 	}
 	return true;
+}
+
+IndexNodeChild* IndexNodeTypeFour::getIndexNodeChild(unsigned char key)
+{
+	auto it = children.find(key);
+	if (it == end(children))
+	{
+		return nullptr;
+	}
+	return &it->second;
 }
 
 std::unordered_map<unsigned char, IndexNodeChild>& IndexNodeTypeFour::getChildren()

@@ -1,7 +1,8 @@
 #include "SetWithLock.h"
 
-SetWithLock::SetWithLock(EXCLOCK& lock) : lock(lock)
+SetWithLock::SetWithLock(std::set<unsigned long long>& set) : set(set)
 {
+	lock.Ptr = 0;
 }
 
 void SetWithLock::insert(unsigned long long startPos)

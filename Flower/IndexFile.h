@@ -1,6 +1,7 @@
 #pragma once
 #include "Myfile.h"
 #include "Index.h"
+#include <unordered_set>
 
 class IndexFile
 {

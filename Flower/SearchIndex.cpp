@@ -224,31 +224,6 @@ bool SearchIndex::search()
 									indexIdQue.push_back(child.second.getIndexId());
 								}
 							}
-
-							//还有可能有个叶子节点的一小部分相同
-							unsigned long long filePos = 0;
-							if (pNode->getFirstLeafSet(&filePos))
-							{
-
-
-								unsigned long long leafLen = dstFileSize - filePos;
-								if (leafLen > pNode->getPreCmpLen() + pNode->getLen())
-								{
-									unsigned long long overLen = leafLen - pNode->getPreCmpLen() - pNode->getLen();
-									if (overLen < 8)
-									{
-										if (subSkipNum + targetLen <= overLen)
-										{
-											searchTaskQue.emplace_back();
-											SearchTask& searchTask = searchTaskQue.back();
-											searchTask.setIndexIdOrStartPos(CHILD_TYPE_LEAF);
-											searchTask.setSkipSize(pNode->getPreCmpLen() + skipStruct.getSkipNum());
-											searchTask.setIndexId(filePos);
-											searchTask.setTargetStart(0);
-										}
-									}
-								}
-							}
 						}
 					}
 					else
@@ -313,17 +288,722 @@ bool SearchIndex::search()
 						else
 						{
 							skipQue.emplace_back();
-							SkipStruct& skipStruct = skipQue.back();
-							skipStruct.setSkipNum(skipStruct.getSkipNum() - pNode->getLen() - 8);
-							skipStruct.setIndexId(child.second.getIndexId());
+							SkipStruct& tmpSkipStruct = skipQue.back();
+							tmpSkipStruct.setSkipNum(skipStruct.getSkipNum() - pNode->getLen() - 8);
+							tmpSkipStruct.setIndexId(child.second.getIndexId());
 						}
 					}
 				}
 			}
 				break;
+				case NODE_TYPE_TWO:
+				{
+					if (skipStruct.getSkipNum() < pNode->getLen() + 4)
+					{
+						unsigned long long subSkipNum = skipStruct.getSkipNum() - pNode->getLen();
+						IndexNodeTypeTwo* pTmpNode = (IndexNodeTypeTwo*)pNode;
+						std::unordered_map<unsigned int, IndexNodeChild>& children = pTmpNode->getChildren();
+						//这里分两种情况
+						if (subSkipNum + targetLen <= 4)
+						{
+							for (auto& child : children)
+							{
+								const unsigned char* p = (const unsigned char*)child.first;
+								unsigned long long i = 0;
+								for (; i < targetLen; ++i)
+								{
+									if (p[subSkipNum + i] != searchTarget[i])
+									{
+										break;
+									}
+								}
+
+								if (i == targetLen)
+								{
+									if (child.second.getType() == CHILD_TYPE_LEAF)
+									{
+										resultSet->insert(child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 4 + skipCharNum);
+									}
+									else
+									{
+										indexIdQue.push_back(child.second.getIndexId());
+									}
+								}
+							}
+						}
+						else
+						{
+							for (auto& child : children)
+							{
+								const unsigned char* p = (const unsigned char*)& child.first;
+								unsigned long long i = 0;
+								unsigned long long remainSize = 4 - subSkipNum;
+								for (; i < remainSize; ++i)
+								{
+									if (p[subSkipNum + i] != searchTarget[i])
+									{
+										break;
+									}
+								}
+
+								if (i == remainSize)
+								{
+									if (child.second.getType() == CHILD_TYPE_LEAF)
+									{
+										searchTaskQue.emplace_back();
+										SearchTask& searchTask = searchTaskQue.back();
+										searchTask.setIndexIdOrStartPos(CHILD_TYPE_LEAF);
+										searchTask.setSkipSize(pNode->getPreCmpLen() + pNode->getLen() + 4);
+										searchTask.setIndexId(child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 4);
+										searchTask.setTargetStart(remainSize);
+									}
+									else
+									{
+										searchTaskQue.emplace_back();
+										SearchTask& searchTask = searchTaskQue.back();
+										searchTask.setIndexIdOrStartPos(CHILD_TYPE_NODE);
+										searchTask.setSkipSize(0);
+										searchTask.setIndexId(child.second.getIndexId());
+										searchTask.setTargetStart(remainSize);
+									}
+								}
+							}
+						}
+					}
+					else
+					{
+						IndexNodeTypeTwo* pTmpNode = (IndexNodeTypeTwo*)pNode;
+						std::unordered_map<unsigned int, IndexNodeChild>& children = pTmpNode->getChildren();
+						for (auto& child : children)
+						{
+							if (child.second.getType() == CHILD_TYPE_LEAF)
+							{
+								unsigned long long filePos = child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 4;
+								unsigned long long leafLen = dstFileSize - filePos;
+								if (leafLen >= pNode->getPreCmpLen() + skipStruct.getSkipNum() + targetLen)
+								{
+									searchTaskQue.emplace_back();
+									SearchTask& searchTask = searchTaskQue.back();
+									searchTask.setIndexIdOrStartPos(CHILD_TYPE_LEAF);
+									searchTask.setSkipSize(pNode->getPreCmpLen() + skipStruct.getSkipNum());
+									searchTask.setIndexId(filePos);
+									searchTask.setTargetStart(0);
+								}
+							}
+							else
+							{
+								skipQue.emplace_back();
+								SkipStruct& tmpSkipStruct = skipQue.back();
+								tmpSkipStruct.setSkipNum(skipStruct.getSkipNum() - pNode->getLen() - 4);
+								tmpSkipStruct.setIndexId(child.second.getIndexId());
+							}
+						}
+					}
+				}
+					break;
+				case NODE_TYPE_THREE:
+				{
+					if (skipStruct.getSkipNum() < pNode->getLen() + 2)
+					{
+						unsigned long long subSkipNum = skipStruct.getSkipNum() - pNode->getLen();
+						IndexNodeTypeThree* pTmpNode = (IndexNodeTypeThree*)pNode;
+						std::unordered_map<unsigned short, IndexNodeChild>& children = pTmpNode->getChildren();
+						//这里分两种情况
+						if (subSkipNum + targetLen <= 2)
+						{
+							for (auto& child : children)
+							{
+								const unsigned char* p = (const unsigned char*)child.first;
+								unsigned long long i = 0;
+								for (; i < targetLen; ++i)
+								{
+									if (p[subSkipNum + i] != searchTarget[i])
+									{
+										break;
+									}
+								}
+
+								if (i == targetLen)
+								{
+									if (child.second.getType() == CHILD_TYPE_LEAF)
+									{
+										resultSet->insert(child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 2 + skipCharNum);
+									}
+									else
+									{
+										indexIdQue.push_back(child.second.getIndexId());
+									}
+								}
+							}
+						}
+						else
+						{
+							for (auto& child : children)
+							{
+								const unsigned char* p = (const unsigned char*)& child.first;
+								unsigned long long i = 0;
+								unsigned long long remainSize = 2 - subSkipNum;
+								for (; i < remainSize; ++i)
+								{
+									if (p[subSkipNum + i] != searchTarget[i])
+									{
+										break;
+									}
+								}
+
+								if (i == remainSize)
+								{
+									if (child.second.getType() == CHILD_TYPE_LEAF)
+									{
+										searchTaskQue.emplace_back();
+										SearchTask& searchTask = searchTaskQue.back();
+										searchTask.setIndexIdOrStartPos(CHILD_TYPE_LEAF);
+										searchTask.setSkipSize(pNode->getPreCmpLen() + pNode->getLen() + 2);
+										searchTask.setIndexId(child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 2);
+										searchTask.setTargetStart(remainSize);
+									}
+									else
+									{
+										searchTaskQue.emplace_back();
+										SearchTask& searchTask = searchTaskQue.back();
+										searchTask.setIndexIdOrStartPos(CHILD_TYPE_NODE);
+										searchTask.setSkipSize(0);
+										searchTask.setIndexId(child.second.getIndexId());
+										searchTask.setTargetStart(remainSize);
+									}
+								}
+							}
+						}
+					}
+					else
+					{
+						IndexNodeTypeThree* pTmpNode = (IndexNodeTypeThree*)pNode;
+						std::unordered_map<unsigned short, IndexNodeChild>& children = pTmpNode->getChildren();
+						for (auto& child : children)
+						{
+							if (child.second.getType() == CHILD_TYPE_LEAF)
+							{
+								unsigned long long filePos = child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 2;
+								unsigned long long leafLen = dstFileSize - filePos;
+								if (leafLen >= pNode->getPreCmpLen() + skipStruct.getSkipNum() + targetLen)
+								{
+									searchTaskQue.emplace_back();
+									SearchTask& searchTask = searchTaskQue.back();
+									searchTask.setIndexIdOrStartPos(CHILD_TYPE_LEAF);
+									searchTask.setSkipSize(pNode->getPreCmpLen() + skipStruct.getSkipNum());
+									searchTask.setIndexId(filePos);
+									searchTask.setTargetStart(0);
+								}
+							}
+							else
+							{
+								skipQue.emplace_back();
+								SkipStruct& tmpSkipStruct = skipQue.back();
+								tmpSkipStruct.setSkipNum(skipStruct.getSkipNum() - pNode->getLen() - 2);
+								tmpSkipStruct.setIndexId(child.second.getIndexId());
+							}
+						}
+					}
+				}
+				break;
+				case NODE_TYPE_FOUR:
+				{
+					if (skipStruct.getSkipNum() < pNode->getLen() + 1)
+					{
+						unsigned long long subSkipNum = skipStruct.getSkipNum() - pNode->getLen();
+						IndexNodeTypeFour* pTmpNode = (IndexNodeTypeFour*)pNode;
+						std::unordered_map<unsigned char, IndexNodeChild>& children = pTmpNode->getChildren();
+						//这里分两种情况
+						if (subSkipNum + targetLen <= 1)
+						{
+							for (auto& child : children)
+							{
+								const unsigned char* p = (const unsigned char*)child.first;
+								unsigned long long i = 0;
+								for (; i < targetLen; ++i)
+								{
+									if (p[subSkipNum + i] != searchTarget[i])
+									{
+										break;
+									}
+								}
+
+								if (i == targetLen)
+								{
+									if (child.second.getType() == CHILD_TYPE_LEAF)
+									{
+										resultSet->insert(child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 1 + skipCharNum);
+									}
+									else
+									{
+										indexIdQue.push_back(child.second.getIndexId());
+									}
+								}
+							}
+						}
+						else
+						{
+							for (auto& child : children)
+							{
+								const unsigned char* p = (const unsigned char*)& child.first;
+								unsigned long long i = 0;
+								unsigned long long remainSize = 1 - subSkipNum;
+								for (; i < remainSize; ++i)
+								{
+									if (p[subSkipNum + i] != searchTarget[i])
+									{
+										break;
+									}
+								}
+
+								if (i == remainSize)
+								{
+									if (child.second.getType() == CHILD_TYPE_LEAF)
+									{
+										searchTaskQue.emplace_back();
+										SearchTask& searchTask = searchTaskQue.back();
+										searchTask.setIndexIdOrStartPos(CHILD_TYPE_LEAF);
+										searchTask.setSkipSize(pNode->getPreCmpLen() + pNode->getLen() + 1);
+										searchTask.setIndexId(child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 1);
+										searchTask.setTargetStart(remainSize);
+									}
+									else
+									{
+										searchTaskQue.emplace_back();
+										SearchTask& searchTask = searchTaskQue.back();
+										searchTask.setIndexIdOrStartPos(CHILD_TYPE_NODE);
+										searchTask.setSkipSize(0);
+										searchTask.setIndexId(child.second.getIndexId());
+										searchTask.setTargetStart(remainSize);
+									}
+								}
+							}
+						}
+					}
+					else
+					{
+						IndexNodeTypeFour* pTmpNode = (IndexNodeTypeFour*)pNode;
+						std::unordered_map<unsigned char, IndexNodeChild>& children = pTmpNode->getChildren();
+						for (auto& child : children)
+						{
+							if (child.second.getType() == CHILD_TYPE_LEAF)
+							{
+								unsigned long long filePos = child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 1;
+								unsigned long long leafLen = dstFileSize - filePos;
+								if (leafLen >= pNode->getPreCmpLen() + skipStruct.getSkipNum() + targetLen)
+								{
+									searchTaskQue.emplace_back();
+									SearchTask& searchTask = searchTaskQue.back();
+									searchTask.setIndexIdOrStartPos(CHILD_TYPE_LEAF);
+									searchTask.setSkipSize(pNode->getPreCmpLen() + skipStruct.getSkipNum());
+									searchTask.setIndexId(filePos);
+									searchTask.setTargetStart(0);
+								}
+							}
+							else
+							{
+								skipQue.emplace_back();
+								SkipStruct& tmpSkipStruct = skipQue.back();
+								tmpSkipStruct.setSkipNum(skipStruct.getSkipNum() - pNode->getLen() - 1);
+								tmpSkipStruct.setIndexId(child.second.getIndexId());
+							}
+						}
+					}
+				}
+					break;
+				default:
+					break;
+
+			}
+
+			//还有可能有个叶子节点的一小部分相同
+			unsigned long long filePos = 0;
+			if (pNode->getFirstLeafSet(&filePos))
+			{
+				unsigned long long leafLen = dstFileSize - filePos;
+				if (leafLen > pNode->getPreCmpLen() + pNode->getLen())
+				{
+					unsigned long long overLen = leafLen - pNode->getPreCmpLen() - pNode->getLen();
+					if (overLen < 8)
+					{
+						if (pNode->getPreCmpLen() + skipStruct.getSkipNum() + targetLen <= leafLen)
+						{
+							searchTaskQue.emplace_back();
+							SearchTask& searchTask = searchTaskQue.back();
+							searchTask.setIndexIdOrStartPos(CHILD_TYPE_LEAF);
+							searchTask.setSkipSize(pNode->getPreCmpLen() + skipStruct.getSkipNum());
+							searchTask.setIndexId(filePos);
+							searchTask.setTargetStart(0);
+						}
+					}
+				}
 			}
 		}
 		indexFile.putIndexNode(pNode);
+	}
+
+	for (; !searchTaskQue.empty(); searchTaskQue.pop_front())
+	{
+		SearchTask& searchTask = searchTaskQue.front();
+
+		if (searchTask.getIndexIdOrStartPos() == CHILD_TYPE_LEAF)
+		{
+			//搜索后续的叶子节点
+			unsigned long long skipSize = searchTask.getSkipSize();
+			unsigned long long filePos = searchTask.getIndexId();
+			unsigned int targetStart = searchTask.getTargetStart();
+			unsigned int leftSearchTarget = targetLen - targetStart;
+			unsigned long long leafLen = dstFileSize - filePos;
+			if (leafLen - skipSize >= leftSearchTarget)
+			{
+				//比较文件当中相应长度的字符串看看是不是一样
+				unsigned char* buffer = (unsigned char*)malloc(4 * 1024);
+				if (buffer == nullptr)
+				{
+					return false;
+				}
+
+				unsigned int cmpLen = 0;
+				for (; cmpLen + 4 * 1024 <= leftSearchTarget; cmpLen += 4 * 1024)
+				{
+					fpos_t pos;
+					pos.__pos = filePos + skipSize + cmpLen;
+					if (!dstFile.read(pos, buffer, 4 * 1024))
+					{
+						free(buffer);
+						return false;
+					}
+
+					unsigned int i = 0;
+					for (; i < 4 * 1024; i += 8)
+					{
+						if (*(unsigned long long*)(&buffer[i]) != *(unsigned long long*)(&searchTarget[targetStart + cmpLen + i]))
+						{
+							break;
+						}
+					}
+
+					if (i != 4 * 1024)
+					{
+						break;
+					}
+				}
+
+				if (cmpLen + 4 * 1024 > leftSearchTarget)
+				{
+					unsigned int lastNeedReadSize = leftSearchTarget - cmpLen;
+
+					if (lastNeedReadSize != 0)
+					{
+						fpos_t pos;
+						pos.__pos = filePos + skipSize + cmpLen;
+						if (!dstFile.read(pos, buffer, lastNeedReadSize))
+						{
+							free(buffer);
+							return false;
+						}
+					}
+
+					unsigned int subCmpLen = 0;
+					for (; subCmpLen + 8 <= lastNeedReadSize; subCmpLen += 8)
+					{
+						if (*(unsigned long long*)(&buffer[subCmpLen]) != *(unsigned long long*)(&searchTarget[targetStart + cmpLen + subCmpLen]))
+						{
+							break;
+						}
+					}
+
+					if (subCmpLen + 8 > lastNeedReadSize)
+					{
+						unsigned int lastSize = lastNeedReadSize - subCmpLen;
+						unsigned int suppleSize = 0;
+						for (; suppleSize < lastSize; ++suppleSize)
+						{
+							if (*(unsigned char*)(&buffer[subCmpLen + suppleSize]) != *(unsigned char*)(&searchTarget[targetStart + cmpLen + subCmpLen + suppleSize]))
+							{
+								break;
+							}
+						}
+
+						if (suppleSize == lastSize)
+						{
+							resultSet->insert(filePos + skipCharNum);
+						}
+					}
+				}
+
+				free(buffer);
+			}
+
+		}
+		else
+		{
+			//搜索后续的非叶子节点
+			unsigned long long skipSize = searchTask.getSkipSize();
+			unsigned long long indexId = searchTask.getIndexId();
+			unsigned int targetStart = searchTask.getTargetStart();
+
+			//获取节点
+			IndexNode* pNode = indexFile.getIndexNode(indexId);
+			if (pNode == nullptr)
+			{
+				return false;
+			}
+
+			unsigned long long filePos = pNode->getStart();
+			unsigned long long nodeLen = pNode->getLen();
+			unsigned int leftSearchTarget = targetLen - targetStart;
+			unsigned long long remainReadSize = leftSearchTarget;
+			if (nodeLen - skipSize < remainReadSize)
+			{
+				remainReadSize = nodeLen - skipSize;
+			}
+
+			bool isSameHead = false;
+			//比较文件当中相应长度的字符串看看是不是一样
+			unsigned char* buffer = (unsigned char*)malloc(4 * 1024);
+			if (buffer == nullptr)
+			{
+				indexFile.putIndexNode(pNode);
+				return false;
+			}
+
+			unsigned int cmpLen = 0;
+			for (; cmpLen + 4 * 1024 <= remainReadSize; cmpLen += 4 * 1024)
+			{
+				fpos_t pos;
+				pos.__pos = filePos + skipSize + cmpLen;
+				if (!dstFile.read(pos, buffer, 4 * 1024))
+				{
+					indexFile.putIndexNode(pNode);
+					free(buffer);
+					return false;
+				}
+
+				unsigned int i = 0;
+				for (; i < 4 * 1024; i += 8)
+				{
+					if (*(unsigned long long*)(&buffer[i]) != *(unsigned long long*)(&searchTarget[targetStart + cmpLen + i]))
+					{
+						break;
+					}
+				}
+
+				if (i != 4 * 1024)
+				{
+					break;
+				}
+			}
+
+			if (cmpLen + 4 * 1024 > remainReadSize)
+			{
+				unsigned long long lastNeedReadSize = remainReadSize - cmpLen;
+
+				if (lastNeedReadSize != 0)
+				{
+					fpos_t pos;
+					pos.__pos = filePos + skipSize + cmpLen;
+					if (!dstFile.read(pos, buffer, lastNeedReadSize))
+					{
+						free(buffer);
+						indexFile.putIndexNode(pNode);
+						return false;
+					}
+				}
+
+				unsigned long long subCmpLen = 0;
+				for (; subCmpLen + 8 <= lastNeedReadSize; subCmpLen += 8)
+				{
+					if (*(unsigned long long*)(&buffer[subCmpLen]) != *(unsigned long long*)(&searchTarget[targetStart + cmpLen + subCmpLen]))
+					{
+						break;
+					}
+				}
+
+				if (subCmpLen + 8 > lastNeedReadSize)
+				{
+					unsigned long long lastSize = lastNeedReadSize - subCmpLen;
+					unsigned long long suppleSize = 0;
+					for (; suppleSize < lastSize; ++suppleSize)
+					{
+						if (*(unsigned char*)(&buffer[subCmpLen + suppleSize]) != *(unsigned char*)(&searchTarget[targetStart + cmpLen + subCmpLen + suppleSize]))
+						{
+							break;
+						}
+					}
+
+					if (suppleSize == lastSize)
+					{
+						isSameHead = true;
+					}
+				}
+			}
+
+			if (isSameHead)
+			{
+				//前面的字节完全一样接下来分二种情况考虑
+				if (skipSize + leftSearchTarget <= nodeLen)
+				{
+					pNode->addLeafPosToResult(skipSize + leftSearchTarget, skipCharNum, dstFileSize, *resultSet);
+					switch (pNode->getType())
+					{
+					case NODE_TYPE_ONE:
+					{
+						IndexNodeTypeOne* pTmpNode = (IndexNodeTypeOne*)pNode;
+						std::unordered_map<unsigned long long, IndexNodeChild>& children = pTmpNode->getChildren();
+						for (auto& child : children)
+						{
+							if (child.second.getType() == CHILD_TYPE_LEAF)
+							{
+								resultSet->insert(child.second.getIndexId() - pNode->getPreCmpLen() - nodeLen - 8 + skipCharNum);
+							}
+							else
+							{
+								indexIdQue.push_back(child.second.getIndexId());
+							}
+						}
+					}
+						break;
+					case NODE_TYPE_TWO:
+					{
+						IndexNodeTypeTwo* pTmpNode = (IndexNodeTypeTwo*)pNode;
+						std::unordered_map<unsigned int, IndexNodeChild>& children = pTmpNode->getChildren();
+						for (auto& child : children)
+						{
+							if (child.second.getType() == CHILD_TYPE_LEAF)
+							{
+								resultSet->insert(child.second.getIndexId() - pNode->getPreCmpLen() - nodeLen - 4 + skipCharNum);
+							}
+							else
+							{
+								indexIdQue.push_back(child.second.getIndexId());
+							}
+						}
+					}
+						break;
+					case NODE_TYPE_THREE:
+					{
+						IndexNodeTypeThree* pTmpNode = (IndexNodeTypeThree*)pNode;
+						std::unordered_map<unsigned short, IndexNodeChild>& children = pTmpNode->getChildren();
+						for (auto& child : children)
+						{
+							if (child.second.getType() == CHILD_TYPE_LEAF)
+							{
+								resultSet->insert(child.second.getIndexId() - pNode->getPreCmpLen() - nodeLen - 2 + skipCharNum);
+							}
+							else
+							{
+								indexIdQue.push_back(child.second.getIndexId());
+							}
+						}
+					}
+						break;
+					case NODE_TYPE_FOUR:
+					{
+						IndexNodeTypeFour* pTmpNode = (IndexNodeTypeFour*)pNode;
+						std::unordered_map<unsigned char, IndexNodeChild>& children = pTmpNode->getChildren();
+						for (auto& child : children)
+						{
+							if (child.second.getType() == CHILD_TYPE_LEAF)
+							{
+								resultSet->insert(child.second.getIndexId() - pNode->getPreCmpLen() - nodeLen - 1 + skipCharNum);
+							}
+							else
+							{
+								indexIdQue.push_back(child.second.getIndexId());
+							}
+						}
+
+					}
+						break;
+					default:
+						break;
+					}
+				}
+				else
+				{
+					switch (pNode->getType())
+					{
+					case NODE_TYPE_ONE:
+					{
+						IndexNodeTypeOne* pTmpNode = (IndexNodeTypeOne*)pNode;
+						if (skipSize + leftSearchTarget < nodeLen + 8)
+						{
+							std::unordered_map<unsigned long long, IndexNodeChild>& children = pTmpNode->getChildren();
+							for (auto child : children)
+							{
+								unsigned char* p = (unsigned char*)& child.first;
+								unsigned long long needCmpLen = skipSize + leftSearchTarget - nodeLen;
+								unsigned long long i;
+								for (; i < needCmpLen; ++i)
+								{
+									if (p[i] != searchTarget[targetStart + nodeLen - skipSize + i])
+									{
+										break;
+									}
+								}
+
+								if (i == needCmpLen)
+								{
+									if (child.second.getType() == CHILD_TYPE_LEAF)
+									{
+										resultSet->insert(child.second.getIndexId() - pNode->getPreCmpLen() - nodeLen - 8 + skipCharNum);
+									}
+									else
+									{
+										indexIdQue.push_back(child.second.getIndexId());
+									}
+								}
+							}
+						}
+						else
+						{
+							IndexNodeChild* indexNodeChild = pTmpNode->getIndexNodeChild(*(unsigned long long*)(&searchTarget[targetStart + nodeLen - skipSize]));
+							if (indexNodeChild != nullptr)
+							{
+								if (skipSize + leftSearchTarget == nodeLen + 8)
+								{
+									if (indexNodeChild->getType() == CHILD_TYPE_LEAF)
+									{
+										resultSet->insert(indexNodeChild->getIndexId() - pNode->getPreCmpLen() - nodeLen - 8 + skipCharNum);
+									}
+									else
+									{
+										indexIdQue.push_back(indexNodeChild->getIndexId());
+									}
+								}
+								else
+								{
+									if (indexNodeChild->getType() == CHILD_TYPE_LEAF)
+									{
+										searchTaskQue.emplace_back();
+										SearchTask& searchTask = searchTaskQue.back();
+										searchTask.setIndexIdOrStartPos(CHILD_TYPE_LEAF);
+										searchTask.setSkipSize(pNode->getPreCmpLen() + nodeLen + 8);
+										searchTask.setIndexId(indexNodeChild->getIndexId() - pNode->getPreCmpLen() - nodeLen - 8);
+										searchTask.setTargetStart(targetStart + nodeLen - skipSize + 8);
+									}
+									else
+									{
+										searchTaskQue.emplace_back();
+										SearchTask& searchTask = searchTaskQue.back();
+										searchTask.setIndexIdOrStartPos(CHILD_TYPE_NODE);
+										searchTask.setIndexId(indexNodeChild->getIndexId());
+										searchTask.setTargetStart(targetStart + nodeLen - skipSize + 8);
+									}
+								}
+							}
+						}
+					}
+						break;
+					default:
+						break;
+					}
+				}
+			}
+			free(buffer);
+			indexFile.putIndexNode(pNode);
+		}
 	}
 
 	return true;

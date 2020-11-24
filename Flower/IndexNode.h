@@ -4,6 +4,7 @@
 #include <vector>
 #include "BuildIndex.h"
 #include "ReadWriteLock.h"
+#include "SetWithLock.h"
 
 //索引孩子节点的类型
 const unsigned char CHILD_TYPE_NODE = 0;
@@ -49,6 +50,7 @@ public:
 	bool isZeroRef();													//判断是否是没有任何索引
 	bool decreaseAndTestZero();											//减少索引并判断是否是0
 	bool  getFirstLeafSet(unsigned long long* firstLeaf);	//获得最长的叶子节点
+	void addLeafPosToResult(unsigned long long leastEndPos, unsigned char skipCharNum, unsigned long long fileSize, SetWithLock& result);
 	virtual ~IndexNode();
 protected:
 	unsigned long long start;	//在原文件当中的位置
@@ -97,6 +99,7 @@ class IndexNodeTypeOne : public IndexNode
 	bool cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId);
 	bool insertChildNode(BuildIndex* buildIndex, unsigned long long key, const IndexNodeChild& indexNodeChild);
 	bool mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeOne* indexNode);
+	IndexNodeChild* getIndexNodeChild(unsigned long long key);
 	std::unordered_map<unsigned long long, IndexNodeChild>& getChildren();
 	std::unordered_map<unsigned long long, IndexNodeChild> children;
 };
@@ -119,6 +122,7 @@ class IndexNodeTypeTwo : public IndexNode
 	bool insertChildNode(BuildIndex* buildIndex, unsigned long long key, const IndexNodeChild& indexNodeChild);
 	bool insertChildNode(BuildIndex* buildIndex, unsigned int key, const IndexNodeChild& indexNodeChild);
 	bool mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeTwo* indexNode);
+	IndexNodeChild* getIndexNodeChild(unsigned int key);
 	std::unordered_map<unsigned int, IndexNodeChild>& getChildren();
 	std::unordered_map<unsigned int, IndexNodeChild> children;
 };
@@ -141,6 +145,7 @@ class IndexNodeTypeThree : public IndexNode
 	bool insertChildNode(BuildIndex* buildIndex, unsigned int key, const IndexNodeChild& indexNodeChild);
 	bool insertChildNode(BuildIndex* buildIndex, unsigned short key, const IndexNodeChild& indexNodeChild);
 	bool mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeThree* indexNode);
+	IndexNodeChild* getIndexNodeChild(unsigned short key);
 	std::unordered_map<unsigned short, IndexNodeChild>& getChildren();
 	std::unordered_map<unsigned short, IndexNodeChild> children;
 };
@@ -163,6 +168,7 @@ class IndexNodeTypeFour : public IndexNode
 	bool insertChildNode(BuildIndex* buildIndex, unsigned short key, const IndexNodeChild& indexNodeChild);
 	bool insertChildNode(BuildIndex* buildIndex, unsigned char key, const IndexNodeChild& indexNodeChild);
 	bool mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeFour* indexNode);
+	IndexNodeChild* getIndexNodeChild(unsigned char key);
 	std::unordered_map<unsigned char, IndexNodeChild>& getChildren();
 	std::unordered_map<unsigned char, IndexNodeChild> children;
 };
