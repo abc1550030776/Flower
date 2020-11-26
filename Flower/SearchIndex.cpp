@@ -308,7 +308,7 @@ bool SearchIndex::search()
 						{
 							for (auto& child : children)
 							{
-								const unsigned char* p = (const unsigned char*)child.first;
+								const unsigned char* p = (const unsigned char*)&child.first;
 								unsigned long long i = 0;
 								for (; i < targetLen; ++i)
 								{
@@ -413,7 +413,7 @@ bool SearchIndex::search()
 						{
 							for (auto& child : children)
 							{
-								const unsigned char* p = (const unsigned char*)child.first;
+								const unsigned char* p = (const unsigned char*)&child.first;
 								unsigned long long i = 0;
 								for (; i < targetLen; ++i)
 								{
@@ -518,7 +518,7 @@ bool SearchIndex::search()
 						{
 							for (auto& child : children)
 							{
-								const unsigned char* p = (const unsigned char*)child.first;
+								const unsigned char* p = (const unsigned char*)&child.first;
 								unsigned long long i = 0;
 								for (; i < targetLen; ++i)
 								{
