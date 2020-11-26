@@ -65,7 +65,7 @@ unsigned long Index::size()
 	return indexNodeCache.size();
 }
 
-bool Index::getLastNodes(unsigned int num, std::vector<unsigned long long>& indexIdVec, std::vector<IndexNode*>& indexNodeVec)
+bool Index::getLastNodes(unsigned long num, std::vector<unsigned long long>& indexIdVec, std::vector<IndexNode*>& indexNodeVec)
 {
 	if (indexNodeCache.size() < num)
 	{
@@ -86,7 +86,7 @@ bool Index::getLastNodes(unsigned int num, std::vector<unsigned long long>& inde
 	return true;
 }
 
-bool Index::reduceCache(unsigned int needReduceNum)
+bool Index::reduceCache(unsigned long needReduceNum)
 {
 	if (indexNodeCache.size() < needReduceNum)
 	{

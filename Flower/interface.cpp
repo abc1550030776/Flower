@@ -44,7 +44,7 @@ bool SearchFile(const char* fileName, const char* searchTarget, unsigned int tar
 	Index index;
 	SearchIndex searchIndex[8];
 	pthread_t pids[8];
-	for (unsigned int i = 0; i < sizeof(pids) / sizeof(pids[0]); ++i)
+	for (unsigned char i = 0; i < sizeof(pids) / sizeof(pids[0]); ++i)
 	{
 		searchIndex[i].init(searchTarget, targetLen, &resultSet, fileName, &index, i);
 		if (pthread_create(&pids[i], NULL, ThreadFun, &searchIndex[i]) != 0)

@@ -36,7 +36,7 @@ typedef struct _LINUX_SRWLOCK_WAITBLOCK {
 		/* Wake is only valid for exclusive wait blocks */
 		long Wake;
 		/* The wake chain is only valid for shared wait blocks */
-		struct ANONYMOUS {
+		struct {
 			PLINUX_SRWLOCK_SHARED_WAKE SharedWakeChain;
 			PLINUX_SRWLOCK_SHARED_WAKE LastSharedWake;
 		};

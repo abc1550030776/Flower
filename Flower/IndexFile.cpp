@@ -373,13 +373,13 @@ bool IndexFile::reduceCache()
 	}
 	else
 	{
-		unsigned size = pIndex->size();
+		unsigned long size = pIndex->size();
 		if (size <= 1024)
 		{
 			return true;
 		}
 
-		unsigned int needReduceNum = size - 1024;
+		unsigned long needReduceNum = size - 1024;
 
 		//把优先级最低的那些节点取出来。
 		std::vector<unsigned long long> indexIdVec;
@@ -482,7 +482,7 @@ bool IndexFile::writeEveryCache()																	//把缓存当中的数据全�
 		return false;
 	}
 
-	unsigned size = pIndex->size();
+	unsigned long size = pIndex->size();
 
 	std::vector<unsigned long long> indexIdVec;
 	std::vector<IndexNode*> indexNodeVec;
@@ -495,7 +495,7 @@ bool IndexFile::writeEveryCache()																	//把缓存当中的数据全�
 	}
 
 	//把所有需要减少的节点全部写盘
-	for (unsigned int i = 0; i < size; ++i)
+	for (unsigned long i = 0; i < size; ++i)
 	{
 		if (!writeFile(indexIdVec[i], indexNodeVec[i]))
 		{

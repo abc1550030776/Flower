@@ -15,8 +15,8 @@ public:
 	IndexNode* getIndexNode(unsigned long long indexId);
 	bool insert(unsigned long long indexId, IndexNode*& pIndexNode);
 	unsigned long size();
-	bool getLastNodes(unsigned int num, std::vector<unsigned long long>& indexIdVec, std::vector<IndexNode*>& indexNodeVec);
-	bool reduceCache(unsigned int needReduceNum);
+	bool getLastNodes(unsigned long num, std::vector<unsigned long long>& indexIdVec, std::vector<IndexNode*>& indexNodeVec);
+	bool reduceCache(unsigned long needReduceNum);
 	bool reduceCache();
 	bool changePreCmpLen(unsigned long long indexId, unsigned long long orgPreCmpLen, unsigned long long newPreCmpLen);
 	bool swapNode(unsigned long long indexId, IndexNode* newNode);

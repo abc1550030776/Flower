@@ -76,7 +76,7 @@ public:
 		this->skipNum = skipNum;
 	}
 
-	void setIndexId(unsigned char indexId)
+	void setIndexId(unsigned long long indexId)
 	{
 		this->indexId = indexId;
 	}
@@ -250,7 +250,7 @@ bool SearchIndex::search()
 									searchTask.setIndexIdOrStartPos(CHILD_TYPE_LEAF);
 									searchTask.setSkipSize(pNode->getPreCmpLen() + pNode->getLen() + 8);
 									searchTask.setIndexId(child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 8);
-									searchTask.setTargetStart(remainSize);
+									searchTask.setTargetStart((unsigned int)remainSize);
 								}
 								else
 								{
@@ -259,7 +259,7 @@ bool SearchIndex::search()
 									searchTask.setIndexIdOrStartPos(CHILD_TYPE_NODE);
 									searchTask.setSkipSize(0);
 									searchTask.setIndexId(child.second.getIndexId());
-									searchTask.setTargetStart(remainSize);
+									searchTask.setTargetStart((unsigned int)remainSize);
 								}
 							}
 						}
@@ -289,7 +289,7 @@ bool SearchIndex::search()
 						{
 							skipQue.emplace_back();
 							SkipStruct& tmpSkipStruct = skipQue.back();
-							tmpSkipStruct.setSkipNum(skipStruct.getSkipNum() - pNode->getLen() - 8);
+							tmpSkipStruct.setSkipNum((unsigned char)(skipStruct.getSkipNum() - pNode->getLen() - 8));
 							tmpSkipStruct.setIndexId(child.second.getIndexId());
 						}
 					}
@@ -355,7 +355,7 @@ bool SearchIndex::search()
 										searchTask.setIndexIdOrStartPos(CHILD_TYPE_LEAF);
 										searchTask.setSkipSize(pNode->getPreCmpLen() + pNode->getLen() + 4);
 										searchTask.setIndexId(child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 4);
-										searchTask.setTargetStart(remainSize);
+										searchTask.setTargetStart((unsigned int)remainSize);
 									}
 									else
 									{
@@ -364,7 +364,7 @@ bool SearchIndex::search()
 										searchTask.setIndexIdOrStartPos(CHILD_TYPE_NODE);
 										searchTask.setSkipSize(0);
 										searchTask.setIndexId(child.second.getIndexId());
-										searchTask.setTargetStart(remainSize);
+										searchTask.setTargetStart((unsigned int)remainSize);
 									}
 								}
 							}
@@ -394,7 +394,7 @@ bool SearchIndex::search()
 							{
 								skipQue.emplace_back();
 								SkipStruct& tmpSkipStruct = skipQue.back();
-								tmpSkipStruct.setSkipNum(skipStruct.getSkipNum() - pNode->getLen() - 4);
+								tmpSkipStruct.setSkipNum((unsigned char)(skipStruct.getSkipNum() - pNode->getLen() - 4));
 								tmpSkipStruct.setIndexId(child.second.getIndexId());
 							}
 						}
@@ -460,7 +460,7 @@ bool SearchIndex::search()
 										searchTask.setIndexIdOrStartPos(CHILD_TYPE_LEAF);
 										searchTask.setSkipSize(pNode->getPreCmpLen() + pNode->getLen() + 2);
 										searchTask.setIndexId(child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 2);
-										searchTask.setTargetStart(remainSize);
+										searchTask.setTargetStart((unsigned char)remainSize);
 									}
 									else
 									{
@@ -469,7 +469,7 @@ bool SearchIndex::search()
 										searchTask.setIndexIdOrStartPos(CHILD_TYPE_NODE);
 										searchTask.setSkipSize(0);
 										searchTask.setIndexId(child.second.getIndexId());
-										searchTask.setTargetStart(remainSize);
+										searchTask.setTargetStart((unsigned int)remainSize);
 									}
 								}
 							}
@@ -499,7 +499,7 @@ bool SearchIndex::search()
 							{
 								skipQue.emplace_back();
 								SkipStruct& tmpSkipStruct = skipQue.back();
-								tmpSkipStruct.setSkipNum(skipStruct.getSkipNum() - pNode->getLen() - 2);
+								tmpSkipStruct.setSkipNum((unsigned char)(skipStruct.getSkipNum() - pNode->getLen() - 2));
 								tmpSkipStruct.setIndexId(child.second.getIndexId());
 							}
 						}
@@ -565,7 +565,7 @@ bool SearchIndex::search()
 										searchTask.setIndexIdOrStartPos(CHILD_TYPE_LEAF);
 										searchTask.setSkipSize(pNode->getPreCmpLen() + pNode->getLen() + 1);
 										searchTask.setIndexId(child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 1);
-										searchTask.setTargetStart(remainSize);
+										searchTask.setTargetStart((unsigned int)remainSize);
 									}
 									else
 									{
@@ -574,7 +574,7 @@ bool SearchIndex::search()
 										searchTask.setIndexIdOrStartPos(CHILD_TYPE_NODE);
 										searchTask.setSkipSize(0);
 										searchTask.setIndexId(child.second.getIndexId());
-										searchTask.setTargetStart(remainSize);
+										searchTask.setTargetStart((unsigned int)remainSize);
 									}
 								}
 							}
@@ -604,7 +604,7 @@ bool SearchIndex::search()
 							{
 								skipQue.emplace_back();
 								SkipStruct& tmpSkipStruct = skipQue.back();
-								tmpSkipStruct.setSkipNum(skipStruct.getSkipNum() - pNode->getLen() - 1);
+								tmpSkipStruct.setSkipNum((unsigned char)(skipStruct.getSkipNum() - pNode->getLen() - 1));
 								tmpSkipStruct.setIndexId(child.second.getIndexId());
 							}
 						}
@@ -982,7 +982,7 @@ bool SearchIndex::search()
 										searchTask.setIndexIdOrStartPos(CHILD_TYPE_LEAF);
 										searchTask.setSkipSize(pNode->getPreCmpLen() + nodeLen + 8);
 										searchTask.setIndexId(indexNodeChild->getIndexId() - pNode->getPreCmpLen() - nodeLen - 8);
-										searchTask.setTargetStart(targetStart + nodeLen - skipSize + 8);
+										searchTask.setTargetStart((unsigned int)(targetStart + nodeLen - skipSize + 8));
 									}
 									else
 									{
@@ -991,7 +991,7 @@ bool SearchIndex::search()
 										searchTask.setIndexIdOrStartPos(CHILD_TYPE_NODE);
 										searchTask.setSkipSize(0);
 										searchTask.setIndexId(indexNodeChild->getIndexId());
-										searchTask.setTargetStart(targetStart + nodeLen - skipSize + 8);
+										searchTask.setTargetStart((unsigned int)(targetStart + nodeLen - skipSize + 8));
 									}
 								}
 							}
@@ -1055,7 +1055,7 @@ bool SearchIndex::search()
 										searchTask.setIndexIdOrStartPos(CHILD_TYPE_LEAF);
 										searchTask.setSkipSize(pNode->getPreCmpLen() + nodeLen + 4);
 										searchTask.setIndexId(indexNodeChild->getIndexId() - pNode->getPreCmpLen() - nodeLen - 4);
-										searchTask.setTargetStart(targetStart + nodeLen - skipSize + 4);
+										searchTask.setTargetStart((unsigned int)(targetStart + nodeLen - skipSize + 4));
 									}
 									else
 									{
@@ -1064,7 +1064,7 @@ bool SearchIndex::search()
 										searchTask.setIndexIdOrStartPos(CHILD_TYPE_NODE);
 										searchTask.setSkipSize(0);
 										searchTask.setIndexId(indexNodeChild->getIndexId());
-										searchTask.setTargetStart(targetStart + nodeLen - skipSize + 4);
+										searchTask.setTargetStart((unsigned int)(targetStart + nodeLen - skipSize + 4));
 									}
 								}
 							}
@@ -1128,7 +1128,7 @@ bool SearchIndex::search()
 										searchTask.setIndexIdOrStartPos(CHILD_TYPE_LEAF);
 										searchTask.setSkipSize(pNode->getPreCmpLen() + nodeLen + 2);
 										searchTask.setIndexId(indexNodeChild->getIndexId() - pNode->getPreCmpLen() - nodeLen - 2);
-										searchTask.setTargetStart(targetStart + nodeLen - skipSize + 2);
+										searchTask.setTargetStart((unsigned int)(targetStart + nodeLen - skipSize + 2));
 									}
 									else
 									{
@@ -1137,7 +1137,7 @@ bool SearchIndex::search()
 										searchTask.setIndexIdOrStartPos(CHILD_TYPE_NODE);
 										searchTask.setSkipSize(0);
 										searchTask.setIndexId(indexNodeChild->getIndexId());
-										searchTask.setTargetStart(targetStart + nodeLen - skipSize + 2);
+										searchTask.setTargetStart((unsigned int)(targetStart + nodeLen - skipSize + 2));
 									}
 								}
 							}
@@ -1201,7 +1201,7 @@ bool SearchIndex::search()
 										searchTask.setIndexIdOrStartPos(CHILD_TYPE_LEAF);
 										searchTask.setSkipSize(pNode->getPreCmpLen() + nodeLen + 1);
 										searchTask.setIndexId(indexNodeChild->getIndexId() - pNode->getPreCmpLen() - nodeLen - 1);
-										searchTask.setTargetStart(targetStart + nodeLen - skipSize + 1);
+										searchTask.setTargetStart((unsigned int)(targetStart + nodeLen - skipSize + 1));
 									}
 									else
 									{
@@ -1210,7 +1210,7 @@ bool SearchIndex::search()
 										searchTask.setIndexIdOrStartPos(CHILD_TYPE_NODE);
 										searchTask.setSkipSize(0);
 										searchTask.setIndexId(indexNodeChild->getIndexId());
-										searchTask.setTargetStart(targetStart + nodeLen - skipSize + 1);
+										searchTask.setTargetStart((unsigned int)(targetStart + nodeLen - skipSize + 1));
 									}
 								}
 							}
@@ -1237,7 +1237,7 @@ bool SearchIndex::search()
 									searchTask.setIndexIdOrStartPos(CHILD_TYPE_LEAF);
 									searchTask.setSkipSize(pNode->getPreCmpLen() + nodeLen);
 									searchTask.setIndexId(filePos);
-									searchTask.setTargetStart(targetStart + nodeLen - skipSize);
+									searchTask.setTargetStart((unsigned int)(targetStart + nodeLen - skipSize));
 								}
 							}
 						}
