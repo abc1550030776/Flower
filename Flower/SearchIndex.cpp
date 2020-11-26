@@ -642,6 +642,7 @@ bool SearchIndex::search()
 		indexFile.putIndexNode(pNode);
 	}
 
+	unsigned char count = 0;
 	for (; !searchTaskQue.empty(); searchTaskQue.pop_front())
 	{
 		SearchTask& searchTask = searchTaskQue.front();
@@ -1219,10 +1220,136 @@ bool SearchIndex::search()
 					default:
 						break;
 					}
+					//还有一种叶子节点是在leafset里面比覆盖了节点长度但是还不到8个字节的这里也要搜索下
+					unsigned long long filePos = 0;
+					if (pNode->getFirstLeafSet(&filePos))
+					{
+						unsigned long long leafLen = dstFileSize - filePos;
+						if (leafLen > pNode->getPreCmpLen() + pNode->getLen())
+						{
+							unsigned long long overLen = leafLen - pNode->getPreCmpLen() - nodeLen;
+							if (overLen < 8)
+							{
+								if (pNode->getPreCmpLen() + skipSize + leftSearchTarget <= leafLen)
+								{
+									searchTaskQue.emplace_back();
+									SearchTask& searchTask = searchTaskQue.back();
+									searchTask.setIndexIdOrStartPos(CHILD_TYPE_LEAF);
+									searchTask.setSkipSize(pNode->getPreCmpLen() + nodeLen);
+									searchTask.setIndexId(filePos);
+									searchTask.setTargetStart(targetStart + nodeLen - skipSize);
+								}
+							}
+						}
+					}
 				}
 			}
 			free(buffer);
 			indexFile.putIndexNode(pNode);
+
+			++count;
+			if (count % 8 == 0)
+			{
+				//搜索几次再对缓存进行处理
+				indexFile.reduceCache();
+			}
+		}
+	}
+
+	count = 0;
+	for (; !indexIdQue.empty(); indexIdQue.pop_front())
+	{
+		unsigned long long indexId = indexIdQue.front();
+		IndexNode* pNode = indexFile.getIndexNode(indexId);
+		if (pNode == nullptr)
+		{
+			return false;
+		}
+
+		//将所有的leafSet中的叶子节点添加到结果当中因为全都是有效的
+		pNode->addLeafPosToResult(0, skipCharNum, dstFileSize, *resultSet);
+
+		//把所有的叶子节点也加入
+		switch (pNode->getType())
+		{
+		case NODE_TYPE_ONE:
+		{
+			IndexNodeTypeOne* pTmpNode = (IndexNodeTypeOne*)pNode;
+			std::unordered_map<unsigned long long, IndexNodeChild>& children = pTmpNode->getChildren();
+			for (auto& child : children)
+			{
+				if (child.second.getType() == CHILD_TYPE_LEAF)
+				{
+					resultSet->insert(child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 8 + skipCharNum);
+				}
+				else
+				{
+					indexIdQue.push_back(child.second.getIndexId());
+				}
+			}
+		}
+			break;
+		case NODE_TYPE_TWO:
+		{
+			IndexNodeTypeTwo* pTmpNode = (IndexNodeTypeTwo*)pNode;
+			std::unordered_map<unsigned int, IndexNodeChild>& children = pTmpNode->getChildren();
+			for (auto& child : children)
+			{
+				if (child.second.getType() == CHILD_TYPE_LEAF)
+				{
+					resultSet->insert(child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 4 + skipCharNum);
+				}
+				else
+				{
+					indexIdQue.push_back(child.second.getIndexId());
+				}
+			}
+		}
+			break;
+		case NODE_TYPE_THREE:
+		{
+			IndexNodeTypeThree* pTmpNode = (IndexNodeTypeThree*)pNode;
+			std::unordered_map<unsigned short, IndexNodeChild>& children = pTmpNode->getChildren();
+			for (auto& child : children)
+			{
+				if (child.second.getType() == CHILD_TYPE_LEAF)
+				{
+					resultSet->insert(child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 2 + skipCharNum);
+				}
+				else
+				{
+					indexIdQue.push_back(child.second.getIndexId());
+				}
+			}
+		}
+			break;
+		case NODE_TYPE_FOUR:
+		{
+			IndexNodeTypeFour* pTmpNode = (IndexNodeTypeFour*)pNode;
+			std::unordered_map<unsigned char, IndexNodeChild>& children = pTmpNode->getChildren();
+			for (auto& child : children)
+			{
+				if (child.second.getType() == CHILD_TYPE_LEAF)
+				{
+					resultSet->insert(child.second.getIndexId() - pNode->getParentId() - pNode->getLen() - 1 + skipCharNum);
+				}
+				else
+				{
+					indexIdQue.push_back(child.second.getIndexId());
+				}
+			}
+		}
+		default:
+			break;
+		}
+
+		indexFile.putIndexNode(pNode);
+
+		++count;
+		if (count % 8 == 0)
+		{
+			//搜索几次再对缓存进行处理
+			indexFile.reduceCache();
 		}
 	}
 
