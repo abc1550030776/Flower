@@ -23,10 +23,11 @@ int main()
 	{
 		fpos_t pos;
 		pos.__pos = val;
+		fsetpos(file, &pos);
 		if (fread(buffer, 4, 1, file) != 1)
 		{
 			fclose(file);
-			printf("read file error filepos %ull", val);
+			printf("read file error filepos %llu", val);
 			return 1;
 		}
 
@@ -34,7 +35,7 @@ int main()
 		if (strcmp(buffer, "word"))
 		{
 			fclose(file);
-			printf("search word pos not correct resultPos %ull result word %s", val, buffer);
+			printf("search word pos not correct resultPos %llu result word %s", val, buffer);
 			return 1;
 		}
 	}
