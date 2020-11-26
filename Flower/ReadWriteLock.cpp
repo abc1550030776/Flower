@@ -222,7 +222,7 @@ static inline void acquireSRWLockSharedWaitImpl(PRTL_SRWLOCK SRWLock, PLINUX_SRW
 	}
 }
 
-static inline void acquireSRWLockShared(PRTL_SRWLOCK SRWLock)
+void acquireSRWLockShared(PRTL_SRWLOCK SRWLock)
 {
 	LINUX_SRWLOCK_WAITBLOCK StackWaitBlock __attribute__((aligned(16)));
 	LINUX_SRWLOCK_SHARED_WAKE SharedWake;
@@ -395,7 +395,7 @@ static inline void acquireSRWLockShared(PRTL_SRWLOCK SRWLock)
 	}
 }
 
-static inline void releaseSRWLockShared(PRTL_SRWLOCK SRWLock)
+void releaseSRWLockShared(PRTL_SRWLOCK SRWLock)
 {
 	unsigned long CurrentValue, NewValue;
 	PLINUX_SRWLOCK_WAITBLOCK WaitBlock;
@@ -457,7 +457,7 @@ unsigned char InterlockedBitTestAndSet(volatile int* Base, int Offset)
 	return old;
 }
 
-static inline void acquireSRWLockExclusive(PRTL_SRWLOCK SRWLock)
+void acquireSRWLockExclusive(PRTL_SRWLOCK SRWLock)
 {
 	LINUX_SRWLOCK_WAITBLOCK StackWaitBlock __attribute__((aligned(16)));
 	PLINUX_SRWLOCK_WAITBLOCK First, Last;
@@ -554,7 +554,7 @@ static inline void acquireSRWLockExclusive(PRTL_SRWLOCK SRWLock)
 	}
 }
 
-static inline void releaseSRWLockExclusive(PRTL_SRWLOCK SRWLock)
+void releaseSRWLockExclusive(PRTL_SRWLOCK SRWLock)
 {
 	unsigned long CurrentValue, NewValue;
 	PLINUX_SRWLOCK_WAITBLOCK WaitBlock;

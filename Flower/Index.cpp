@@ -60,7 +60,7 @@ bool Index::insert(unsigned long long indexId, IndexNode*& pIndexNode)
 	return true;
 }
 
-unsigned int Index::size()
+unsigned long Index::size()
 {
 	return indexNodeCache.size();
 }
@@ -115,13 +115,13 @@ bool Index::reduceCache(unsigned int needReduceNum)
 bool Index::reduceCache()
 {
 	acquireSRWLockExclusive(&rwLock);
-	if (indexNodeCache.size <= 1024)
+	if (indexNodeCache.size() <= 1024)
 	{
 		releaseSRWLockExclusive(&rwLock);
 		return true;
 	}
 
-	unsigned int needReduceNum = indexNodeCache.size() - 1024;
+	unsigned long needReduceNum = indexNodeCache.size() - 1024;
 	auto it = end(IndexIdPreority);
 	--it;
 	for (unsigned int i = 0; i < needReduceNum; ++i)

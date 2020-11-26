@@ -1,6 +1,9 @@
 #pragma once
 #include "Myfile.h"
 #include "IndexFile.h"
+class IndexNode;
+class IndexNodeChild;
+class Index;
 class BuildIndex
 {
 public:

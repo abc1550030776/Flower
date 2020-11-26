@@ -1,7 +1,7 @@
 #include "common.h"
 #include <string.h>
 
-bool GetIndexPath(const char* dstFilePath, char* indexPath)
+bool getIndexPath(const char* dstFilePath, char* indexPath)
 {
 	//判断路劲长度加上后缀了以后是否会超过最长长度
 	size_t len = strlen(dstFilePath);

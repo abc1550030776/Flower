@@ -82,6 +82,7 @@
     <ClCompile Include="IndexFile.cpp" />
     <ClCompile Include="IndexNode.cpp" />
     <ClCompile Include="interface.cpp" />
+    <ClCompile Include="main.cpp" />
     <ClCompile Include="Myfile.cpp" />
     <ClCompile Include="ReadWriteLock.cpp" />
     <ClCompile Include="SearchIndex.cpp" />
@@ -102,7 +103,15 @@
     <ClInclude Include="SetWithLock.h" />
     <ClInclude Include="UniqueGenerator.h" />
   </ItemGroup>
-  <ItemDefinitionGroup />
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x86'">
+    <ClCompile>
+      <AdditionalOptions>-pthread %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <AdditionalOptions>-pthread </AdditionalOptions>
+      <AdditionalDependencies>-lpthread;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
 </Project>

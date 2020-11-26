@@ -5,11 +5,8 @@
 
 #define LINUX_EXCLOCK_LOCK (1 << LINUX_EXCLOCK_LOCK_BIT)
 
-typedef struct _EXCLOCK {
-	volatile unsigned long Ptr;
-} volatile EXCLOCK, * PEXCLOCK;
 
-static inline void acquireExclusive(PEXCLOCK EXCLock)
+void acquireExclusive(PEXCLOCK EXCLock)
 {
 	unsigned long PrevValue;
 	while (1)
@@ -24,7 +21,7 @@ static inline void acquireExclusive(PEXCLOCK EXCLock)
 	}
 }
 
-static inline void releaseExclusive(PEXCLOCK EXCLock)
+void releaseExclusive(PEXCLOCK EXCLock)
 {
 	__sync_fetch_and_and((volatile unsigned long*)& EXCLock->Ptr, ~LINUX_EXCLOCK_LOCK);
 }

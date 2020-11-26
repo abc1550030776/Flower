@@ -23,7 +23,7 @@ bool BuildIndex::init(const char* fileName, Index* index)
 	char indexFileName[4096];
 	memset(indexFileName, 0, sizeof(indexFileName));
 	//获取索引文件的名字
-	if (!GetIndexPath(fileName, indexFileName))
+	if (!getIndexPath(fileName, indexFileName))
 	{
 		return false;
 	}
@@ -902,7 +902,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				
 				//修改长节点的长度
 				longNode->setStart(longNode->getStart() + cmpLen + 8);
-				longNode->setLen(longNode->getLen - cmpLen - 8);
+				longNode->setLen(longNode->getLen() - cmpLen - 8);
 
 				if (!indexFile.changePreCmpLen(longNode->getIndexId(), longNode->getPreCmpLen(), longNode->getPreCmpLen() + cmpLen + 8))
 				{
@@ -1007,7 +1007,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 				//修改长节点的长度
 				longNode->setStart(longNode->getStart() + cmpLen + 1);
-				longNode->setLen(longNode->getLen - cmpLen - 1);
+				longNode->setLen(longNode->getLen() - cmpLen - 1);
 
 				if (!indexFile.changePreCmpLen(longNode->getIndexId(), longNode->getPreCmpLen(), longNode->getPreCmpLen() + cmpLen + 1))
 				{

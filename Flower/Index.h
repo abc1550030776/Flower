@@ -4,8 +4,9 @@
 #include <vector>
 #include "ReadWriteLock.h"
 
-unsigned char USE_TYPE_BUILD = 0;
-unsigned char USE_TYPE_SEARCH = 1;
+const unsigned char USE_TYPE_BUILD = 0;
+const unsigned char USE_TYPE_SEARCH = 1;
+class IndexNode;
 class Index
 {
 public:
@@ -13,7 +14,7 @@ public:
 	Index(unsigned char useType);
 	IndexNode* getIndexNode(unsigned long long indexId);
 	bool insert(unsigned long long indexId, IndexNode*& pIndexNode);
-	unsigned int size();
+	unsigned long size();
 	bool getLastNodes(unsigned int num, std::vector<unsigned long long>& indexIdVec, std::vector<IndexNode*>& indexNodeVec);
 	bool reduceCache(unsigned int needReduceNum);
 	bool reduceCache();

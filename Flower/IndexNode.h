@@ -16,6 +16,7 @@ const unsigned char NODE_TYPE_TWO = 1;
 const unsigned char NODE_TYPE_THREE = 2;
 const unsigned char NODE_TYPE_FOUR = 3;
 
+class BuildIndex;
 class IndexNode
 {
 public:
@@ -72,7 +73,7 @@ class IndexNodeChild
 	friend class IndexNodeTypeFour;
 public:
 	IndexNodeChild();
-	IndexNodeChild(unsigned char childType, unsigned char indexId);
+	IndexNodeChild(unsigned char childType, unsigned long long indexId);
 	unsigned char getType() const;
 	unsigned long long getIndexId() const;
 	void setIndexId(unsigned long long indexId);

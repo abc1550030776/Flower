@@ -232,7 +232,7 @@ IndexNodeChild::IndexNodeChild()
 	indexId = 0;
 }
 
-IndexNodeChild::IndexNodeChild(unsigned char childType, unsigned char indexId)
+IndexNodeChild::IndexNodeChild(unsigned char childType, unsigned long long indexId)
 {
 	this->childType = childType;
 	this->indexId = indexId;

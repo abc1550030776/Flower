@@ -1,4 +1,4 @@
-#include "IndexFile.h"
+#include "BuildIndex.h"
 #include "UniqueGenerator.h"
 
 IndexFile::IndexFile()

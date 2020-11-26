@@ -37,7 +37,7 @@ bool SearchIndex::init(const char* searchTarget, unsigned int targetLen, SetWith
 	char indexFileName[4096];
 	memset(indexFileName, 0, sizeof(indexFileName));
 	//获取索引文件的名字
-	if (!GetIndexPath(fileName, indexFileName))
+	if (!getIndexPath(fileName, indexFileName))
 	{
 		return false;
 	}

@@ -1,7 +1,7 @@
 #pragma once
 #include "SetWithLock.h"
 #include "Myfile.h"
-#include "IndexFile.h"
+#include "BuildIndex.h"
 class SearchIndex
 {
 public:

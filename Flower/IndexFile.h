@@ -3,6 +3,8 @@
 #include "Index.h"
 #include <unordered_set>
 
+class Index;
+class IndexNode;
 class IndexFile
 {
 public:
