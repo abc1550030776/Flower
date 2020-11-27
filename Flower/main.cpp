@@ -47,8 +47,8 @@ int main()
 			return 1;
 		}
 
-		printf("file content %s", buffer);
 		buffer[10] = '\0';
+		printf("file content %s \n", buffer);
 		if (strcmp(buffer, "regulators"))
 		{
 			fclose(file);

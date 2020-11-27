@@ -2406,7 +2406,7 @@ bool BuildIndex::build()
 	{
 		IndexNodeChild indexNodeChild(CHILD_TYPE_LEAF, filePos);
 
-		printf("mergeNode filePos %llu\n", filePos);
+		//printf("mergeNode filePos %llu\n", filePos);
 
 		if (!mergeNode(0, 0, rootIndex, indexNodeChild))
 		{
