@@ -269,7 +269,7 @@ bool IndexNodeTypeOne::toBinary(char* buffer, int len)
 	}
 	*((unsigned long long*)p) = start;
 	p += 8;
-	*((unsigned long long*)p) = len;
+	*((unsigned long long*)p) = this->len;
 	p += 8;
 	*((unsigned long long*)p) = preCmpLen;
 	p += 8;
@@ -394,7 +394,7 @@ bool IndexNodeTypeOne::toObject(char* buffer, int len)
 
 	start = *((unsigned long long*)p);
 	p += 8;
-	len = *((unsigned long long*)p);
+	this->len = *((unsigned long long*)p);
 	p += 8;
 	preCmpLen = *((unsigned long long*)p);
 	p += 8;
@@ -654,7 +654,7 @@ bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 	}
 	*((unsigned long long*)p) = start;
 	p += 8;
-	*((unsigned long long*)p) = len;
+	*((unsigned long long*)p) = this->len;
 	p += 8;
 	*((unsigned long long*)p) = preCmpLen;
 	p += 8;
@@ -779,7 +779,7 @@ bool IndexNodeTypeTwo::toObject(char* buffer, int len)
 
 	start = *((unsigned long long*)p);
 	p += 8;
-	len = *((unsigned long long*)p);
+	this->len = *((unsigned long long*)p);
 	p += 8;
 	preCmpLen = *((unsigned long long*)p);
 	p += 8;
@@ -1085,7 +1085,7 @@ bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 	}
 	*((unsigned long long*)p) = start;
 	p += 8;
-	*((unsigned long long*)p) = len;
+	*((unsigned long long*)p) = this->len;
 	p += 8;
 	*((unsigned long long*)p) = preCmpLen;
 	p += 8;
@@ -1210,7 +1210,7 @@ bool IndexNodeTypeThree::toObject(char* buffer, int len)
 
 	start = *((unsigned long long*)p);
 	p += 8;
-	len = *((unsigned long long*)p);
+	this->len = *((unsigned long long*)p);
 	p += 8;
 	preCmpLen = *((unsigned long long*)p);
 	p += 8;
@@ -1517,7 +1517,7 @@ bool IndexNodeTypeFour::toBinary(char* buffer, int len)
 	}
 	*((unsigned long long*)p) = start;
 	p += 8;
-	*((unsigned long long*)p) = len;
+	*((unsigned long long*)p) = this->len;
 	p += 8;
 	*((unsigned long long*)p) = preCmpLen;
 	p += 8;
@@ -1642,7 +1642,7 @@ bool IndexNodeTypeFour::toObject(char* buffer, int len)
 
 	start = *((unsigned long long*)p);
 	p += 8;
-	len = *((unsigned long long*)p);
+	this->len = *((unsigned long long*)p);
 	p += 8;
 	preCmpLen = *((unsigned long long*)p);
 	p += 8;

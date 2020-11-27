@@ -109,7 +109,7 @@
     </ClCompile>
     <Link>
       <AdditionalOptions>-pthread </AdditionalOptions>
-      <AdditionalDependencies>-lpthread;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>-pthread;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
