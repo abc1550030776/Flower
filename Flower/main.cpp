@@ -1,24 +1,32 @@
 #include "interface.h"
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 int main()
 {
-	if(!BuildDstIndex("test"))
+
+	char pPath[256] = { 0 };
+
+	getcwd(pPath, 256);
+
+	printf("filePath: %s\n", pPath);
+
+	if(!BuildDstIndex("/test"))
 	{
 		printf("build index fail\n");
 		return 1;
 	}
 
 	std::set<unsigned long long> result;
-	if(!SearchFile("test", "regulators", 10, &result))
+	if(!SearchFile("/test", "regulators", 10, &result))
 	{
 		printf("search fail \n");
 		return 1;
 	}
 
 	//打开文件看看查找的字符串对不对。
-	FILE* file = fopen("test", "rb");
+	FILE* file = fopen("/test", "rb");
 	if (file == nullptr)
 	{
 		printf("file open error");
@@ -41,7 +49,7 @@ int main()
 
 		printf("file content %s", buffer);
 		buffer[10] = '\0';
-		if (strcmp(buffer, "word"))
+		if (strcmp(buffer, "regulators"))
 		{
 			fclose(file);
 			printf("search word pos not correct resultPos %llu result word %s", val, buffer);

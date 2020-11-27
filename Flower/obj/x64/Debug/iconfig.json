@@ -512,5 +512,7 @@
     "char": 1
   },
   "wchar_t_type": "int",
+  "ptrdiff_t_type": "long",
+  "size_t_type": "unsigned long",
   "supports_x86_64": true
 }

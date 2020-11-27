@@ -1790,7 +1790,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		if (cmpLen == remainReadSize)
 		{
 			//其中一个节点的所有部分和另外一个节点相同这个时候有2种情况,一种是可以直接插入叶子节点,另一种是在孩子节点当中插入
-			if (offset + remainReadSize == 8 && leafRemainSize - remainReadSize < 8)
+			if ((offset + remainReadSize) % 8 == 0 && leafRemainSize - remainReadSize < 8)
 			{
 				//直接把叶子节点加入到节点当中
 				pNotLeafNode->setParentID(parentId);
@@ -1921,6 +1921,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		}
 
 		unsigned char* nodeBuffer = (unsigned char*)malloc(4 * 1024);
+		if (nodeBuffer == nullptr)
 		{
 			free(leafBuffer);
 			return false;
@@ -2405,8 +2406,11 @@ bool BuildIndex::build()
 	{
 		IndexNodeChild indexNodeChild(CHILD_TYPE_LEAF, filePos);
 
+		printf("mergeNode filePos %llu\n", filePos);
+
 		if (!mergeNode(0, 0, rootIndex, indexNodeChild))
 		{
+			printf("mergeNode fail filePos %llu\n", filePos);
 			return false;
 		}
 
