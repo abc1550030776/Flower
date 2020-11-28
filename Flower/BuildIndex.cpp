@@ -209,7 +209,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 					}
 					
 					IndexNodeChild rIndexNodeChild(CHILD_TYPE_LEAF, rightFilePos + cmpLen + 2);
-					if (!tmpNode->insertChildNode(this, *(unsigned short*)(&leftData[cmpLen]), rIndexNodeChild))
+					if (!tmpNode->insertChildNode(this, *(unsigned short*)(&rightData[cmpLen]), rIndexNodeChild))
 					{
 						return false;
 					}
