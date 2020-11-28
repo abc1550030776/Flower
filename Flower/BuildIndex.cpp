@@ -884,6 +884,8 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				longNodeStart = rightFilePos;
 			}
 
+			anotherNode->appendLeafSet(longNode, cmpLen + 8, dstFileSize);
+
 			//从一个节点添加进另一个节点
 			switch (anotherNode->getType())
 			{
@@ -1368,6 +1370,9 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			longNodeStart = rightFilePos;
 		}
 
+		//把长节点前面相同部分的叶子节点加进去
+		anotherNode->appendLeafSet(longNode, cmpLen + 8, dstFileSize);
+
 		//从一个节点添加进另一个节点
 		switch (anotherNode->getType())
 		{
@@ -1385,9 +1390,6 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			}
 
 			anotherNode->setParentID(parentId);
-
-			//把长节点前面相同部分的叶子节点加进去
-			anotherNode->appendLeafSet(longNode, cmpLen + 8, dstFileSize);
 
 			//修改长节点的长度
 			longNode->setStart(longNode->getStart() + cmpLen + 8);
@@ -1429,9 +1431,6 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			}
 
 			anotherNode->setParentID(parentId);
-
-			//把长节点前面相同部分的叶子节点加进去
-			anotherNode->appendLeafSet(longNode, cmpLen + 8, dstFileSize);
 
 			//修改长节点的长度
 
@@ -1475,9 +1474,6 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 			anotherNode->setParentID(parentId);
 
-			//把长节点前面相同部分的叶子节点加进去
-			anotherNode->appendLeafSet(longNode, cmpLen + 8, dstFileSize);
-
 			//修改长节点的长度
 			longNode->setStart(longNode->getStart() + cmpLen + 2);
 			longNode->setLen(longNode->getLen() - cmpLen - 2);
@@ -1518,9 +1514,6 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			}
 
 			anotherNode->setParentID(parentId);
-
-			//把长节点前面相同的部分的叶子节点加进去
-			anotherNode->appendLeafSet(longNode, cmpLen + 8, dstFileSize);
 
 			//修改长节点的长度
 			longNode->setParentID(anotherNode->getIndexId());
