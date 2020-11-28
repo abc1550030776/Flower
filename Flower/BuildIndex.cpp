@@ -160,13 +160,13 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				switch (curCmpLen)
 				{
 				case 4:
-					pNode = indexFile.newIndexNode(NODE_TYPE_TWO, preCmpLen);
+					pNode = indexFile.newIndexNode(NODE_TYPE_TWO, preCmpLen + cmpLen);
 					break;
 				case 2:
-					pNode = indexFile.newIndexNode(NODE_TYPE_THREE, preCmpLen);
+					pNode = indexFile.newIndexNode(NODE_TYPE_THREE, preCmpLen + cmpLen);
 					break;
 				case 1:
-					pNode = indexFile.newIndexNode(NODE_TYPE_FOUR, preCmpLen);
+					pNode = indexFile.newIndexNode(NODE_TYPE_FOUR, preCmpLen + cmpLen);
 					break;
 				default:
 					break;
