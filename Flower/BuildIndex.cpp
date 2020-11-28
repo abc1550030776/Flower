@@ -1269,7 +1269,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 			//右边节点修改相应节点的长度
 			rightNode->setStart(rightNode->getStart() + cmpLen + subCmpLen + 8);
-			rightNode->setLen(rightNode->getLen() - cmpLen - subCmpLen + 8);
+			rightNode->setLen(rightNode->getLen() - cmpLen - subCmpLen - 8);
 
 			if (!indexFile.changePreCmpLen(rightNode->getIndexId(), rightNode->getPreCmpLen(), rightNode->getPreCmpLen() + cmpLen + subCmpLen + 8))
 			{
