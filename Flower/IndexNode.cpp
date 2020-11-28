@@ -100,6 +100,12 @@ bool IndexNode::mergeSameLenNode(BuildIndex* buildIndex, IndexNode* indexNode)
 		return false;
 	}
 
+	//合并叶子节点
+	for (auto& leaf : indexNode->leafSet)
+	{
+		leafSet.insert(leaf);
+	}
+
 	switch (getType())
 	{
 	case NODE_TYPE_ONE:
@@ -599,12 +605,6 @@ bool IndexNodeTypeOne::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeOne
 	if (buildIndex == nullptr || indexNode == nullptr)
 	{
 		return false;
-	}
-
-	//合并叶子节点
-	for (auto& leaf : indexNode->leafSet)
-	{
-		leafSet.insert(leaf);
 	}
 
 	for (auto& child : indexNode->children)
