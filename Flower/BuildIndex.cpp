@@ -1977,7 +1977,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				pNotLeafNode->setStart(pNotLeafNode->getStart() + cmpLen + subCmpLen + 8);
 				pNotLeafNode->setLen(pNotLeafNode->getLen() - cmpLen - subCmpLen - 8);
 
-				if (!indexFile.changePreCmpLen(pNotLeafNode->getIndexId(), pNotLeafNode->getPreCmpLen(), pNotLeafNode->getPreCmpLen() + cmpLen + 8))
+				if (!indexFile.changePreCmpLen(pNotLeafNode->getIndexId(), pNotLeafNode->getPreCmpLen(), pNotLeafNode->getPreCmpLen() + cmpLen + subCmpLen + 8))
 				{
 					free(leafBuffer);
 					free(nodeBuffer);
