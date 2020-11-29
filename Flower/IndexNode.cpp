@@ -435,6 +435,11 @@ bool IndexNodeTypeOne::toObject(char* buffer, int len)
 
 	leftSize -= indexNodeNum * 16;
 	//添加只是叶子节点部分
+
+	if (leftSize < 1)
+	{
+		return false;
+	}
 	unsigned char leafNum = *p;
 	p += 1;
 	leftSize -= 1;
@@ -460,6 +465,10 @@ bool IndexNodeTypeOne::toObject(char* buffer, int len)
 
 
 	//添加比较到中途就到文件结尾的叶子节点
+	if (leftSize < 1)
+	{
+		return false;
+	}
 	unsigned char endLeafNum = *p;
 	p += 1;
 	leftSize -= 1;
@@ -814,6 +823,10 @@ bool IndexNodeTypeTwo::toObject(char* buffer, int len)
 
 	leftSize -= indexNodeNum * 12;
 	//添加只是叶子节点部分
+	if (leftSize < 1)
+	{
+		return false;
+	}
 	unsigned char leafNum = *p;
 	p += 1;
 	leftSize -= 1;
@@ -839,6 +852,10 @@ bool IndexNodeTypeTwo::toObject(char* buffer, int len)
 
 
 	//添加比较到中途就到文件结尾的叶子节点
+	if (leftSize < 1)
+	{
+		return false;
+	}
 	unsigned char endLeafNum = *p;
 	p += 1;
 	leftSize -= 1;
@@ -1245,6 +1262,10 @@ bool IndexNodeTypeThree::toObject(char* buffer, int len)
 
 	leftSize -= indexNodeNum * 10;
 	//添加只是叶子节点部分
+	if (leftSize < 1)
+	{
+		return false;
+	}
 	unsigned char leafNum = *p;
 	p += 1;
 	leftSize -= 1;
@@ -1270,6 +1291,10 @@ bool IndexNodeTypeThree::toObject(char* buffer, int len)
 
 
 	//添加比较到中途就到文件结尾的叶子节点
+	if (leftSize < 1)
+	{
+		return false;
+	}
 	unsigned char endLeafNum = *p;
 	p += 1;
 	leftSize -= 1;
@@ -1677,6 +1702,10 @@ bool IndexNodeTypeFour::toObject(char* buffer, int len)
 
 	leftSize -= indexNodeNum * 9;
 	//添加只是叶子节点部分
+	if (leftSize < 1)
+	{
+		return false;
+	}
 	unsigned char leafNum = *p;
 	p += 1;
 	leftSize -= 1;
@@ -1702,6 +1731,10 @@ bool IndexNodeTypeFour::toObject(char* buffer, int len)
 
 
 	//添加比较到中途就到文件结尾的叶子节点
+	if (leftSize < 1)
+	{
+		return false;
+	}
 	unsigned char endLeafNum = *p;
 	p += 1;
 	leftSize -= 1;
