@@ -8,8 +8,9 @@ SearchIndex::SearchIndex()
 {
 	searchTarget = nullptr;
 	targetLen = 0;
-	resultSet = 0;
+	resultSet = nullptr;
 	dstFileSize = 0;
+	skipCharNum = 0;
 }
 
 bool SearchIndex::init(const char* searchTarget, unsigned int targetLen, SetWithLock* resultSet, const char* fileName, Index* index, unsigned char skipCharNum)
