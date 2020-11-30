@@ -936,7 +936,7 @@ bool SearchIndex::search()
 							{
 								unsigned char* p = (unsigned char*)& child.first;
 								unsigned long long needCmpLen = skipSize + leftSearchTarget - nodeLen;
-								unsigned long long i;
+								unsigned long long i = 0;
 								for (; i < needCmpLen; ++i)
 								{
 									if (p[i] != searchTarget[targetStart + nodeLen - skipSize + i])
@@ -1009,7 +1009,7 @@ bool SearchIndex::search()
 							{
 								unsigned char* p = (unsigned char*)& child.first;
 								unsigned long long needCmpLen = skipSize + leftSearchTarget - nodeLen;
-								unsigned long long i;
+								unsigned long long i = 0;
 								for (; i < needCmpLen; ++i)
 								{
 									if (p[i] != searchTarget[targetStart + nodeLen - skipSize + i])
@@ -1082,7 +1082,7 @@ bool SearchIndex::search()
 							{
 								unsigned char* p = (unsigned char*)& child.first;
 								unsigned long long needCmpLen = skipSize + leftSearchTarget - nodeLen;
-								unsigned long long i;
+								unsigned long long i = 0;
 								for (; i < needCmpLen; ++i)
 								{
 									if (p[i] != searchTarget[targetStart + nodeLen - skipSize + i])
@@ -1155,7 +1155,7 @@ bool SearchIndex::search()
 							{
 								unsigned char* p = (unsigned char*)& child.first;
 								unsigned long long needCmpLen = skipSize + leftSearchTarget - nodeLen;
-								unsigned long long i;
+								unsigned long long i = 0;
 								for (; i < needCmpLen; ++i)
 								{
 									if (p[i] != searchTarget[targetStart + nodeLen - skipSize + i])
