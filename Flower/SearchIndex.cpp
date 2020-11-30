@@ -1332,7 +1332,7 @@ bool SearchIndex::search()
 			{
 				if (child.second.getType() == CHILD_TYPE_LEAF)
 				{
-					resultSet->insert(child.second.getIndexId() - pNode->getParentId() - pNode->getLen() - 1 + skipCharNum);
+					resultSet->insert(child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 1 + skipCharNum);
 				}
 				else
 				{
