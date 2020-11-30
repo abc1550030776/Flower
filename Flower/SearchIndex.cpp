@@ -461,7 +461,7 @@ bool SearchIndex::search()
 										searchTask.setIndexIdOrStartPos(CHILD_TYPE_LEAF);
 										searchTask.setSkipSize(pNode->getPreCmpLen() + pNode->getLen() + 2);
 										searchTask.setIndexId(child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 2);
-										searchTask.setTargetStart((unsigned char)remainSize);
+										searchTask.setTargetStart((unsigned int)remainSize);
 									}
 									else
 									{
