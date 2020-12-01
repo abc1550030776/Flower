@@ -9,6 +9,7 @@
 //索引孩子节点的类型
 const unsigned char CHILD_TYPE_NODE = 0;
 const unsigned char CHILD_TYPE_LEAF = 1;
+const unsigned char CHILD_TYPE_VALUE = 2;
 
 //索引节点的类型
 const unsigned char NODE_TYPE_ONE = 0;
@@ -52,6 +53,9 @@ public:
 	bool decreaseAndTestZero();											//减少索引并判断是否是0
 	bool  getFirstLeafSet(unsigned long long* firstLeaf);	//获得最长的叶子节点
 	void addLeafPosToResult(unsigned long long leastEndPos, unsigned char skipCharNum, unsigned long long fileSize, SetWithLock& result);
+	unsigned long long getPartOfKey();
+	void setPartOfKey(unsigned long long partOfKey);
+	void swiftPartOfKey(unsigned long long byte);
 	virtual ~IndexNode();
 protected:
 	unsigned long long start;	//在原文件当中的位置
@@ -59,6 +63,7 @@ protected:
 	unsigned long long preCmpLen;	//查询到这个结点的时候前面已经比较过的字符的长度
 	unsigned long long parentID;	//父节点的Id
 	unsigned long long indexId;		//节点的id;
+	unsigned long long partOfKey;	//索引有可能用于建立键值存储的情况这里记录一部分的key值
 	std::set<unsigned long long> leafSet;	//有些叶子节点是指向结尾的,为了节省空间这里记录这些比较到这个节点一部分全部一样的叶子节点的开始比较位置
 	bool isBig;					//有些节点写入硬盘大于4k字节就是big
 	bool isModified;			//从缓存中删除了以后是否需要写入硬盘
@@ -79,7 +84,7 @@ public:
 	void setIndexId(unsigned long long indexId);
 	void setChildType(unsigned char childType);
 private:
-	//0表示非叶子节点, 1表示叶子节点。
+	//0表示非叶子节点, 1表示叶子节点,2表示表示一个值。
 	unsigned char childType;
 	unsigned long long indexId;	//如果是非叶子节点就是索引节点的Id,如果是叶子节点就是除开之前的比较后面从文件开始的比较处
 };

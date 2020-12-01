@@ -229,6 +229,21 @@ void IndexNode::addLeafPosToResult(unsigned long long leastEndPos, unsigned char
 	}
 }
 
+unsigned long long IndexNode::getPartOfKey()
+{
+	return partOfKey;
+}
+
+void IndexNode::setPartOfKey(unsigned long long partOfKey)
+{
+	this->partOfKey = partOfKey;
+}
+
+void IndexNode::swiftPartOfKey(unsigned long long byte)
+{
+	partOfKey = partOfKey >> (byte * 8);
+}
+
 IndexNode::~IndexNode()
 {}
 
@@ -269,7 +284,7 @@ bool IndexNodeTypeOne::toBinary(char* buffer, int len)
 	short totalSize = 0;
 	char* p = buffer;
 	p += 2;
-	if (len < 34)
+	if (len < 42)
 	{
 		return false;
 	}
@@ -281,8 +296,10 @@ bool IndexNodeTypeOne::toBinary(char* buffer, int len)
 	p += 8;
 	*((unsigned long long*)p) = parentID;
 	p += 8;
-	totalSize = 32;
-	int leftSize = len - 34;
+	*((unsigned long long*)p) = partOfKey;
+	p += 8;
+	totalSize = 40;
+	int leftSize = len - 42;
 	if (!children.empty())
 	{
 		if (leftSize < 2)
@@ -393,7 +410,7 @@ bool IndexNodeTypeOne::toObject(char* buffer, int len)
 	}
 	char* p = buffer;
 	int leftSize = len;
-	if (leftSize < 32)
+	if (leftSize < 40)
 	{
 		return false;
 	}
@@ -406,7 +423,9 @@ bool IndexNodeTypeOne::toObject(char* buffer, int len)
 	p += 8;
 	parentID = *((unsigned long long*)p);
 	p += 8;
-	leftSize -= 32;
+	partOfKey = *((unsigned long long*)p);
+	p += 8;
+	leftSize -= 40;
 	//先读取有索引节点的部分
 	if (leftSize < 2)
 	{
@@ -657,7 +676,7 @@ bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 	short totalSize = 0;
 	char* p = buffer;
 	p += 2;
-	if (len < 34)
+	if (len < 42)
 	{
 		return false;
 	}
@@ -669,8 +688,10 @@ bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 	p += 8;
 	*((unsigned long long*)p) = parentID;
 	p += 8;
-	totalSize = 32;
-	int leftSize = len - 34;
+	*((unsigned long long*)p) = partOfKey;
+	p += 8;
+	totalSize = 40;
+	int leftSize = len - 42;
 	if (!children.empty())
 	{
 		if (leftSize < 2)
@@ -781,7 +802,7 @@ bool IndexNodeTypeTwo::toObject(char* buffer, int len)
 	}
 	char* p = buffer;
 	int leftSize = len;
-	if (leftSize < 32)
+	if (leftSize < 40)
 	{
 		return false;
 	}
@@ -794,7 +815,9 @@ bool IndexNodeTypeTwo::toObject(char* buffer, int len)
 	p += 8;
 	parentID = *((unsigned long long*)p);
 	p += 8;
-	leftSize -= 32;
+	partOfKey = *((unsigned long long*)p);
+	p += 8;
+	leftSize -= 40;
 	//先读取有索引节点的部分
 	if (leftSize < 2)
 	{
@@ -1096,7 +1119,7 @@ bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 	short totalSize = 0;
 	char* p = buffer;
 	p += 2;
-	if (len < 34)
+	if (len < 42)
 	{
 		return false;
 	}
@@ -1108,8 +1131,10 @@ bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 	p += 8;
 	*((unsigned long long*)p) = parentID;
 	p += 8;
-	totalSize = 32;
-	int leftSize = len - 34;
+	*((unsigned long long*)p) = partOfKey;
+	p += 8;
+	totalSize = 40;
+	int leftSize = len - 42;
 	if (!children.empty())
 	{
 		if (leftSize < 2)
@@ -1220,7 +1245,7 @@ bool IndexNodeTypeThree::toObject(char* buffer, int len)
 	}
 	char* p = buffer;
 	int leftSize = len;
-	if (leftSize < 32)
+	if (leftSize < 40)
 	{
 		return false;
 	}
@@ -1233,7 +1258,9 @@ bool IndexNodeTypeThree::toObject(char* buffer, int len)
 	p += 8;
 	parentID = *((unsigned long long*)p);
 	p += 8;
-	leftSize -= 32;
+	partOfKey = *((unsigned long long*)p);
+	p += 8;
+	leftSize -= 40;
 	//先读取有索引节点的部分
 	if (leftSize < 2)
 	{
@@ -1536,7 +1563,7 @@ bool IndexNodeTypeFour::toBinary(char* buffer, int len)
 	short totalSize = 0;
 	char* p = buffer;
 	p += 2;
-	if (len < 34)
+	if (len < 42)
 	{
 		return false;
 	}
@@ -1548,8 +1575,10 @@ bool IndexNodeTypeFour::toBinary(char* buffer, int len)
 	p += 8;
 	*((unsigned long long*)p) = parentID;
 	p += 8;
-	totalSize = 32;
-	int leftSize = len - 34;
+	*((unsigned long long*)p) = partOfKey;
+	p += 8;
+	totalSize = 40;
+	int leftSize = len - 42;
 	if (!children.empty())
 	{
 		if (leftSize < 2)
@@ -1660,7 +1689,7 @@ bool IndexNodeTypeFour::toObject(char* buffer, int len)
 	}
 	char* p = buffer;
 	int leftSize = len;
-	if (leftSize < 32)
+	if (leftSize < 40)
 	{
 		return false;
 	}
@@ -1673,7 +1702,9 @@ bool IndexNodeTypeFour::toObject(char* buffer, int len)
 	p += 8;
 	parentID = *((unsigned long long*)p);
 	p += 8;
-	leftSize -= 32;
+	partOfKey = *((unsigned long long*)p);
+	p += 8;
+	leftSize -= 40;
 	//先读取有索引节点的部分
 	if (leftSize < 2)
 	{
