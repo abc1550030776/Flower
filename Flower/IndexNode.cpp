@@ -544,7 +544,7 @@ size_t IndexNodeTypeOne::getChildrenNum()
 	return children.size();
 }
 
-IndexNode* IndexNodeTypeOne::changeType(BuildIndex* buildIndex)
+IndexNode* IndexNodeTypeOne::changeType(BuildIndex* buildIndex, unsigned char buildType)
 {
 	//首先创建下一个类型的节点
 	IndexNodeTypeTwo* ret = new IndexNodeTypeTwo();
@@ -554,13 +554,14 @@ IndexNode* IndexNodeTypeOne::changeType(BuildIndex* buildIndex)
 	ret->setPreCmpLen(getPreCmpLen());
 	ret->setParentID(getParentId());
 	ret->setIndexId(getIndexId());
+	ret->setPartOfKey(getPartOfKey());
 	ret->setIsBig(getIsBig());
 
 	//遍历自己的孩子节点对每个节点放到新的map当中
 	for (auto& value : children)
 	{
 		//把每个孩子节点重新添加到新的节点当中
-		if (!ret->insertChildNode(buildIndex, value.first, value.second))
+		if (!ret->insertChildNode(buildIndex, value.first, value.second, buildType))
 		{
 			delete ret;
 			return NULL;
@@ -604,7 +605,7 @@ bool IndexNodeTypeOne::cutNodeSize(BuildIndex* buildIndex, unsigned long long in
 	return true;
 }
 
-bool IndexNodeTypeOne::insertChildNode(BuildIndex* buildIndex, unsigned long long key, const IndexNodeChild& indexNodeChild)
+bool IndexNodeTypeOne::insertChildNode(BuildIndex* buildIndex, unsigned long long key, const IndexNodeChild& indexNodeChild, unsigned char buildType)
 {
 	if (buildIndex == nullptr)
 	{
@@ -620,9 +621,19 @@ bool IndexNodeTypeOne::insertChildNode(BuildIndex* buildIndex, unsigned long lon
 	else
 	{
 		//这个时候合并两个孩子节点
-		if (!buildIndex->mergeNode(preCmpLen + len + 8, indexId, it->second, indexNodeChild))
+		if (buildType == BUILD_TYPE_FILE)
 		{
-			return false;
+			if (!buildIndex->mergeNode(preCmpLen + len + 8, indexId, it->second, indexNodeChild))
+			{
+				return false;
+			}
+		}
+		else
+		{
+			if (!buildIndex->addVMergeNode(preCmpLen + len + 8, indexId, it->second, indexNodeChild))
+			{
+				return false;
+			}
 		}
 	}
 	return true;
@@ -935,7 +946,7 @@ size_t IndexNodeTypeTwo::getChildrenNum()
 	return children.size();
 }
 
-IndexNode* IndexNodeTypeTwo::changeType(BuildIndex* buildIndex)
+IndexNode* IndexNodeTypeTwo::changeType(BuildIndex* buildIndex, unsigned char buildType)
 {
 	//首先创建下一个类型的节点
 	IndexNodeTypeThree* ret = new IndexNodeTypeThree();
@@ -951,7 +962,7 @@ IndexNode* IndexNodeTypeTwo::changeType(BuildIndex* buildIndex)
 	for (auto& value : children)
 	{
 		//把每个孩子节点重新添加到新的节点当中
-		if (!ret->insertChildNode(buildIndex, value.first, value.second))
+		if (!ret->insertChildNode(buildIndex, value.first, value.second, buildType))
 		{
 			delete ret;
 			return NULL;
@@ -995,7 +1006,7 @@ bool IndexNodeTypeTwo::cutNodeSize(BuildIndex* buildIndex, unsigned long long in
 	return true;
 }
 
-bool IndexNodeTypeTwo::insertChildNode(BuildIndex* buildIndex, unsigned long long key, const IndexNodeChild& indexNodeChild)
+bool IndexNodeTypeTwo::insertChildNode(BuildIndex* buildIndex, unsigned long long key, const IndexNodeChild& indexNodeChild, unsigned char buildType)
 {
 	if (buildIndex == nullptr)
 	{
@@ -1004,30 +1015,74 @@ bool IndexNodeTypeTwo::insertChildNode(BuildIndex* buildIndex, unsigned long lon
 
 	//先对添加进来的节点进行处理
 	IndexNodeChild newIndexNodeChild(indexNodeChild.getType(), indexNodeChild.getIndexId());
-	if (indexNodeChild.getType() == CHILD_TYPE_LEAF)
+	if (buildType == BUILD_TYPE_FILE)
 	{
-		newIndexNodeChild.setIndexId(indexNodeChild.getIndexId() - 4);
-	}
-	else if (indexNodeChild.getType() == CHILD_TYPE_NODE)
-	{
-		//如果是普通的结点的话要对节点里面的内容进行修改使其包含前面的两个字节
-		IndexNode* childIndexNode = buildIndex->getIndexNode(indexNodeChild.getIndexId());
-		if (childIndexNode == nullptr)
+		if (indexNodeChild.getType() == CHILD_TYPE_LEAF)
+		{
+			newIndexNodeChild.setIndexId(indexNodeChild.getIndexId() - 4);
+		}
+		else if (indexNodeChild.getType() == CHILD_TYPE_NODE)
+		{
+			//如果是普通的结点的话要对节点里面的内容进行修改使其包含前面的两个字节
+			IndexNode* childIndexNode = buildIndex->getIndexNode(indexNodeChild.getIndexId());
+			if (childIndexNode == nullptr)
+			{
+				return false;
+			}
+			childIndexNode->setStart(childIndexNode->getStart() - 4);
+			childIndexNode->setLen(childIndexNode->getLen() + 4);
+			//改变preCmpLen的时候有修改到优先级需要到缓存当中把那个缓存表也给修改掉
+			if (!buildIndex->changePreCmpLen(indexNodeChild.getIndexId(), childIndexNode->getPreCmpLen(), childIndexNode->getPreCmpLen() - 4))
+			{
+				return false;
+			}
+			childIndexNode->setIsModified(true);
+		}
+		else
 		{
 			return false;
 		}
-		childIndexNode->setStart(childIndexNode->getStart() - 4);
-		childIndexNode->setLen(childIndexNode->getLen() + 4);
-		//改变preCmpLen的时候有修改到优先级需要到缓存当中把那个缓存表也给修改掉
-		if (!buildIndex->changePreCmpLen(indexNodeChild.getIndexId(), childIndexNode->getPreCmpLen(), childIndexNode->getPreCmpLen() - 4))
-		{
-			return false;
-		}
-		childIndexNode->setIsModified(true);
 	}
 	else
 	{
-		return false;
+		if (indexNodeChild.getType() == CHILD_TYPE_NODE)
+		{
+			IndexNode* childIndexNode = buildIndex->getIndexNode(indexNodeChild.getIndexId(), BUILD_TYPE_KV);
+			if (childIndexNode == nullptr)
+			{
+				return false;
+			}
+			childIndexNode->setStart(childIndexNode->getStart() - 4);
+			childIndexNode->setLen(childIndexNode->getLen() + 4);
+			if (!buildIndex->changePreCmpLen(indexNodeChild.getIndexId(), childIndexNode->getPreCmpLen(), childIndexNode->getPreCmpLen() - 4, BUILD_TYPE_KV))
+			{
+				return false;
+			}
+			unsigned long long partOfKey = childIndexNode->getPartOfKey();
+			partOfKey = partOfKey << (4 * 8);
+			unsigned char* p = (unsigned char*)&partOfKey;
+			unsigned char* kp = (unsigned char*)&key;
+			*(unsigned int*)p = *(unsigned int*)(&kp[4]);
+			childIndexNode->setPartOfKey(partOfKey);
+			childIndexNode->setIsModified(true);
+		}
+		else if (indexNodeChild.getType() == CHILD_TYPE_VALUE)
+		{
+			IndexNode* childIndexNode = buildIndex->newKvNode(NODE_TYPE_TWO, preCmpLen + len + 4);
+			if (childIndexNode == nullptr)
+			{
+				return false;
+			}
+			childIndexNode->setStart(start + len + 4);
+			childIndexNode->setLen(0);
+			childIndexNode->setParentID(indexId);
+			IndexNodeTypeTwo* pTmpNode = (IndexNodeTypeTwo*)childIndexNode;
+			unsigned char* kp = (unsigned char*)&key;
+			pTmpNode->insertChildNode(buildIndex, *(unsigned int*)(&kp[4]), indexNodeChild, BUILD_TYPE_KV);
+			childIndexNode->setIsModified(true);
+			newIndexNodeChild.setChildType(CHILD_TYPE_NODE);
+			newIndexNodeChild.setIndexId(childIndexNode->getIndexId());
+		}
 	}
 
 	unsigned int nodeKey = (unsigned int)key;
@@ -1040,15 +1095,25 @@ bool IndexNodeTypeTwo::insertChildNode(BuildIndex* buildIndex, unsigned long lon
 	else
 	{
 		//这个时候合并两个孩子节点
-		if (!buildIndex->mergeNode(preCmpLen + len + 4, indexId, it->second, newIndexNodeChild))
+		if (buildType == BUILD_TYPE_FILE)
 		{
-			return false;
+			if (!buildIndex->mergeNode(preCmpLen + len + 4, indexId, it->second, newIndexNodeChild))
+			{
+				return false;
+			}
+		}
+		else
+		{
+			if (!buildIndex->addVMergeNode(preCmpLen + len + 4, indexId, it->second, newIndexNodeChild))
+			{
+				return false;
+			}
 		}
 	}
 	return true;
 }
 
-bool IndexNodeTypeTwo::insertChildNode(BuildIndex* buildIndex, unsigned int key, const IndexNodeChild& indexNodeChild)
+bool IndexNodeTypeTwo::insertChildNode(BuildIndex* buildIndex, unsigned int key, const IndexNodeChild& indexNodeChild, unsigned char buildType)
 {
 	if (buildIndex == nullptr)
 	{
@@ -1064,9 +1129,19 @@ bool IndexNodeTypeTwo::insertChildNode(BuildIndex* buildIndex, unsigned int key,
 	else
 	{
 		//这个时候合并两个孩子节点
-		if (!buildIndex->mergeNode(preCmpLen + len + 4, indexId, it->second, indexNodeChild))
+		if (buildType == BUILD_TYPE_FILE)
 		{
-			return false;
+			if (!buildIndex->mergeNode(preCmpLen + len + 4, indexId, it->second, indexNodeChild))
+			{
+				return false;
+			}
+		}
+		else
+		{
+			if (!buildIndex->addVMergeNode(preCmpLen + len + 4, indexId, it->second, indexNodeChild))
+			{
+				return false;
+			}
 		}
 	}
 	return true;
@@ -1378,7 +1453,7 @@ size_t IndexNodeTypeThree::getChildrenNum()
 	return children.size();
 }
 
-IndexNode* IndexNodeTypeThree::changeType(BuildIndex* buildIndex)
+IndexNode* IndexNodeTypeThree::changeType(BuildIndex* buildIndex, unsigned char buildType)
 {
 	//首先创建下一个类型的节点
 	IndexNodeTypeFour* ret = new IndexNodeTypeFour();
@@ -1394,7 +1469,7 @@ IndexNode* IndexNodeTypeThree::changeType(BuildIndex* buildIndex)
 	for (auto& value : children)
 	{
 		//把每个孩子节点重新添加到新的节点当中
-		if (!ret->insertChildNode(buildIndex, value.first, value.second))
+		if (!ret->insertChildNode(buildIndex, value.first, value.second, buildType))
 		{
 			delete ret;
 			return NULL;
@@ -1438,7 +1513,7 @@ bool IndexNodeTypeThree::cutNodeSize(BuildIndex* buildIndex, unsigned long long 
 	return true;
 }
 
-bool IndexNodeTypeThree::insertChildNode(BuildIndex* buildIndex, unsigned int key, const IndexNodeChild& indexNodeChild)
+bool IndexNodeTypeThree::insertChildNode(BuildIndex* buildIndex, unsigned int key, const IndexNodeChild& indexNodeChild, unsigned char buildType)
 {
 	if (buildIndex == nullptr)
 	{
@@ -1447,30 +1522,74 @@ bool IndexNodeTypeThree::insertChildNode(BuildIndex* buildIndex, unsigned int ke
 
 	//先对添加进来的节点进行处理
 	IndexNodeChild newIndexNodeChild(indexNodeChild.getType(), indexNodeChild.getIndexId());
-	if (indexNodeChild.getType() == CHILD_TYPE_LEAF)
+	if (buildType == BUILD_TYPE_FILE)
 	{
-		newIndexNodeChild.setIndexId(indexNodeChild.getIndexId() - 2);
-	}
-	else if (indexNodeChild.getType() == CHILD_TYPE_NODE)
-	{
-		//如果是普通的结点的话要对节点里面的内容进行修改使其包含前面的两个字节
-		IndexNode* childIndexNode = buildIndex->getIndexNode(indexNodeChild.getIndexId());
-		if (childIndexNode == nullptr)
+		if (indexNodeChild.getType() == CHILD_TYPE_LEAF)
+		{
+			newIndexNodeChild.setIndexId(indexNodeChild.getIndexId() - 2);
+		}
+		else if (indexNodeChild.getType() == CHILD_TYPE_NODE)
+		{
+			//如果是普通的结点的话要对节点里面的内容进行修改使其包含前面的两个字节
+			IndexNode* childIndexNode = buildIndex->getIndexNode(indexNodeChild.getIndexId());
+			if (childIndexNode == nullptr)
+			{
+				return false;
+			}
+			childIndexNode->setStart(childIndexNode->getStart() - 2);
+			childIndexNode->setLen(childIndexNode->getLen() + 2);
+			//改变preCmpLen的时候有修改到优先级需要到缓存当中把那个缓存表也给修改掉
+			if (!buildIndex->changePreCmpLen(indexNodeChild.getIndexId(), childIndexNode->getPreCmpLen(), childIndexNode->getPreCmpLen() - 2))
+			{
+				return false;
+			}
+			childIndexNode->setIsModified(true);
+		}
+		else
 		{
 			return false;
 		}
-		childIndexNode->setStart(childIndexNode->getStart() - 2);
-		childIndexNode->setLen(childIndexNode->getLen() + 2);
-		//改变preCmpLen的时候有修改到优先级需要到缓存当中把那个缓存表也给修改掉
-		if (!buildIndex->changePreCmpLen(indexNodeChild.getIndexId(), childIndexNode->getPreCmpLen(), childIndexNode->getPreCmpLen() - 2))
-		{
-			return false;
-		}
-		childIndexNode->setIsModified(true);
 	}
 	else
 	{
-		return false;
+		if (indexNodeChild.getType() == CHILD_TYPE_NODE)
+		{
+			IndexNode* childIndexNode = buildIndex->getIndexNode(indexNodeChild.getIndexId(), BUILD_TYPE_KV);
+			if (childIndexNode == nullptr)
+			{
+				return false;
+			}
+			childIndexNode->setStart(childIndexNode->getStart() - 2);
+			childIndexNode->setLen(childIndexNode->getLen() + 2);
+			if (!buildIndex->changePreCmpLen(indexNodeChild.getIndexId(), childIndexNode->getPreCmpLen(), childIndexNode->getPreCmpLen() - 2, BUILD_TYPE_KV))
+			{
+				return false;
+			}
+			unsigned long long partOfKey = childIndexNode->getPartOfKey();
+			partOfKey = partOfKey << (2 * 8);
+			unsigned char* p = (unsigned char*)&partOfKey;
+			unsigned char* kp = (unsigned char*)&key;
+			*(unsigned short*)p = *(unsigned short*)(&kp[2]);
+			childIndexNode->setPartOfKey(partOfKey);
+			childIndexNode->setIsModified(true);
+		}
+		else if (indexNodeChild.getType() == CHILD_TYPE_VALUE)
+		{
+			IndexNode* childIndexNode = buildIndex->newKvNode(NODE_TYPE_THREE, preCmpLen + len + 2);
+			if (childIndexNode == nullptr)
+			{
+				return false;
+			}
+			childIndexNode->setStart(start + len + 2);
+			childIndexNode->setLen(0);
+			childIndexNode->setParentID(indexId);
+			IndexNodeTypeThree* pTmpNode = (IndexNodeTypeThree*)childIndexNode;
+			unsigned char* kp = (unsigned char*)&key;
+			pTmpNode->insertChildNode(buildIndex, *(unsigned short*)(&kp[2]), indexNodeChild, BUILD_TYPE_KV);
+			childIndexNode->setIsModified(true);
+			newIndexNodeChild.setChildType(CHILD_TYPE_NODE);
+			newIndexNodeChild.setIndexId(childIndexNode->getIndexId());
+		}
 	}
 
 	unsigned short nodeKey = (unsigned short)key;
@@ -1483,15 +1602,25 @@ bool IndexNodeTypeThree::insertChildNode(BuildIndex* buildIndex, unsigned int ke
 	else
 	{
 		//这个时候合并两个孩子节点
-		if (!buildIndex->mergeNode(preCmpLen + len + 2, indexId, it->second, newIndexNodeChild))
+		if (buildType == BUILD_TYPE_FILE)
 		{
-			return false;
+			if (!buildIndex->mergeNode(preCmpLen + len + 2, indexId, it->second, newIndexNodeChild))
+			{
+				return false;
+			}
+		}
+		else
+		{
+			if (!buildIndex->addVMergeNode(preCmpLen + len + 2, indexId, it->second, newIndexNodeChild))
+			{
+				return false;
+			}
 		}
 	}
 	return true;
 }
 
-bool IndexNodeTypeThree::insertChildNode(BuildIndex* buildIndex, unsigned short key, const IndexNodeChild& indexNodeChild)
+bool IndexNodeTypeThree::insertChildNode(BuildIndex* buildIndex, unsigned short key, const IndexNodeChild& indexNodeChild, unsigned char buildType)
 {
 	if (buildIndex == nullptr)
 	{
@@ -1507,9 +1636,19 @@ bool IndexNodeTypeThree::insertChildNode(BuildIndex* buildIndex, unsigned short 
 	else
 	{
 		//这个时候合并两个孩子节点
-		if (!buildIndex->mergeNode(preCmpLen + len + 2, indexId, it->second, indexNodeChild))
+		if (buildType == BUILD_TYPE_FILE)
 		{
-			return false;
+			if (!buildIndex->mergeNode(preCmpLen + len + 2, indexId, it->second, indexNodeChild))
+			{
+				return false;
+			}
+		}
+		else
+		{
+			if (!buildIndex->addVMergeNode(preCmpLen + len + 2, indexId, it->second, indexNodeChild))
+			{
+				return false;
+			}
 		}
 	}
 	return true;
@@ -1822,7 +1961,7 @@ size_t IndexNodeTypeFour::getChildrenNum()
 	return children.size();
 }
 
-IndexNode* IndexNodeTypeFour::changeType(BuildIndex* buildIndex)
+IndexNode* IndexNodeTypeFour::changeType(BuildIndex* buildIndex, unsigned char buildType)
 {
 	return nullptr;
 }
@@ -1858,7 +1997,7 @@ bool IndexNodeTypeFour::cutNodeSize(BuildIndex* buildIndex, unsigned long long i
 	return true;
 }
 
-bool IndexNodeTypeFour::insertChildNode(BuildIndex* buildIndex, unsigned short key, const IndexNodeChild& indexNodeChild)
+bool IndexNodeTypeFour::insertChildNode(BuildIndex* buildIndex, unsigned short key, const IndexNodeChild& indexNodeChild, unsigned char buildType)
 {
 	if (buildIndex == nullptr)
 	{
@@ -1867,30 +2006,74 @@ bool IndexNodeTypeFour::insertChildNode(BuildIndex* buildIndex, unsigned short k
 
 	//先对添加进来的节点进行处理
 	IndexNodeChild newIndexNodeChild(indexNodeChild.getType(), indexNodeChild.getIndexId());
-	if (indexNodeChild.getType() == CHILD_TYPE_LEAF)
+	if (buildType == BUILD_TYPE_FILE)
 	{
-		newIndexNodeChild.setIndexId(indexNodeChild.getIndexId() - 1);
-	}
-	else if (indexNodeChild.getType() == CHILD_TYPE_NODE)
-	{
-		//如果是普通的结点的话要对节点里面的内容进行修改使其包含前面的两个字节
-		IndexNode* childIndexNode = buildIndex->getIndexNode(indexNodeChild.getIndexId());
-		if (childIndexNode == nullptr)
+		if (indexNodeChild.getType() == CHILD_TYPE_LEAF)
+		{
+			newIndexNodeChild.setIndexId(indexNodeChild.getIndexId() - 1);
+		}
+		else if (indexNodeChild.getType() == CHILD_TYPE_NODE)
+		{
+			//如果是普通的结点的话要对节点里面的内容进行修改使其包含前面的两个字节
+			IndexNode* childIndexNode = buildIndex->getIndexNode(indexNodeChild.getIndexId());
+			if (childIndexNode == nullptr)
+			{
+				return false;
+			}
+			childIndexNode->setStart(childIndexNode->getStart() - 1);
+			childIndexNode->setLen(childIndexNode->getLen() + 1);
+			//改变preCmpLen的时候有修改到优先级需要到缓存当中把那个缓存表也给修改掉
+			if (!buildIndex->changePreCmpLen(indexNodeChild.getIndexId(), childIndexNode->getPreCmpLen(), childIndexNode->getPreCmpLen() - 1))
+			{
+				return false;
+			}
+			childIndexNode->setIsModified(true);
+		}
+		else
 		{
 			return false;
 		}
-		childIndexNode->setStart(childIndexNode->getStart() - 1);
-		childIndexNode->setLen(childIndexNode->getLen() + 1);
-		//改变preCmpLen的时候有修改到优先级需要到缓存当中把那个缓存表也给修改掉
-		if (!buildIndex->changePreCmpLen(indexNodeChild.getIndexId(), childIndexNode->getPreCmpLen(), childIndexNode->getPreCmpLen() - 1))
-		{
-			return false;
-		}
-		childIndexNode->setIsModified(true);
 	}
 	else
 	{
-		return false;
+		if (indexNodeChild.getType() == CHILD_TYPE_NODE)
+		{
+			IndexNode* childIndexNode = buildIndex->getIndexNode(indexNodeChild.getIndexId(), BUILD_TYPE_KV);
+			if (childIndexNode == nullptr)
+			{
+				return false;
+			}
+			childIndexNode->setStart(childIndexNode->getStart() - 1);
+			childIndexNode->setLen(childIndexNode->getLen() + 1);
+			if (!buildIndex->changePreCmpLen(indexNodeChild.getIndexId(), childIndexNode->getPreCmpLen(), childIndexNode->getPreCmpLen() - 1, BUILD_TYPE_KV))
+			{
+				return false;
+			}
+			unsigned long long partOfKey = childIndexNode->getPartOfKey();
+			partOfKey = partOfKey << (1 * 8);
+			unsigned char* p = (unsigned char*)&partOfKey;
+			unsigned char* kp = (unsigned char*)&key;
+			*(unsigned char*)p = *(unsigned char*)(&kp[1]);
+			childIndexNode->setPartOfKey(partOfKey);
+			childIndexNode->setIsModified(true);
+		}
+		else if (indexNodeChild.getType() == CHILD_TYPE_VALUE)
+		{
+			IndexNode* childIndexNode = buildIndex->newKvNode(NODE_TYPE_FOUR, preCmpLen + len + 1);
+			if (childIndexNode == nullptr)
+			{
+				return false;
+			}
+			childIndexNode->setStart(start + len + 1);
+			childIndexNode->setLen(0);
+			childIndexNode->setParentID(indexId);
+			IndexNodeTypeFour* pTmpNode = (IndexNodeTypeFour*)childIndexNode;
+			unsigned char* kp = (unsigned char*)&key;
+			pTmpNode->insertChildNode(buildIndex, *(unsigned char*)(&kp[1]), indexNodeChild, BUILD_TYPE_KV);
+			childIndexNode->setIsModified(true);
+			newIndexNodeChild.setChildType(CHILD_TYPE_NODE);
+			newIndexNodeChild.setIndexId(childIndexNode->getIndexId());
+		}
 	}
 
 	unsigned char nodeKey = (unsigned char)key;
@@ -1903,15 +2086,25 @@ bool IndexNodeTypeFour::insertChildNode(BuildIndex* buildIndex, unsigned short k
 	else
 	{
 		//这个时候合并两个孩子节点
-		if (!buildIndex->mergeNode(preCmpLen + len + 1, indexId, it->second, newIndexNodeChild))
+		if (buildType == BUILD_TYPE_FILE)
 		{
-			return false;
+			if (!buildIndex->mergeNode(preCmpLen + len + 1, indexId, it->second, newIndexNodeChild))
+			{
+				return false;
+			}
+		}
+		else
+		{
+			if (!buildIndex->addVMergeNode(preCmpLen + len + 1, indexId, it->second, newIndexNodeChild))
+			{
+				return false;
+			}
 		}
 	}
 	return true;
 }
 
-bool IndexNodeTypeFour::insertChildNode(BuildIndex* buildIndex, unsigned char key, const IndexNodeChild& indexNodeChild)
+bool IndexNodeTypeFour::insertChildNode(BuildIndex* buildIndex, unsigned char key, const IndexNodeChild& indexNodeChild, unsigned char buildType)
 {
 	if (buildIndex == nullptr)
 	{
@@ -1927,9 +2120,19 @@ bool IndexNodeTypeFour::insertChildNode(BuildIndex* buildIndex, unsigned char ke
 	else
 	{
 		//这个时候合并两个孩子节点
-		if (!buildIndex->mergeNode(preCmpLen + len + 1, indexId, it->second, indexNodeChild))
+		if (buildType == BUILD_TYPE_FILE)
 		{
-			return false;
+			if (!buildIndex->mergeNode(preCmpLen + len + 1, indexId, it->second, indexNodeChild))
+			{
+				return false;
+			}
+		}
+		else
+		{
+			if (!buildIndex->addVMergeNode(preCmpLen + len + 1, indexId, it->second, indexNodeChild))
+			{
+				return false;
+			}
 		}
 	}
 	return true;

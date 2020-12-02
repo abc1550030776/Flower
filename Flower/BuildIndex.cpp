@@ -71,14 +71,22 @@ bool BuildIndex::cutNodeSize(unsigned long long indexId, IndexNode* indexNode)
 	return true;
 }
 
-IndexNode* BuildIndex::getIndexNode(unsigned long long indexId)
+IndexNode* BuildIndex::getIndexNode(unsigned long long indexId, unsigned char buildType)
 {
-	return indexFile.getIndexNode(indexId);
+	if (buildType == BUILD_TYPE_FILE)
+	{
+		return indexFile.getIndexNode(indexId);
+	}
+	return kvIndexFile.getIndexNode(indexId);
 }
 
-bool BuildIndex::changePreCmpLen(unsigned long long indexId, unsigned long long orgPreCmpLen, unsigned long long newPreCmpLen)
+bool BuildIndex::changePreCmpLen(unsigned long long indexId, unsigned long long orgPreCmpLen, unsigned long long newPreCmpLen, unsigned char buildType)
 {
-	return indexFile.changePreCmpLen(indexId, orgPreCmpLen, newPreCmpLen);
+	if (buildType == BUILD_TYPE_FILE)
+	{
+		return indexFile.changePreCmpLen(indexId, orgPreCmpLen, newPreCmpLen);
+	}
+	return kvIndexFile.changePreCmpLen(indexId, orgPreCmpLen, newPreCmpLen);
 }
 
 bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long parentId, IndexNodeChild& leftChildNode, const IndexNodeChild& rightChildNode)
@@ -2350,9 +2358,8 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 	return true;
 }
 
-bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long parentId, IndexNodeChild& leftChildNode, const IndexNodeChild& rightChildNode, unsigned long long leftKey, unsigned long long rightKey)
+bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long parentId, IndexNodeChild& leftChildNode, const IndexNodeChild& rightChildNode)
 {
-	//一种两个都是非叶子节点,一种是一个是非叶子节点一个是值的节点。
 	unsigned char leftType = leftChildNode.getType();
 	unsigned char rightType = rightChildNode.getType();
 	if (leftType == CHILD_TYPE_NODE && rightType == CHILD_TYPE_NODE)
@@ -2443,13 +2450,13 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 				switch (curCmpLen)
 				{
 				case 4:
-					pNode = indexFile.newIndexNode(NODE_TYPE_TWO, preCmpLen);
+					pNode = kvIndexFile.newIndexNode(NODE_TYPE_TWO, preCmpLen);
 					break;
 				case 2:
-					pNode = indexFile.newIndexNode(NODE_TYPE_THREE, preCmpLen);
+					pNode = kvIndexFile.newIndexNode(NODE_TYPE_THREE, preCmpLen);
 					break;
 				case 1:
-					pNode = indexFile.newIndexNode(NODE_TYPE_FOUR, preCmpLen);
+					pNode = kvIndexFile.newIndexNode(NODE_TYPE_FOUR, preCmpLen);
 					break;
 				default:
 					break;
@@ -2465,9 +2472,6 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 				pNode->setLen(cmpLen);
 				pNode->setParentID(parentId);
 				pNode->setPartOfKey(leftNode->getPartOfKey());
-				//左边节点相应字段移动一定位置
-				leftNode->swiftPartOfKey(cmpLen);
-				rightNode->swiftPartOfKey(cmpLen);
 				switch (pNode->getType())
 				{
 				case NODE_TYPE_TWO:
@@ -2476,10 +2480,11 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 					IndexNodeTypeTwo* tmpNode = (IndexNodeTypeTwo*)pNode;
 
 					//左边节点修改相应的节点长度
+					leftNode->swiftPartOfKey(cmpLen + 4);
 					leftNode->setStart(leftNode->getStart() + cmpLen + 4);
 					leftNode->setLen(leftNode->getLen() - cmpLen - 4);
 					//要修改preCmpLen也要修改优先级
-					if (!indexFile.changePreCmpLen(leftNode->getIndexId(), leftNode->getPreCmpLen(), leftNode->getPreCmpLen() + cmpLen + 4))
+					if (!kvIndexFile.changePreCmpLen(leftNode->getIndexId(), leftNode->getPreCmpLen(), leftNode->getPreCmpLen() + cmpLen + 4))
 					{
 						return false;
 					}
@@ -2488,16 +2493,17 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 
 					IndexNodeChild indexNodeChild(CHILD_TYPE_NODE, leftNode->getIndexId());
 
-					if (!tmpNode->insertChildNode(this, *(unsigned int*)(&leftData[cmpLen]), indexNodeChild))
+					if (!tmpNode->insertChildNode(this, *(unsigned int*)(&leftData[cmpLen]), indexNodeChild, BUILD_TYPE_KV))
 					{
 						return false;
 					}
 
 					//右边节点修改相应节点的长度
+					rightNode->swiftPartOfKey(cmpLen + 4);
 					rightNode->setStart(rightNode->getStart() + cmpLen + 4);
 					rightNode->setLen(rightNode->getLen() - cmpLen - 4);
 					//要修改preCmpLen也要修改优先级
-					if (!indexFile.changePreCmpLen(rightNode->getIndexId(), rightNode->getPreCmpLen(), rightNode->getPreCmpLen() + cmpLen + 4))
+					if (!kvIndexFile.changePreCmpLen(rightNode->getIndexId(), rightNode->getPreCmpLen(), rightNode->getPreCmpLen() + cmpLen + 4))
 					{
 						return false;
 					}
@@ -2505,7 +2511,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 					rightNode->setIsModified(true);
 
 					IndexNodeChild rIndexNodeChild(CHILD_TYPE_NODE, rightNode->getIndexId());
-					if (!tmpNode->insertChildNode(this, *(unsigned int*)(&rightData[cmpLen]), rIndexNodeChild))
+					if (!tmpNode->insertChildNode(this, *(unsigned int*)(&rightData[cmpLen]), rIndexNodeChild, BUILD_TYPE_KV))
 					{
 						return false;
 					}
@@ -2517,10 +2523,11 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 					IndexNodeTypeThree* tmpNode = (IndexNodeTypeThree*)pNode;
 
 					//左边节点修改相应节点长度
+					leftNode->swiftPartOfKey(cmpLen + 2);
 					leftNode->setStart(leftNode->getStart() + cmpLen + 2);
 					leftNode->setLen(leftNode->getLen() - cmpLen - 2);
 					//要修改preCmpLen也要修改优先级
-					if (!indexFile.changePreCmpLen(leftNode->getIndexId(), leftNode->getPreCmpLen(), leftNode->getPreCmpLen() + cmpLen + 2))
+					if (!kvIndexFile.changePreCmpLen(leftNode->getIndexId(), leftNode->getPreCmpLen(), leftNode->getPreCmpLen() + cmpLen + 2))
 					{
 						return false;
 					}
@@ -2529,16 +2536,17 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 
 					IndexNodeChild indexNodeChild(CHILD_TYPE_NODE, leftNode->getIndexId());
 
-					if (!tmpNode->insertChildNode(this, *(unsigned short*)(&leftData[cmpLen]), indexNodeChild))
+					if (!tmpNode->insertChildNode(this, *(unsigned short*)(&leftData[cmpLen]), indexNodeChild, BUILD_TYPE_KV))
 					{
 						return false;
 					}
 
 					//右边节点修改相应节点的长度
+					rightNode->swiftPartOfKey(cmpLen + 2);
 					rightNode->setStart(rightNode->getStart() + cmpLen + 2);
 					rightNode->setLen(rightNode->getLen() - cmpLen - 2);
 					//要修改preCmpLen也要修改优先级
-					if (!indexFile.changePreCmpLen(rightNode->getIndexId(), rightNode->getPreCmpLen(), rightNode->getPreCmpLen() + cmpLen + 2))
+					if (!kvIndexFile.changePreCmpLen(rightNode->getIndexId(), rightNode->getPreCmpLen(), rightNode->getPreCmpLen() + cmpLen + 2))
 					{
 						return false;
 					}
@@ -2547,7 +2555,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 					rightNode->setIsModified(true);
 
 					IndexNodeChild rIndexNodeChild(CHILD_TYPE_NODE, rightNode->getIndexId());
-					if (!tmpNode->insertChildNode(this, *(unsigned short*)(&rightData[cmpLen]), rIndexNodeChild))
+					if (!tmpNode->insertChildNode(this, *(unsigned short*)(&rightData[cmpLen]), rIndexNodeChild, BUILD_TYPE_KV))
 					{
 						return false;
 					}
@@ -2559,10 +2567,11 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 					IndexNodeTypeFour* tmpNode = (IndexNodeTypeFour*)pNode;
 
 					//左边节点修改相应节点长度
+					leftNode->swiftPartOfKey(cmpLen + 1);
 					leftNode->setStart(leftNode->getStart() + cmpLen + 1);
 					leftNode->setLen(leftNode->getLen() - cmpLen - 1);
 					//要修改preCmpLen也要修改优先级
-					if (!indexFile.changePreCmpLen(leftNode->getIndexId(), leftNode->getPreCmpLen(), leftNode->getPreCmpLen() + cmpLen + 1))
+					if (!kvIndexFile.changePreCmpLen(leftNode->getIndexId(), leftNode->getPreCmpLen(), leftNode->getPreCmpLen() + cmpLen + 1))
 					{
 						return false;
 					}
@@ -2571,16 +2580,17 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 
 					IndexNodeChild indexNodeChild(CHILD_TYPE_NODE, leftNode->getIndexId());
 
-					if (!tmpNode->insertChildNode(this, *(unsigned char*)(&leftData[cmpLen]), indexNodeChild))
+					if (!tmpNode->insertChildNode(this, *(unsigned char*)(&leftData[cmpLen]), indexNodeChild, BUILD_TYPE_KV))
 					{
 						return false;
 					}
 
 					//右边节点修改相应节点的长度
+					rightNode->swiftPartOfKey(cmpLen + 1);
 					rightNode->setStart(rightNode->getStart() + cmpLen + 1);
 					rightNode->setLen(rightNode->getLen() - cmpLen - 1);
 					//要修改preCmpLen也要修改优先级
-					if (!indexFile.changePreCmpLen(rightNode->getIndexId(), rightNode->getPreCmpLen(), rightNode->getPreCmpLen() + cmpLen + 1))
+					if (!kvIndexFile.changePreCmpLen(rightNode->getIndexId(), rightNode->getPreCmpLen(), rightNode->getPreCmpLen() + cmpLen + 1))
 					{
 						return false;
 					}
@@ -2589,7 +2599,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 					rightNode->setIsModified(true);
 
 					IndexNodeChild rIndexNodeChild(CHILD_TYPE_NODE, rightNode->getIndexId());
-					if (!tmpNode->insertChildNode(this, *(unsigned char*)(&rightData[cmpLen]), rIndexNodeChild))
+					if (!tmpNode->insertChildNode(this, *(unsigned char*)(&rightData[cmpLen]), rIndexNodeChild, BUILD_TYPE_KV))
 					{
 						return false;
 					}
@@ -2617,7 +2627,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 			{
 				if (compareTwoType(leftNode->getType(), rightNode->getType()))
 				{
-					rightNode = changeNodeType(rightNode->getIndexId(), rightNode);
+					rightNode = changeNodeType(rightNode->getIndexId(), rightNode, BUILD_TYPE_KV);
 					if (rightNode == nullptr)
 					{
 						return false;
@@ -2625,7 +2635,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 				}
 				else
 				{
-					leftNode = changeNodeType(leftNode->getIndexId(), leftNode);
+					leftNode = changeNodeType(leftNode->getIndexId(), leftNode, BUILD_TYPE_KV);
 					if (leftNode == nullptr)
 					{
 						return false;
@@ -2648,7 +2658,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 			leftNode->setIsModified(true);
 
 			//右边的节点完全融入了左边的节点所以右边的节点可以说是完全不存在删除
-			indexFile.deleteIndexNode(rightNode->getIndexId());
+			kvIndexFile.deleteIndexNode(rightNode->getIndexId());
 
 			leftChildNode.setIndexId(leftNode->getIndexId());
 
@@ -2672,21 +2682,18 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 		case NODE_TYPE_THREE:
 		{
 			unsigned short key;
-			//从文件当中读取key
-			fpos_t pos;
-			pos.__pos = longNodeStart + cmpLen;
-			if (!dstFile.read(pos, &key, 2))
-			{
-				return false;
-			}
+			unsigned long long partOfKey = longNode->getPartOfKey();
+			unsigned char* p = (unsigned char*)&partOfKey;
+			key = *(unsigned short*)(&p[cmpLen]);
 
 			anotherNode->setParentID(parentId);
 
 			//修改长节点的长度
+			longNode->swiftPartOfKey(cmpLen + 2);
 			longNode->setStart(longNode->getStart() + cmpLen + 2);
 			longNode->setLen(longNode->getLen() - cmpLen - 2);
 
-			if (!indexFile.changePreCmpLen(longNode->getIndexId(), longNode->getPreCmpLen(), longNode->getPreCmpLen() + cmpLen + 2))
+			if (!kvIndexFile.changePreCmpLen(longNode->getIndexId(), longNode->getPreCmpLen(), longNode->getPreCmpLen() + cmpLen + 2))
 			{
 				return false;
 			}
@@ -2707,21 +2714,18 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 		case NODE_TYPE_FOUR:
 		{
 			unsigned char key;
-			//从文件当中读取key
-			fpos_t pos;
-			pos.__pos = longNodeStart + cmpLen;
-			if (!dstFile.read(pos, &key, 1))
-			{
-				return false;
-			}
+			unsigned long long partOfKey = longNode->getPartOfKey();
+			unsigned char* p = (unsigned char*)&partOfKey;
+			key = *(unsigned char*)(&p[cmpLen]);
 
 			anotherNode->setParentID(parentId);
 
 			//修改长节点的长度
+			longNode->swiftPartOfKey(cmpLen + 1);
 			longNode->setStart(longNode->getStart() + cmpLen + 1);
 			longNode->setLen(longNode->getLen() - cmpLen - 1);
 
-			if (!indexFile.changePreCmpLen(longNode->getIndexId(), longNode->getPreCmpLen(), longNode->getPreCmpLen() + cmpLen + 1))
+			if (!kvIndexFile.changePreCmpLen(longNode->getIndexId(), longNode->getPreCmpLen(), longNode->getPreCmpLen() + cmpLen + 1))
 			{
 				return false;
 			}
@@ -2752,22 +2756,13 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 		anotherNode->setIsModified(true);
 
 		leftChildNode.setIndexId(anotherNode->getIndexId());
-		//前面不够8个字节的比较完了下面处理长长的那一串
 		
 		return true;
 	}
-	else if (!(leftType == CHILD_TYPE_VALUE && rightType == CHILD_TYPE_VALUE))
-	{
-		
-	}
-	else
-	{
-		return false;
-	}
-	return true;
+	return false;
 }
 
-IndexNode* BuildIndex::changeNodeType(unsigned long long indexId, IndexNode* indexNode)
+IndexNode* BuildIndex::changeNodeType(unsigned long long indexId, IndexNode* indexNode, unsigned char buildType)
 {
 	if (indexNode == nullptr)
 	{
@@ -2775,22 +2770,38 @@ IndexNode* BuildIndex::changeNodeType(unsigned long long indexId, IndexNode* ind
 	}
 
 	//直接调用节点的函数改变节点的类型
-	IndexNode* newNode = indexNode->changeType(this);
+	IndexNode* newNode = indexNode->changeType(this, buildType);
 	if (newNode == nullptr)
 	{
 		return nullptr;
 	}
 
-	//创建了已经减小了的节点和原来的节点交换
-	if (!indexFile.swapNode(indexId, newNode))
+	if (buildType == BUILD_TYPE_FILE)
 	{
-		delete newNode;
-		return nullptr;
+		//创建了已经减小了的节点和原来的节点交换
+		if (!indexFile.swapNode(indexId, newNode))
+		{
+			delete newNode;
+			return nullptr;
+		}
+	}
+	else
+	{
+		if (!kvIndexFile.swapNode(indexId, newNode))
+		{
+			delete newNode;
+			return nullptr;
+		}
 	}
 
 	//成功交换了节点了以后交换出来的节点要被删掉
 	delete indexNode;
 	return newNode;
+}
+
+IndexNode* BuildIndex::newKvNode(unsigned char nodeType, unsigned long long preCmpLen)
+{
+	return kvIndexFile.newIndexNode(nodeType, preCmpLen);
 }
 
 bool BuildIndex::build()

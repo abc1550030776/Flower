@@ -17,6 +17,10 @@ const unsigned char NODE_TYPE_TWO = 1;
 const unsigned char NODE_TYPE_THREE = 2;
 const unsigned char NODE_TYPE_FOUR = 3;
 
+//是构建文件索引还是键值索引
+const unsigned char BUILD_TYPE_FILE = 0;
+const unsigned char BUILD_TYPE_KV = 1;
+
 class BuildIndex;
 class IndexNode
 {
@@ -34,7 +38,7 @@ public:
 	virtual bool getAllChildNodeId(std::vector<unsigned long long>& childIndexId) = 0;
 	void setParentID(unsigned long long parentID);								//设置父节点id
 	virtual size_t getChildrenNum() = 0;										//获取孩子的数量
-	virtual  IndexNode* changeType(BuildIndex* buildIndex) = 0;					//改变节点的类型缩小每个索引查找使用的键的大小
+	virtual  IndexNode* changeType(BuildIndex* buildIndex, unsigned char buildType = BUILD_TYPE_FILE) = 0;//改变节点的类型缩小每个索引查找使用的键的大小
 	void setStart(unsigned long long start);													//设置在原文件的开始位置
 	unsigned long long getStart();										//获取节点在远文件的开始位置
 	void setLen(unsigned long long len);								//设置节点在文件当中的长度
@@ -101,9 +105,9 @@ class IndexNodeTypeOne : public IndexNode
 	bool changeChildIndexId(unsigned long long orgIndexId, unsigned long long newIndexId);
 	bool getAllChildNodeId(std::vector<unsigned long long>& childIndexId);
 	size_t getChildrenNum();
-	IndexNode* changeType(BuildIndex* buildIndex);
+	IndexNode* changeType(BuildIndex* buildIndex, unsigned char buildType);
 	bool cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId);
-	bool insertChildNode(BuildIndex* buildIndex, unsigned long long key, const IndexNodeChild& indexNodeChild);
+	bool insertChildNode(BuildIndex* buildIndex, unsigned long long key, const IndexNodeChild& indexNodeChild, unsigned char buildType = BUILD_TYPE_FILE);
 	bool mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeOne* indexNode);
 	IndexNodeChild* getIndexNodeChild(unsigned long long key);
 	std::unordered_map<unsigned long long, IndexNodeChild>& getChildren();
@@ -123,10 +127,10 @@ class IndexNodeTypeTwo : public IndexNode
 	bool changeChildIndexId(unsigned long long orgIndexId, unsigned long long newIndexId);
 	bool getAllChildNodeId(std::vector<unsigned long long>& childIndexId);
 	size_t getChildrenNum();
-	IndexNode* changeType(BuildIndex* buildIndex);
+	IndexNode* changeType(BuildIndex* buildIndex, unsigned char buildType);
 	bool cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId);
-	bool insertChildNode(BuildIndex* buildIndex, unsigned long long key, const IndexNodeChild& indexNodeChild);
-	bool insertChildNode(BuildIndex* buildIndex, unsigned int key, const IndexNodeChild& indexNodeChild);
+	bool insertChildNode(BuildIndex* buildIndex, unsigned long long key, const IndexNodeChild& indexNodeChild, unsigned char buildType = BUILD_TYPE_FILE);
+	bool insertChildNode(BuildIndex* buildIndex, unsigned int key, const IndexNodeChild& indexNodeChild, unsigned char buildType = BUILD_TYPE_FILE);
 	bool mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeTwo* indexNode);
 	IndexNodeChild* getIndexNodeChild(unsigned int key);
 	std::unordered_map<unsigned int, IndexNodeChild>& getChildren();
@@ -146,10 +150,10 @@ class IndexNodeTypeThree : public IndexNode
 	bool changeChildIndexId(unsigned long long orgIndexId, unsigned long long newIndexId);
 	bool getAllChildNodeId(std::vector<unsigned long long>& childIndexId);
 	size_t getChildrenNum();
-	IndexNode* changeType(BuildIndex* buildIndex);
+	IndexNode* changeType(BuildIndex* buildIndex, unsigned char buildType);
 	bool cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId);
-	bool insertChildNode(BuildIndex* buildIndex, unsigned int key, const IndexNodeChild& indexNodeChild);
-	bool insertChildNode(BuildIndex* buildIndex, unsigned short key, const IndexNodeChild& indexNodeChild);
+	bool insertChildNode(BuildIndex* buildIndex, unsigned int key, const IndexNodeChild& indexNodeChild, unsigned char buildType = BUILD_TYPE_FILE);
+	bool insertChildNode(BuildIndex* buildIndex, unsigned short key, const IndexNodeChild& indexNodeChild, unsigned char buildType = BUILD_TYPE_FILE);
 	bool mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeThree* indexNode);
 	IndexNodeChild* getIndexNodeChild(unsigned short key);
 	std::unordered_map<unsigned short, IndexNodeChild>& getChildren();
@@ -169,10 +173,10 @@ class IndexNodeTypeFour : public IndexNode
 	bool changeChildIndexId(unsigned long long orgIndexId, unsigned long long newIndexId);
 	bool getAllChildNodeId(std::vector<unsigned long long>& childIndexId);
 	size_t getChildrenNum();
-	IndexNode* changeType(BuildIndex* buildIndex);
+	IndexNode* changeType(BuildIndex* buildIndex, unsigned char buildType);
 	bool cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId);
-	bool insertChildNode(BuildIndex* buildIndex, unsigned short key, const IndexNodeChild& indexNodeChild);
-	bool insertChildNode(BuildIndex* buildIndex, unsigned char key, const IndexNodeChild& indexNodeChild);
+	bool insertChildNode(BuildIndex* buildIndex, unsigned short key, const IndexNodeChild& indexNodeChild, unsigned char buildType = BUILD_TYPE_FILE);
+	bool insertChildNode(BuildIndex* buildIndex, unsigned char key, const IndexNodeChild& indexNodeChild, unsigned char buildType = BUILD_TYPE_FILE);
 	bool mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeFour* indexNode);
 	IndexNodeChild* getIndexNodeChild(unsigned char key);
 	std::unordered_map<unsigned char, IndexNodeChild>& getChildren();

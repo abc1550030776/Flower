@@ -10,11 +10,12 @@ public:
 	BuildIndex();
 	bool init(const char* fileName, Index* index);				//初始化
 	bool cutNodeSize(unsigned long long indexId, IndexNode* indexNode);			//减少节点的大小使节点总是能保存在比较小的空间里面
-	IndexNode* getIndexNode(unsigned long long indexId);		//根据某个节点id获取节点
-	bool changePreCmpLen(unsigned long long indexId, unsigned long long orgPreCmpLen, unsigned long long newPreCmpLen);
+	IndexNode* getIndexNode(unsigned long long indexId, unsigned char buildType = BUILD_TYPE_FILE);		//根据某个节点id获取节点
+	bool changePreCmpLen(unsigned long long indexId, unsigned long long orgPreCmpLen, unsigned long long newPreCmpLen, unsigned char buildType = BUILD_TYPE_FILE);
 	bool mergeNode(unsigned long long preCmpLen, unsigned long long parentId, IndexNodeChild& leftChildNode, const IndexNodeChild& rightChildNode);
-	bool addVMergeNode(unsigned long long preCmpLen, unsigned long long parentId, IndexNodeChild& leftChildNode, const IndexNodeChild& rightChildNode, unsigned long long leftKey, unsigned long long rightKey);
-	IndexNode* changeNodeType(unsigned long long indexId, IndexNode* indexNode);
+	bool addVMergeNode(unsigned long long preCmpLen, unsigned long long parentId, IndexNodeChild& leftChildNode, const IndexNodeChild& rightChildNode);
+	IndexNode* changeNodeType(unsigned long long indexId, IndexNode* indexNode, unsigned char buildType = BUILD_TYPE_FILE);
+	IndexNode* newKvNode(unsigned char nodeType, unsigned long long preCmpLen);
 	bool build();												//构建文件索引
 private:
 	Myfile dstFile;									//需要构建索引的目标文件
