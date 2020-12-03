@@ -26,3 +26,40 @@ bool compareTwoType(const unsigned char leftType, const unsigned char rightType)
 	}
 	return false;
 }
+
+bool getKVFilePath(const char* dstFilePath, char* kVFilePath)
+{
+	size_t len = strlen(dstFilePath);
+	if (len + 5 > 4096)
+	{
+		return false;
+	}
+
+	strcpy(kVFilePath, dstFilePath);
+
+	strcpy(kVFilePath + len, ".kvi");
+
+	return true;
+}
+
+unsigned char swiftBigLittleEnd(unsigned char value)
+{
+	return value;
+}
+
+unsigned short swiftBigLittleEnd(unsigned short value)
+{
+	return ((value & 0x00FF) << 8) | ((value & 0xFF00) >> 8);
+}
+
+unsigned int swiftBigLittleEnd(unsigned int value)
+{
+	return ((value & 0x000000FF) << 24) | ((value & 0x0000FF00) << 8) | ((value & 0x00FF0000) >> 8) | ((value & 0xFF000000) >> 24);
+}
+
+unsigned long long swiftBigLittleEnd(unsigned long long value)
+{
+	unsigned long long highValue = (unsigned long long)swiftBigLittleEnd((unsigned int)value);
+	unsigned long long lowValue = (unsigned long long)swiftBigLittleEnd((unsigned int)(value >> 32));
+	return lowValue + (highValue << 32);
+}

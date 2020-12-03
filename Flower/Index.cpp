@@ -223,7 +223,7 @@ IndexNode* Index::newIndexNode(unsigned char nodeType, unsigned long long preCmp
 	}
 
 	//获取新创建的节点的id
-	unsigned long long indexId = UniqueGenerator::getUGenerator().acquireNumber();
+	unsigned long long indexId = generator.acquireNumber();
 
 	//将新创建的节点插入到缓存当中
 	bool ok = indexNodeCache.insert({ indexId, pNode }).second;
@@ -271,7 +271,7 @@ bool Index::deleteIndexNode(unsigned long long indexId)
 	delete it->second;
 	indexNodeCache.erase(it);
 	IndexIdPreority.erase(ipIt);
-	UniqueGenerator::getUGenerator().recycleNumber(indexId);
+	generator.recycleNumber(indexId);
 	return true;
 }
 
@@ -309,6 +309,16 @@ bool Index::putIndexNode(IndexNode* indexNode)
 	}
 	releaseSRWLockShared(&rwLock);
 	return true;
+}
+
+unsigned long long Index::acquireTwoNumber()
+{
+	return generator.acquireTwoNumber();
+}
+
+void Index::recycleNumber(unsigned long long indexId)
+{
+	generator.recycleNumber(indexId);
 }
 
 Index::~Index()

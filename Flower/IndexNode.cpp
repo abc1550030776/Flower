@@ -11,6 +11,7 @@ IndexNode::IndexNode()
 	isModified = false;
 	indexId = 0;
 	refCount = 0;
+	partOfKey = 0;
 }
 
 void IndexNode::setIsBig(bool isBig)
@@ -88,7 +89,7 @@ void IndexNode::insertLeafSet(unsigned long long start)
 	leafSet.insert(start);
 }
 
-bool IndexNode::mergeSameLenNode(BuildIndex* buildIndex, IndexNode* indexNode)
+bool IndexNode::mergeSameLenNode(BuildIndex* buildIndex, IndexNode* indexNode, unsigned char buildType)
 {
 	if (buildIndex == nullptr || indexNode == nullptr)
 	{
@@ -112,7 +113,7 @@ bool IndexNode::mergeSameLenNode(BuildIndex* buildIndex, IndexNode* indexNode)
 	{
 		IndexNodeTypeOne* leftNode = (IndexNodeTypeOne*)this;
 		IndexNodeTypeOne* rightNode = (IndexNodeTypeOne*)indexNode;
-		if (!leftNode->mergeSameLenNode(buildIndex, rightNode))
+		if (!leftNode->mergeSameLenNode(buildIndex, rightNode, buildType))
 		{
 			return false;
 		}
@@ -122,7 +123,7 @@ bool IndexNode::mergeSameLenNode(BuildIndex* buildIndex, IndexNode* indexNode)
 	{
 		IndexNodeTypeTwo* leftNode = (IndexNodeTypeTwo*)this;
 		IndexNodeTypeTwo* rightNode = (IndexNodeTypeTwo*)indexNode;
-		if (!leftNode->mergeSameLenNode(buildIndex, rightNode))
+		if (!leftNode->mergeSameLenNode(buildIndex, rightNode, buildType))
 		{
 			return false;
 		}
@@ -132,7 +133,7 @@ bool IndexNode::mergeSameLenNode(BuildIndex* buildIndex, IndexNode* indexNode)
 	{
 		IndexNodeTypeThree* leftNode = (IndexNodeTypeThree*)this;
 		IndexNodeTypeThree* rightNode = (IndexNodeTypeThree*)indexNode;
-		if (!leftNode->mergeSameLenNode(buildIndex, rightNode))
+		if (!leftNode->mergeSameLenNode(buildIndex, rightNode, buildType))
 		{
 			return false;
 		}
@@ -142,7 +143,7 @@ bool IndexNode::mergeSameLenNode(BuildIndex* buildIndex, IndexNode* indexNode)
 	{
 		IndexNodeTypeFour* leftNode = (IndexNodeTypeFour*)this;
 		IndexNodeTypeFour* rightNode = (IndexNodeTypeFour*)indexNode;
-		if (!leftNode->mergeSameLenNode(buildIndex, rightNode))
+		if (!leftNode->mergeSameLenNode(buildIndex, rightNode, buildType))
 		{
 			return false;
 		}
@@ -574,7 +575,7 @@ IndexNode* IndexNodeTypeOne::changeType(BuildIndex* buildIndex, unsigned char bu
 	return ret;
 }
 
-bool IndexNodeTypeOne::cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId)
+bool IndexNodeTypeOne::cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId, unsigned char buildType)
 {
 	if (buildIndex == nullptr)
 	{
@@ -584,13 +585,13 @@ bool IndexNodeTypeOne::cutNodeSize(BuildIndex* buildIndex, unsigned long long in
 	{
 		if (it.second.getType() == CHILD_TYPE_NODE)
 		{
-			IndexNode* node = buildIndex->getIndexNode(it.second.getIndexId());
+			IndexNode* node = buildIndex->getIndexNode(it.second.getIndexId(), buildType);
 			if (node == nullptr)
 			{
 				return false;
 			}
 
-			if (!buildIndex->cutNodeSize(it.second.getIndexId(), node))
+			if (!buildIndex->cutNodeSize(it.second.getIndexId(), node, buildType))
 			{
 				return false;
 			}
@@ -598,7 +599,7 @@ bool IndexNodeTypeOne::cutNodeSize(BuildIndex* buildIndex, unsigned long long in
 	}
 
 	//本身可能比256要大所以也要调用
-	if (!buildIndex->cutNodeSize(indexId, this))
+	if (!buildIndex->cutNodeSize(indexId, this, buildType))
 	{
 		return false;
 	}
@@ -639,7 +640,7 @@ bool IndexNodeTypeOne::insertChildNode(BuildIndex* buildIndex, unsigned long lon
 	return true;
 }
 
-bool IndexNodeTypeOne::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeOne* indexNode)
+bool IndexNodeTypeOne::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeOne* indexNode, unsigned char buildType)
 {
 	if (buildIndex == nullptr || indexNode == nullptr)
 	{
@@ -657,9 +658,19 @@ bool IndexNodeTypeOne::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeOne
 		else
 		{
 			//这个时候合并两个孩子节点
-			if (!buildIndex->mergeNode(preCmpLen + len + 8, indexId, it->second, child.second))
+			if (buildIndex == BUILD_TYPE_FILE)
 			{
-				return false;
+				if (!buildIndex->mergeNode(preCmpLen + len + 8, indexId, it->second, child.second))
+				{
+					return false;
+				}
+			}
+			else
+			{
+				if (!buildIndex->addVMergeNode(preCmpLen + len + 8, indexId, it->second, child.second))
+				{
+					return false;
+				}
 			}
 		}
 	}
@@ -975,7 +986,7 @@ IndexNode* IndexNodeTypeTwo::changeType(BuildIndex* buildIndex, unsigned char bu
 	return ret;
 }
 
-bool IndexNodeTypeTwo::cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId)
+bool IndexNodeTypeTwo::cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId, unsigned char buildType)
 {
 	if (buildIndex == nullptr)
 	{
@@ -985,13 +996,13 @@ bool IndexNodeTypeTwo::cutNodeSize(BuildIndex* buildIndex, unsigned long long in
 	{
 		if (it.second.getType() == CHILD_TYPE_NODE)
 		{
-			IndexNode* node = buildIndex->getIndexNode(it.second.getIndexId());
+			IndexNode* node = buildIndex->getIndexNode(it.second.getIndexId(), buildType);
 			if (node == nullptr)
 			{
 				return false;
 			}
 
-			if (!buildIndex->cutNodeSize(it.second.getIndexId(), node))
+			if (!buildIndex->cutNodeSize(it.second.getIndexId(), node, buildType))
 			{
 				return false;
 			}
@@ -999,7 +1010,7 @@ bool IndexNodeTypeTwo::cutNodeSize(BuildIndex* buildIndex, unsigned long long in
 	}
 
 	//本身可能比256要大所以也要调用
-	if (!buildIndex->cutNodeSize(indexId, this))
+	if (!buildIndex->cutNodeSize(indexId, this, buildType))
 	{
 		return false;
 	}
@@ -1147,7 +1158,7 @@ bool IndexNodeTypeTwo::insertChildNode(BuildIndex* buildIndex, unsigned int key,
 	return true;
 }
 
-bool IndexNodeTypeTwo::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeTwo* indexNode)
+bool IndexNodeTypeTwo::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeTwo* indexNode, unsigned char buildType)
 {
 	if (buildIndex == nullptr || indexNode == nullptr)
 	{
@@ -1165,9 +1176,19 @@ bool IndexNodeTypeTwo::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeTwo
 		else
 		{
 			//这个时候合并两个孩子节点
-			if (!buildIndex->mergeNode(preCmpLen + len + 4, indexId, it->second, child.second))
+			if (buildType == BUILD_TYPE_FILE)
 			{
-				return false;
+				if (!buildIndex->mergeNode(preCmpLen + len + 4, indexId, it->second, child.second))
+				{
+					return false;
+				}
+			}
+			else
+			{
+				if (!buildIndex->addVMergeNode(preCmpLen + len + 4, indexId, it->second, child.second))
+				{
+					return false;
+				}
 			}
 		}
 	}
@@ -1482,7 +1503,7 @@ IndexNode* IndexNodeTypeThree::changeType(BuildIndex* buildIndex, unsigned char 
 	return ret;
 }
 
-bool IndexNodeTypeThree::cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId)
+bool IndexNodeTypeThree::cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId, unsigned char buildType)
 {
 	if (buildIndex == nullptr)
 	{
@@ -1492,13 +1513,13 @@ bool IndexNodeTypeThree::cutNodeSize(BuildIndex* buildIndex, unsigned long long 
 	{
 		if (it.second.getType() == CHILD_TYPE_NODE)
 		{
-			IndexNode* node = buildIndex->getIndexNode(it.second.getIndexId());
+			IndexNode* node = buildIndex->getIndexNode(it.second.getIndexId(), buildType);
 			if (node == nullptr)
 			{
 				return false;
 			}
 
-			if (!buildIndex->cutNodeSize(it.second.getIndexId(), node))
+			if (!buildIndex->cutNodeSize(it.second.getIndexId(), node, buildType))
 			{
 				return false;
 			}
@@ -1506,7 +1527,7 @@ bool IndexNodeTypeThree::cutNodeSize(BuildIndex* buildIndex, unsigned long long 
 	}
 
 	//本身可能比256要大所以也要调用
-	if (!buildIndex->cutNodeSize(indexId, this))
+	if (!buildIndex->cutNodeSize(indexId, this, buildType))
 	{
 		return false;
 	}
@@ -1654,7 +1675,7 @@ bool IndexNodeTypeThree::insertChildNode(BuildIndex* buildIndex, unsigned short 
 	return true;
 }
 
-bool IndexNodeTypeThree::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeThree* indexNode)
+bool IndexNodeTypeThree::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeThree* indexNode, unsigned char buildType)
 {
 	if (buildIndex == nullptr || indexNode == nullptr)
 	{
@@ -1672,9 +1693,19 @@ bool IndexNodeTypeThree::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeT
 		else
 		{
 			//这个时候合并两个孩子节点
-			if (!buildIndex->mergeNode(preCmpLen + len + 2, indexId, it->second, child.second))
+			if (buildType == BUILD_TYPE_FILE)
 			{
-				return false;
+				if (!buildIndex->mergeNode(preCmpLen + len + 2, indexId, it->second, child.second))
+				{
+					return false;
+				}
+			}
+			else
+			{
+				if (!buildIndex->addVMergeNode(preCmpLen + len + 2, indexId, it->second, child.second))
+				{
+					return false;
+				}
 			}
 		}
 	}
@@ -1966,7 +1997,7 @@ IndexNode* IndexNodeTypeFour::changeType(BuildIndex* buildIndex, unsigned char b
 	return nullptr;
 }
 
-bool IndexNodeTypeFour::cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId)
+bool IndexNodeTypeFour::cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId, unsigned char buildType)
 {
 	if (buildIndex == nullptr)
 	{
@@ -1976,13 +2007,13 @@ bool IndexNodeTypeFour::cutNodeSize(BuildIndex* buildIndex, unsigned long long i
 	{
 		if (it.second.getType() == CHILD_TYPE_NODE)
 		{
-			IndexNode* node = buildIndex->getIndexNode(it.second.getIndexId());
+			IndexNode* node = buildIndex->getIndexNode(it.second.getIndexId(), buildType);
 			if (node == nullptr)
 			{
 				return false;
 			}
 
-			if (!buildIndex->cutNodeSize(it.second.getIndexId(), node))
+			if (!buildIndex->cutNodeSize(it.second.getIndexId(), node, buildType))
 			{
 				return false;
 			}
@@ -1990,7 +2021,7 @@ bool IndexNodeTypeFour::cutNodeSize(BuildIndex* buildIndex, unsigned long long i
 	}
 
 	//本身可能比256要大所以也要调用
-	if (!buildIndex->cutNodeSize(indexId, this))
+	if (!buildIndex->cutNodeSize(indexId, this, buildType))
 	{
 		return false;
 	}
@@ -2138,7 +2169,7 @@ bool IndexNodeTypeFour::insertChildNode(BuildIndex* buildIndex, unsigned char ke
 	return true;
 }
 
-bool IndexNodeTypeFour::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeFour* indexNode)
+bool IndexNodeTypeFour::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeFour* indexNode, unsigned char buildType)
 {
 	if (buildIndex == nullptr || indexNode == nullptr)
 	{
@@ -2156,9 +2187,19 @@ bool IndexNodeTypeFour::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeFo
 		else
 		{
 			//这个时候合并两个孩子节点
-			if (!buildIndex->mergeNode(preCmpLen + len + 1, indexId, it->second, child.second))
+			if (buildType == BUILD_TYPE_FILE)
 			{
-				return false;
+				if (!buildIndex->mergeNode(preCmpLen + len + 1, indexId, it->second, child.second))
+				{
+					return false;
+				}
+			}
+			else
+			{
+				if (!buildIndex->addVMergeNode(preCmpLen + len + 1, indexId, it->second, child.second))
+				{
+					return false;
+				}
 			}
 		}
 	}

@@ -8,7 +8,7 @@ BuildIndex::BuildIndex()
 	dstFileSize = 0;
 }
 
-bool BuildIndex::init(const char* fileName, Index* index)
+bool BuildIndex::init(const char* fileName, Index* index, Index* kvIndex)
 {
 	if (index == nullptr)
 	{
@@ -28,6 +28,14 @@ bool BuildIndex::init(const char* fileName, Index* index)
 		return false;
 	}
 
+	char kVFileName[4096] = { 0 };
+
+	//获取kv索引文件的名字
+	if (!getKVFilePath(fileName, kVFileName))
+	{
+		return false;
+	}
+
 	//对目标文件进行初始化
 	if (!dstFile.init(fileName))
 	{
@@ -39,6 +47,11 @@ bool BuildIndex::init(const char* fileName, Index* index)
 		return false;
 	}
 
+	if (kvIndex != nullptr)
+	{
+		kvIndexFile.init(kVFileName, kvIndex);
+	}
+
 	//获取文件的大小
 	struct stat statbuf;
 	stat(fileName, &statbuf);
@@ -46,7 +59,7 @@ bool BuildIndex::init(const char* fileName, Index* index)
 	return true;
 }
 
-bool BuildIndex::cutNodeSize(unsigned long long indexId, IndexNode* indexNode)
+bool BuildIndex::cutNodeSize(unsigned long long indexId, IndexNode* indexNode, unsigned char buildType)
 {
 	if (indexNode == nullptr)
 	{
@@ -59,7 +72,7 @@ bool BuildIndex::cutNodeSize(unsigned long long indexId, IndexNode* indexNode)
 	}
 
 	//改变节点类型让节点的孩子结点的键小点这样孩子节点会少点
-	IndexNode* newNode = changeNodeType(indexId, indexNode);
+	IndexNode* newNode = changeNodeType(indexId, indexNode, buildType);
 
 	if (newNode == nullptr)
 	{
@@ -67,7 +80,7 @@ bool BuildIndex::cutNodeSize(unsigned long long indexId, IndexNode* indexNode)
 	}
 
 	//改变了节点类型但是还是无法排除当前节点可能比256要大和产生的新的孩子节点比256要大所以调用节点的函数改变节点
-	newNode->cutNodeSize(this, indexId);
+	newNode->cutNodeSize(this, indexId, buildType);
 	return true;
 }
 
@@ -2644,13 +2657,13 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 			}
 
 			//把两个长度相同类型相同的节点合并
-			if (!leftNode->mergeSameLenNode(this, rightNode))
+			if (!leftNode->mergeSameLenNode(this, rightNode, BUILD_TYPE_KV))
 			{
 				return false;
 			}
 
 			//合并完成了以后左边的节点可能比较大要缩小一下节点
-			if (!cutNodeSize(leftNode->getIndexId(), leftNode))
+			if (!cutNodeSize(leftNode->getIndexId(), leftNode, BUILD_TYPE_KV))
 			{
 				return false;
 			}
@@ -2705,7 +2718,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 
 			IndexNodeTypeThree* tmpNode = (IndexNodeTypeThree*)anotherNode;
 
-			if (!tmpNode->insertChildNode(this, key, indexNodeChild))
+			if (!tmpNode->insertChildNode(this, key, indexNodeChild, BUILD_TYPE_KV))
 			{
 				return false;
 			}
@@ -2737,7 +2750,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 
 			IndexNodeTypeFour* tmpNode = (IndexNodeTypeFour*)anotherNode;
 
-			if (!tmpNode->insertChildNode(this, key, indexNodeChild))
+			if (!tmpNode->insertChildNode(this, key, indexNodeChild, BUILD_TYPE_KV))
 			{
 				return false;
 			}
@@ -2748,7 +2761,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 		}
 
 		//比较小的节点加入了新的节点可能比较大缩小下大小
-		if (!cutNodeSize(anotherNode->getIndexId(), anotherNode))
+		if (!cutNodeSize(anotherNode->getIndexId(), anotherNode, BUILD_TYPE_KV))
 		{
 			return false;
 		}
@@ -2802,6 +2815,51 @@ IndexNode* BuildIndex::changeNodeType(unsigned long long indexId, IndexNode* ind
 IndexNode* BuildIndex::newKvNode(unsigned char nodeType, unsigned long long preCmpLen)
 {
 	return kvIndexFile.newIndexNode(nodeType, preCmpLen);
+}
+
+bool BuildIndex::addKV(unsigned long long key, unsigned long long value)
+{
+	unsigned long long bigEndKey = swiftBigLittleEnd(key);
+	unsigned long long rootIndexId = kvIndexFile.getRootIndexId();
+	if (rootIndexId == 0)
+	{
+		//没有创建根节点先创建根节点
+		IndexNode* newIndexNode = kvIndexFile.newIndexNode(NODE_TYPE_ONE, 0);
+		newIndexNode->setStart(0);
+		newIndexNode->setLen(0);
+		newIndexNode->setParentID(0);
+		IndexNodeChild indexNodeChild(CHILD_TYPE_VALUE, value);
+		IndexNodeTypeOne* pTmpNode = (IndexNodeTypeOne*)newIndexNode;
+		if (!pTmpNode->insertChildNode(this, bigEndKey, indexNodeChild, BUILD_TYPE_KV))
+		{
+			return false;
+		}
+		pTmpNode->setIsModified(true);
+
+		kvIndexFile.setRootIndexId(newIndexNode->getIndexId());
+		return true;
+	}
+
+	IndexNodeChild leftNodeChild(CHILD_TYPE_NODE, rootIndexId);
+	IndexNode* newIndexNode = kvIndexFile.newIndexNode(NODE_TYPE_ONE, 0);
+	newIndexNode->setStart(0);
+	newIndexNode->setLen(0);
+	newIndexNode->setParentID(0);
+	IndexNodeChild indexNodeChild(CHILD_TYPE_VALUE, value);
+	IndexNodeTypeOne* pTmpNode = (IndexNodeTypeOne*)newIndexNode;
+	if (!pTmpNode->insertChildNode(this, bigEndKey, indexNodeChild, BUILD_TYPE_KV))
+	{
+		return false;
+	}
+	pTmpNode->setIsModified(true);
+
+	IndexNodeChild rightNodeChild(CHILD_TYPE_NODE, newIndexNode->getIndexId());
+	if (!addVMergeNode(0, 0, leftNodeChild, rightNodeChild))
+	{
+		return false;
+	}
+
+	return true;
 }
 
 bool BuildIndex::build()

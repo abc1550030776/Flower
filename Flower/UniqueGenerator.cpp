@@ -28,9 +28,3 @@ void UniqueGenerator::recycleNumber(unsigned long long number)
 {
 	recycleNumbers.push(number);
 }
-
-UniqueGenerator& UniqueGenerator::getUGenerator()
-{
-	static UniqueGenerator uGeneratorInstance;
-	return uGeneratorInstance;
-}

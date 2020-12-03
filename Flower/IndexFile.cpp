@@ -220,7 +220,7 @@ bool IndexFile::writeFile(unsigned long long indexId, IndexNode* pIndexNode)
 		std::vector<unsigned long long> indexIdVec;
 		std::vector<IndexNode*> indexNodeVec;
 		//节点的大小比默认的4k的大小还要大这个时候换一个可以保存8k大小的id
-		unsigned long long newIndexId = UniqueGenerator::getUGenerator().acquireTwoNumber();
+		unsigned long long newIndexId = pIndex->acquireTwoNumber();
 
 		//由于节点的id已经改变了所以也要把父节点对应的孩子节点id和孩子节点对应的父节点id修改
 		
@@ -294,14 +294,14 @@ bool IndexFile::writeFile(unsigned long long indexId, IndexNode* pIndexNode)
 
 		//父节点还有所有的孩子节点的父节点id都改变了以后这个节点就是用新节点id了。
 		//创建了新的节点的id所以旧的节点的id就无效了放回去
-		UniqueGenerator::getUGenerator().recycleNumber(indexId);
+		pIndex->recycleNumber(indexId);
 		indexId = newIndexId;
 		pIndexNode->setIndexId(indexId);
 	}
 	else if ((len + 3) <= 4 * 1024 && pIndexNode->getIsBig())
 	{
 		//写入的时候发现只需要4k的存储空间就够了,但是从硬盘里面读出来的时候是超过4k的,大于4k的部分已经不需要了把一个id回收
-		UniqueGenerator::getUGenerator().recycleNumber(indexId + 1);
+		pIndex->recycleNumber(indexId + 1);
 	}
 
 	//把这个节点的数据写进磁盘里面
@@ -463,7 +463,7 @@ void IndexFile::setRootIndexId(unsigned long long rootIndexId)
 unsigned long long IndexFile::getRootIndexId()
 {
 	//刚打开文件根节点没读进来
-	if (rootIndexId == 0)
+	if (rootIndexId == 0 && pIndex->getUseType() == USE_TYPE_SEARCH)
 	{
 		fpos_t pos;
 		pos.__pos = 0;
