@@ -82,6 +82,7 @@
     <ClCompile Include="IndexFile.cpp" />
     <ClCompile Include="IndexNode.cpp" />
     <ClCompile Include="interface.cpp" />
+    <ClCompile Include="KVContent.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Myfile.cpp" />
     <ClCompile Include="ReadWriteLock.cpp" />
@@ -97,6 +98,7 @@
     <ClInclude Include="IndexFile.h" />
     <ClInclude Include="IndexNode.h" />
     <ClInclude Include="interface.h" />
+    <ClInclude Include="KVContent.h" />
     <ClInclude Include="Myfile.h" />
     <ClInclude Include="ReadWriteLock.h" />
     <ClInclude Include="SearchIndex.h" />

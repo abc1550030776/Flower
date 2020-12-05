@@ -99,6 +99,7 @@ class IndexNodeTypeOne : public IndexNode
 	friend class BuildIndex;
 	friend class IndexNode;
 	friend class SearchIndex;
+	friend class KVContent;
 	bool toBinary(char* buffer, int len);
 	bool toObject(char* buffer, int len);
 	unsigned char getType();
@@ -121,6 +122,7 @@ class IndexNodeTypeTwo : public IndexNode
 	friend class IndexNodeTypeOne;
 	friend class IndexNode;
 	friend class SearchIndex;
+	friend class KVContent;
 	bool toBinary(char* buffer, int len);
 	bool toObject(char* buffer, int len);
 	unsigned char getType();
@@ -144,6 +146,7 @@ class IndexNodeTypeThree : public IndexNode
 	friend class IndexNodeTypeTwo;
 	friend class IndexNode;
 	friend class SearchIndex;
+	friend class KVContent;
 	bool toBinary(char* buffer, int len);
 	bool toObject(char* buffer, int len);
 	unsigned char getType();
@@ -167,6 +170,7 @@ class IndexNodeTypeFour : public IndexNode
 	friend class IndexNodeTypeThree;
 	friend class IndexNode;
 	friend class SearchIndex;
+	friend class KVContent;
 	bool toBinary(char* buffer, int len);
 	bool toObject(char* buffer, int len);
 	unsigned char getType();
