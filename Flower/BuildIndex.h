@@ -1,5 +1,6 @@
 #pragma once
 #include "Myfile.h"
+#include "IndexNode.h"
 #include "IndexFile.h"
 class IndexNode;
 class IndexNodeChild;
@@ -18,6 +19,7 @@ public:
 	IndexNode* newKvNode(unsigned char nodeType, unsigned long long preCmpLen);
 	bool addKV(unsigned long long key, unsigned long long value);
 	bool build();												//构建文件索引
+	bool writeKvEveryCache();									//把所有的kv的缓存写入硬盘中
 private:
 	Myfile dstFile;									//需要构建索引的目标文件
 	IndexFile indexFile;							//用来处理索引文件和缓存的对象

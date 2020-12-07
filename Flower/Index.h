@@ -1,9 +1,9 @@
 #pragma once
-#include "IndexNode.h"
 #include <map>
 #include <vector>
 #include "ReadWriteLock.h"
 #include "UniqueGenerator.h"
+#include <unordered_map>
 
 const unsigned char USE_TYPE_BUILD = 0;
 const unsigned char USE_TYPE_SEARCH = 1;

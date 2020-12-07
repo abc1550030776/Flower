@@ -1,3 +1,4 @@
+#include "IndexNode.h"
 #include "BuildIndex.h"
 #include "UniqueGenerator.h"
 

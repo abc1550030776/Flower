@@ -2,7 +2,6 @@
 #include <unordered_map>
 #include <set>
 #include <vector>
-#include "BuildIndex.h"
 #include "ReadWriteLock.h"
 #include "SetWithLock.h"
 

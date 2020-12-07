@@ -2391,7 +2391,6 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 		}
 
 		unsigned long long leftFilePos = leftNode->getStart();
-		unsigned long long rightFilePos = rightNode->getStart();
 
 		unsigned long long leftRemainSize = leftNode->getLen();
 		unsigned long long rightRemainSize = rightNode->getLen();
@@ -2681,12 +2680,10 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 		//有一个节点比较长一个节点比较短
 		IndexNode* longNode = leftNode;
 		IndexNode* anotherNode = rightNode;
-		unsigned long long longNodeStart = leftFilePos;
 		if (leftRemainSize < rightRemainSize)
 		{
 			longNode = rightNode;
 			anotherNode = leftNode;
-			longNodeStart = rightFilePos;
 		}
 
 		//从一个节点添加进另一个节点
@@ -2907,4 +2904,9 @@ bool BuildIndex::build()
 	}
 
 	return true;
+}
+
+bool BuildIndex::writeKvEveryCache()
+{
+	return kvIndexFile.writeEveryCache();
 }

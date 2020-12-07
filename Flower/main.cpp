@@ -2,6 +2,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <map>
+#include "Index.h"
+#include "KVContent.h"
+#include "common.h"
+#include "BuildIndex.h"
 
 int main()
 {
@@ -58,5 +63,74 @@ int main()
 	}
 
 	fclose(file);
+
+	//测试kv存储
+	unsigned long long key[] = { 1, 6, 34, 89, 100, 128, 170, 200, 234, 240, 245, 289, 300, 377, 489, 500, 645, 700, 899, 999 };
+	unsigned long long val[] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20 };
+	std::map<unsigned long long, unsigned long long> map;
+	for (unsigned long i = 0; i < sizeof(key) / sizeof(key[0]); ++i)
+	{
+		map.insert({ key[i], val[i] });
+	}
+
+	Index index;
+	Index kvIndex;
+	BuildIndex buildInex;
+	buildInex.init("/test", &index, &kvIndex);
+	for (unsigned long i = 0; i < sizeof(key) / sizeof(key[0]); ++i)
+	{
+		if (!buildInex.addKV(key[i], val[i]))
+		{
+			printf("add kv failed\n");
+			return false;
+		}
+	}
+	if (!buildInex.writeKvEveryCache())
+	{
+		printf("write cache failed\n");
+		return 1;
+	}
+	char kvIndexFile[4096];
+	if (getKVFilePath("/test", kvIndexFile))
+	{
+		printf("get kv indexFile name failed\n");
+		return 1;
+	}
+	KVContent kvContent;
+	Index kvContentIndex;
+	kvContent.init(kvIndexFile, &kvContentIndex);
+	unsigned long long test[] = { 77, 555, 777 };
+	for (unsigned long i = 0; i < sizeof(test) / sizeof(test[0]); ++i)
+	{
+		unsigned long long mapLowerBoundKey = 0;
+		unsigned long long mapLowerBoundValue = 0;
+		auto it = map.lower_bound(test[i]);
+		if (it != end(map))
+		{
+			mapLowerBoundKey = it->first;
+			mapLowerBoundValue = it->second;
+		}
+
+		unsigned long long mapUpperBoundKey = 0;
+		it = map.upper_bound(mapUpperBoundKey);
+		if (it != end(map))
+		{
+			mapUpperBoundKey = it->first;
+		}
+
+		unsigned long long kvLowerBoundKey = 0;
+		unsigned long long kvLowerBoundValue = 0;
+		unsigned long long kvUpperBoundKey = 0;
+		if (kvContent.get(test[i], kvLowerBoundKey, kvUpperBoundKey, kvLowerBoundValue))
+		{
+			printf("search kv failed search key %llu\n", test[i]);
+			return 1;
+		}
+		if (mapLowerBoundKey != kvLowerBoundKey || mapUpperBoundKey != kvUpperBoundKey || mapLowerBoundValue != kvLowerBoundValue)
+		{
+			printf("search value not right right lowerKey %llu, upperKey %llu, value %llu, find lowerKey %llu, upperKey %llu, value %llu", mapLowerBoundKey, mapUpperBoundKey, mapLowerBoundValue, kvLowerBoundKey, kvUpperBoundKey, kvLowerBoundValue);
+			return 1;
+		}
+	}
 	return 0;
 }

@@ -1,5 +1,6 @@
 #include "Index.h"
 #include "UniqueGenerator.h"
+#include "IndexNode.h"
 
 Index::Index()
 {

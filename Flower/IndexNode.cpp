@@ -1,5 +1,6 @@
 #include "IndexNode.h"
 #include "string.h"
+#include "BuildIndex.h"
 
 IndexNode::IndexNode()
 {
@@ -658,7 +659,7 @@ bool IndexNodeTypeOne::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeOne
 		else
 		{
 			//这个时候合并两个孩子节点
-			if (buildIndex == BUILD_TYPE_FILE)
+			if (buildType == BUILD_TYPE_FILE)
 			{
 				if (!buildIndex->mergeNode(preCmpLen + len + 8, indexId, it->second, child.second))
 				{
