@@ -91,7 +91,7 @@ int main()
 		return 1;
 	}
 	char kvIndexFile[4096];
-	if (getKVFilePath("/test", kvIndexFile))
+	if (!getKVFilePath("/test", kvIndexFile))
 	{
 		printf("get kv indexFile name failed\n");
 		return 1;
