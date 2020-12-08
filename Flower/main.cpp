@@ -73,8 +73,8 @@ int main()
 		map.insert({ key[i], val[i] });
 	}
 
-	Index index;
-	Index kvIndex;
+	Index index(USE_TYPE_BUILD);
+	Index kvIndex(USE_TYPE_BUILD);
 	BuildIndex buildInex;
 	buildInex.init("/test", &index, &kvIndex);
 	for (unsigned long i = 0; i < sizeof(key) / sizeof(key[0]); ++i)
@@ -112,7 +112,7 @@ int main()
 		}
 
 		unsigned long long mapUpperBoundKey = 0;
-		it = map.upper_bound(mapUpperBoundKey);
+		it = map.upper_bound(test[i]);
 		if (it != end(map))
 		{
 			mapUpperBoundKey = it->first;
