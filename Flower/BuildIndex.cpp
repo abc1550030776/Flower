@@ -622,17 +622,20 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			//从文件当中两个位置当中读取剩下的字节的数据
 			unsigned char leftData[8];
 			unsigned char rightData[8];
-			fpos_t leftPos;
-			leftPos.__pos = leftFilePos;
-			if (!dstFile.read(leftPos, leftData, needChartoEight))
+			if (needChartoEight != 0)
 			{
-				return false;
-			}
-			fpos_t rightPos;
-			rightPos.__pos = rightFilePos;
-			if (!dstFile.read(rightPos, rightData, needChartoEight))
-			{
-				return false;
+				fpos_t leftPos;
+				leftPos.__pos = leftFilePos;
+				if (!dstFile.read(leftPos, leftData, needChartoEight))
+				{
+					return false;
+				}
+				fpos_t rightPos;
+				rightPos.__pos = rightFilePos;
+				if (!dstFile.read(rightPos, rightData, needChartoEight))
+				{
+					return false;
+				}
 			}
 
 			int curCmpLen = 0;
@@ -1614,17 +1617,20 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			//从文件当中两个位置当中读取剩下的字节的数据
 			unsigned char leafData[8];
 			unsigned char nodeData[8];
-			fpos_t leafPos;
-			leafPos.__pos = leafFilePos;
-			if (!dstFile.read(leafPos, leafData, needChartoEight))
+			if (needChartoEight != 0)
 			{
-				return false;
-			}
-			fpos_t nodePos;
-			nodePos.__pos = nodeFilePos;
-			if (!dstFile.read(nodePos, nodeData, needChartoEight))
-			{
-				return false;
+				fpos_t leafPos;
+				leafPos.__pos = leafFilePos;
+				if (!dstFile.read(leafPos, leafData, needChartoEight))
+				{
+					return false;
+				}
+				fpos_t nodePos;
+				nodePos.__pos = nodeFilePos;
+				if (!dstFile.read(nodePos, nodeData, needChartoEight))
+				{
+					return false;
+				}
 			}
 
 			int curCmpLen = 0;
