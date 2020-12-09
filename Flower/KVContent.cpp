@@ -22,7 +22,7 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 		return false;
 	}
 
-	IndexNode* rootIndexNode = indexFile.getIndexNode(rootIndexId);
+	IndexNode* rootIndexNode = indexFile.getIndexNode(rootIndexId, BUILD_TYPE_KV);
 	if (rootIndexNode == nullptr)
 	{
 		return false;
@@ -200,7 +200,7 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 							indexFile.putIndexNode(upperIndexNode);
 						}
 
-						upperIndexNode = indexFile.getIndexNode(smallestUpperId);
+						upperIndexNode = indexFile.getIndexNode(smallestUpperId, BUILD_TYPE_KV);
 						if (upperIndexNode == nullptr)
 						{
 							if (lowerIndexNode != nullptr)
@@ -249,7 +249,7 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 							indexFile.putIndexNode(lowerIndexNode);
 						}
 
-						lowerIndexNode = indexFile.getIndexNode(biggestLowerId);
+						lowerIndexNode = indexFile.getIndexNode(biggestLowerId, BUILD_TYPE_KV);
 						if (lowerIndexNode == nullptr)
 						{
 							if (upperIndexNode != nullptr)
@@ -273,7 +273,7 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 						indexFile.putIndexNode(indexNode);
 					}
 
-					indexNode = indexFile.getIndexNode(findKeyIndexId);
+					indexNode = indexFile.getIndexNode(findKeyIndexId, BUILD_TYPE_KV);
 					if (indexNode == nullptr)
 					{
 						if (lowerIndexNode != nullptr)
@@ -312,7 +312,7 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 							indexFile.putIndexNode(upperIndexNode);
 						}
 
-						upperIndexNode = indexFile.getIndexNode(smallestUpperId);
+						upperIndexNode = indexFile.getIndexNode(smallestUpperId, BUILD_TYPE_KV);
 						if (upperIndexNode == nullptr)
 						{
 							if (lowerIndexNode != nullptr)
@@ -353,7 +353,7 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 							indexFile.putIndexNode(lowerIndexNode);
 						}
 
-						lowerIndexNode = indexFile.getIndexNode(biggestLowerId);
+						lowerIndexNode = indexFile.getIndexNode(biggestLowerId, BUILD_TYPE_KV);
 						if (lowerIndexNode == nullptr)
 						{
 							if (upperIndexNode != nullptr)
@@ -447,7 +447,7 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 							indexFile.putIndexNode(upperIndexNode);
 						}
 
-						upperIndexNode = indexFile.getIndexNode(smallestUpperId);
+						upperIndexNode = indexFile.getIndexNode(smallestUpperId, BUILD_TYPE_KV);
 						if (upperIndexNode == nullptr)
 						{
 							if (lowerIndexNode != nullptr)
@@ -496,7 +496,7 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 							indexFile.putIndexNode(lowerIndexNode);
 						}
 
-						lowerIndexNode = indexFile.getIndexNode(biggestLowerId);
+						lowerIndexNode = indexFile.getIndexNode(biggestLowerId, BUILD_TYPE_KV);
 						if (lowerIndexNode == nullptr)
 						{
 							if (upperIndexNode != nullptr)
@@ -520,7 +520,7 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 						indexFile.putIndexNode(indexNode);
 					}
 
-					indexNode = indexFile.getIndexNode(findKeyIndexId);
+					indexNode = indexFile.getIndexNode(findKeyIndexId, BUILD_TYPE_KV);
 					if (indexNode == nullptr)
 					{
 						if (lowerIndexNode != nullptr)
@@ -559,7 +559,7 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 							indexFile.putIndexNode(upperIndexNode);
 						}
 
-						upperIndexNode = indexFile.getIndexNode(smallestUpperId);
+						upperIndexNode = indexFile.getIndexNode(smallestUpperId, BUILD_TYPE_KV);
 						if (upperIndexNode == nullptr)
 						{
 							if (lowerIndexNode != nullptr)
@@ -600,7 +600,7 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 							indexFile.putIndexNode(lowerIndexNode);
 						}
 
-						lowerIndexNode = indexFile.getIndexNode(biggestLowerId);
+						lowerIndexNode = indexFile.getIndexNode(biggestLowerId, BUILD_TYPE_KV);
 						if (lowerIndexNode == nullptr)
 						{
 							if (upperIndexNode != nullptr)
@@ -694,7 +694,7 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 							indexFile.putIndexNode(upperIndexNode);
 						}
 
-						upperIndexNode = indexFile.getIndexNode(smallestUpperId);
+						upperIndexNode = indexFile.getIndexNode(smallestUpperId, BUILD_TYPE_KV);
 						if (upperIndexNode == nullptr)
 						{
 							if (lowerIndexNode != nullptr)
@@ -740,7 +740,7 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 							indexFile.putIndexNode(lowerIndexNode);
 						}
 
-						lowerIndexNode = indexFile.getIndexNode(biggestLowerId);
+						lowerIndexNode = indexFile.getIndexNode(biggestLowerId, BUILD_TYPE_KV);
 						if (lowerIndexNode == nullptr)
 						{
 							if (upperIndexNode != nullptr)
@@ -764,7 +764,7 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 						indexFile.putIndexNode(indexNode);
 					}
 
-					indexNode = indexFile.getIndexNode(findKeyIndexId);
+					indexNode = indexFile.getIndexNode(findKeyIndexId, BUILD_TYPE_KV);
 					if (indexNode == nullptr)
 					{
 						if (lowerIndexNode != nullptr)
@@ -800,7 +800,7 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 							indexFile.putIndexNode(upperIndexNode);
 						}
 
-						upperIndexNode = indexFile.getIndexNode(smallestUpperId);
+						upperIndexNode = indexFile.getIndexNode(smallestUpperId, BUILD_TYPE_KV);
 						if (upperIndexNode == nullptr)
 						{
 							if (lowerIndexNode != nullptr)
@@ -837,7 +837,7 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 							indexFile.putIndexNode(lowerIndexNode);
 						}
 
-						lowerIndexNode = indexFile.getIndexNode(biggestLowerId);
+						lowerIndexNode = indexFile.getIndexNode(biggestLowerId, BUILD_TYPE_KV);
 						if (lowerIndexNode == nullptr)
 						{
 							if (upperIndexNode != nullptr)
@@ -922,7 +922,7 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 							indexFile.putIndexNode(upperIndexNode);
 						}
 
-						upperIndexNode = indexFile.getIndexNode(smallestUpperId);
+						upperIndexNode = indexFile.getIndexNode(smallestUpperId, BUILD_TYPE_KV);
 						if (upperIndexNode == nullptr)
 						{
 							if (lowerIndexNode != nullptr)
@@ -967,7 +967,7 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 							indexFile.putIndexNode(lowerIndexNode);
 						}
 
-						lowerIndexNode = indexFile.getIndexNode(biggestLowerId);
+						lowerIndexNode = indexFile.getIndexNode(biggestLowerId, BUILD_TYPE_KV);
 						if (lowerIndexNode == nullptr)
 						{
 							if (upperIndexNode != nullptr)
@@ -991,7 +991,7 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 						indexFile.putIndexNode(indexNode);
 					}
 
-					indexNode = indexFile.getIndexNode(findKeyIndexId);
+					indexNode = indexFile.getIndexNode(findKeyIndexId, BUILD_TYPE_KV);
 					if (indexNode == nullptr)
 					{
 						if (lowerIndexNode != nullptr)
@@ -1027,7 +1027,7 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 							indexFile.putIndexNode(upperIndexNode);
 						}
 
-						upperIndexNode = indexFile.getIndexNode(smallestUpperId);
+						upperIndexNode = indexFile.getIndexNode(smallestUpperId, BUILD_TYPE_KV);
 						if (upperIndexNode == nullptr)
 						{
 							if (lowerIndexNode != nullptr)
@@ -1064,7 +1064,7 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 							indexFile.putIndexNode(lowerIndexNode);
 						}
 
-						lowerIndexNode = indexFile.getIndexNode(biggestLowerId);
+						lowerIndexNode = indexFile.getIndexNode(biggestLowerId, BUILD_TYPE_KV);
 						if (lowerIndexNode == nullptr)
 						{
 							if (upperIndexNode != nullptr)
@@ -1164,7 +1164,7 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 				{
 					indexFile.putIndexNode(lowerIndexNode);
 
-					lowerIndexNode = indexFile.getIndexNode(indexId);
+					lowerIndexNode = indexFile.getIndexNode(indexId, BUILD_TYPE_KV);
 					if (lowerIndexNode == nullptr)
 					{
 						if (upperIndexNode != nullptr)
@@ -1212,7 +1212,7 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 				{
 					indexFile.putIndexNode(lowerIndexNode);
 
-					lowerIndexNode = indexFile.getIndexNode(indexId);
+					lowerIndexNode = indexFile.getIndexNode(indexId, BUILD_TYPE_KV);
 					if (lowerIndexNode == nullptr)
 					{
 						if (upperIndexNode != nullptr)
@@ -1259,7 +1259,7 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 				{
 					indexFile.putIndexNode(lowerIndexNode);
 
-					lowerIndexNode = indexFile.getIndexNode(indexId);
+					lowerIndexNode = indexFile.getIndexNode(indexId, BUILD_TYPE_KV);
 					if (lowerIndexNode == nullptr)
 					{
 						if (upperIndexNode != nullptr)
@@ -1306,7 +1306,7 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 				{
 					indexFile.putIndexNode(lowerIndexNode);
 
-					lowerIndexNode = indexFile.getIndexNode(indexId);
+					lowerIndexNode = indexFile.getIndexNode(indexId, BUILD_TYPE_KV);
 					if (lowerIndexNode == nullptr)
 					{
 						if (upperIndexNode != nullptr)
@@ -1381,7 +1381,7 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 				{
 					indexFile.putIndexNode(upperIndexNode);
 
-					upperIndexNode = indexFile.getIndexNode(indexId);
+					upperIndexNode = indexFile.getIndexNode(indexId, BUILD_TYPE_KV);
 					if (upperIndexNode == nullptr)
 					{
 						if (lowerIndexNode != nullptr)
@@ -1424,7 +1424,7 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 				{
 					indexFile.putIndexNode(upperIndexNode);
 
-					upperIndexNode = indexFile.getIndexNode(indexId);
+					upperIndexNode = indexFile.getIndexNode(indexId, BUILD_TYPE_KV);
 					if (upperIndexNode == nullptr)
 					{
 						if (lowerIndexNode != nullptr)
@@ -1467,7 +1467,7 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 				{
 					indexFile.putIndexNode(upperIndexNode);
 
-					upperIndexNode = indexFile.getIndexNode(indexId);
+					upperIndexNode = indexFile.getIndexNode(indexId, BUILD_TYPE_KV);
 					if (upperIndexNode == nullptr)
 					{
 						if (lowerIndexNode != nullptr)
@@ -1510,7 +1510,7 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 				{
 					indexFile.putIndexNode(upperIndexNode);
 
-					upperIndexNode = indexFile.getIndexNode(indexId);
+					upperIndexNode = indexFile.getIndexNode(indexId, BUILD_TYPE_KV);
 					if (upperIndexNode == nullptr)
 					{
 						if (lowerIndexNode != nullptr)

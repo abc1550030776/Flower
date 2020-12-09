@@ -7,6 +7,7 @@ public:
 	bool init(const char* fileName, bool createIfNExist = true);
 	bool read(fpos_t pos, void* data, size_t size);
 	bool write(fpos_t pos, void* data, size_t size);
+	size_t readTail(fpos_t pos, void* data, size_t size);
 	~Myfile();
 private:
 	FILE* file;

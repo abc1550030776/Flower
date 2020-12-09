@@ -28,7 +28,7 @@ bool IndexFile::init(const char* fileName, Index* index)
 	return true;
 }
 
-IndexNode* IndexFile::getIndexNode(unsigned long long indexId)
+IndexNode* IndexFile::getIndexNode(unsigned long long indexId, unsigned char buildType)
 {
 	//判断是否已经初始化
 	if (pIndex == nullptr)
@@ -51,8 +51,20 @@ IndexNode* IndexFile::getIndexNode(unsigned long long indexId)
 	pos.__pos = indexId * 4 * 1024;
 	if (!indexFile.read(pos, buffer, 4 * 1024))
 	{
-		free(buffer);
-		return nullptr;
+		//有可能已经读取到了文件的结尾这样就不够4k个字节这里读取末尾并且检测读取到的数据大小是不是正确
+		size_t readSize = indexFile.readTail(pos, buffer, 4 * 1024);
+		if (readSize == 0)
+		{
+			free(buffer);
+			return nullptr;
+		}
+		unsigned short* pDataLen = (unsigned short*)(buffer + 1);
+		unsigned short dataLen = *pDataLen + 3;
+		if (readSize != dataLen)
+		{
+			free(buffer);
+			return nullptr;
+		}
 	}
 
 	//根据不同的节点类型创建节点
@@ -94,7 +106,7 @@ IndexNode* IndexFile::getIndexNode(unsigned long long indexId)
 	}
 
 	//把二进制转成节点的里面的数据
-	if (!pIndexNode->toObject(p, len))
+	if (!pIndexNode->toObject(p, len, buildType))
 	{
 		delete pIndexNode;
 		free(buffer);
@@ -140,7 +152,23 @@ IndexNode* IndexFile::getTempIndexNode(unsigned long long indexId)
 	//在文件当中的存储位置是用索引id * 4 * 1024来定的,有些存储的存储的比较大会大于4k
 	fpos_t pos;
 	pos.__pos = indexId * 4 * 1024;
-	indexFile.read(pos, buffer, 4 * 1024);
+	if (!indexFile.read(pos, buffer, 4 * 1024))
+	{
+		//有可能已经读取到了文件的结尾这样就不够4k个字节这里读取末尾并且检测读取到的数据大小是不是正确
+		size_t readSize = indexFile.readTail(pos, buffer, 4 * 1024);
+		if (readSize == 0)
+		{
+			free(buffer);
+			return nullptr;
+		}
+		unsigned short* pDataLen = (unsigned short*)(buffer + 1);
+		unsigned short dataLen = *pDataLen + 3;
+		if (readSize != dataLen)
+		{
+			free(buffer);
+			return nullptr;
+		}
+	}
 
 	//根据不同的节点类型创建节点
 	char* p = buffer;

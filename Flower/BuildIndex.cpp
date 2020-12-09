@@ -90,7 +90,7 @@ IndexNode* BuildIndex::getIndexNode(unsigned long long indexId, unsigned char bu
 	{
 		return indexFile.getIndexNode(indexId);
 	}
-	return kvIndexFile.getIndexNode(indexId);
+	return kvIndexFile.getIndexNode(indexId, BUILD_TYPE_KV);
 }
 
 bool BuildIndex::changePreCmpLen(unsigned long long indexId, unsigned long long orgPreCmpLen, unsigned long long newPreCmpLen, unsigned char buildType)
@@ -2378,13 +2378,13 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 	if (leftType == CHILD_TYPE_NODE && rightType == CHILD_TYPE_NODE)
 	{
 		//合并的两个孩子节点都是非叶子节点
-		IndexNode* leftNode = kvIndexFile.getIndexNode(leftChildNode.getIndexId());
+		IndexNode* leftNode = kvIndexFile.getIndexNode(leftChildNode.getIndexId(), BUILD_TYPE_KV);
 		if (leftNode == nullptr)
 		{
 			return false;
 		}
 
-		IndexNode* rightNode = kvIndexFile.getIndexNode(rightChildNode.getIndexId());
+		IndexNode* rightNode = kvIndexFile.getIndexNode(rightChildNode.getIndexId(), BUILD_TYPE_KV);
 		if (rightNode == nullptr)
 		{
 			return false;
@@ -2855,6 +2855,8 @@ bool BuildIndex::addKV(unsigned long long key, unsigned long long value)
 	{
 		return false;
 	}
+
+	kvIndexFile.reduceCache();
 
 	return true;
 }

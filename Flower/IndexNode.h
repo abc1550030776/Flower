@@ -26,7 +26,7 @@ class IndexNode
 public:
 	IndexNode();
 	virtual bool toBinary(char *buffer, int len) = 0;					//把这个结构体转成二进制好进行存储
-	virtual bool toObject(char* buffer, int len) = 0;					//把二进制转成结构体
+	virtual bool toObject(char* buffer, int len, unsigned char buildType = BUILD_TYPE_FILE) = 0;					//把二进制转成结构体
 	void setIsBig(bool isBig);											//设置是不是大的节点块
 	unsigned long long getPreCmpLen();									//获取这个节点前面已经比较过的长度
 	bool getIsModified();												//获取节点是否已经修改过
@@ -100,7 +100,7 @@ class IndexNodeTypeOne : public IndexNode
 	friend class SearchIndex;
 	friend class KVContent;
 	bool toBinary(char* buffer, int len);
-	bool toObject(char* buffer, int len);
+	bool toObject(char* buffer, int len, unsigned char buildType);
 	unsigned char getType();
 	bool changeChildIndexId(unsigned long long orgIndexId, unsigned long long newIndexId);
 	bool getAllChildNodeId(std::vector<unsigned long long>& childIndexId);
@@ -123,7 +123,7 @@ class IndexNodeTypeTwo : public IndexNode
 	friend class SearchIndex;
 	friend class KVContent;
 	bool toBinary(char* buffer, int len);
-	bool toObject(char* buffer, int len);
+	bool toObject(char* buffer, int len, unsigned char buildType);
 	unsigned char getType();
 	bool changeChildIndexId(unsigned long long orgIndexId, unsigned long long newIndexId);
 	bool getAllChildNodeId(std::vector<unsigned long long>& childIndexId);
@@ -147,7 +147,7 @@ class IndexNodeTypeThree : public IndexNode
 	friend class SearchIndex;
 	friend class KVContent;
 	bool toBinary(char* buffer, int len);
-	bool toObject(char* buffer, int len);
+	bool toObject(char* buffer, int len, unsigned char buildType);
 	unsigned char getType();
 	bool changeChildIndexId(unsigned long long orgIndexId, unsigned long long newIndexId);
 	bool getAllChildNodeId(std::vector<unsigned long long>& childIndexId);
@@ -171,7 +171,7 @@ class IndexNodeTypeFour : public IndexNode
 	friend class SearchIndex;
 	friend class KVContent;
 	bool toBinary(char* buffer, int len);
-	bool toObject(char* buffer, int len);
+	bool toObject(char* buffer, int len, unsigned char buildType);
 	unsigned char getType();
 	bool changeChildIndexId(unsigned long long orgIndexId, unsigned long long newIndexId);
 	bool getAllChildNodeId(std::vector<unsigned long long>& childIndexId);

@@ -23,8 +23,24 @@ int main()
 		return 1;
 	}
 
+	//从文件当中读取一点点数据作为搜索
+	char searchTarget[16] = { 0 };
+	Myfile myfile;
+	if (!myfile.init("/test", false))
+	{
+		printf("file init fail");
+		return 1;
+	}
+
+	fpos_t pos;
+	pos.__pos = 1024;
+	if (!myfile.read(pos, searchTarget, 16))
+	{
+		printf("read fail");
+		return 1;
+	}
 	std::set<unsigned long long> result;
-	if(!SearchFile("/test", "regulators", 10, &result))
+	if(!SearchFile("/test", searchTarget, 16, &result))
 	{
 		printf("search fail \n");
 		return 1;
@@ -38,23 +54,23 @@ int main()
 		return 1;
 	}
 
-	char buffer[11];
+	char buffer[16];
 
 	for (auto& val : result)
 	{
 		fpos_t pos;
 		pos.__pos = val;
 		fsetpos(file, &pos);
-		if (fread(buffer, 10, 1, file) != 1)
+		if (fread(buffer, 16, 1, file) != 1)
 		{
 			fclose(file);
 			printf("read file error filepos %llu", val);
 			return 1;
 		}
 
-		buffer[10] = '\0';
-		printf("file content %s \n", buffer);
-		if (strcmp(buffer, "regulators"))
+		//buffer[10] = '\0';
+		//printf("file content %s \n", buffer);
+		if (memcmp(buffer, searchTarget, 16))
 		{
 			fclose(file);
 			printf("search word pos not correct resultPos %llu result word %s", val, buffer);
@@ -104,24 +120,21 @@ int main()
 	{
 		unsigned long long mapLowerBoundKey = 0;
 		unsigned long long mapLowerBoundValue = 0;
-		auto it = map.lower_bound(test[i]);
-		if (it != end(map))
-		{
-			mapLowerBoundKey = it->first;
-			mapLowerBoundValue = it->second;
-		}
 
 		unsigned long long mapUpperBoundKey = 0;
-		it = map.upper_bound(test[i]);
+		auto it = map.upper_bound(test[i]);
 		if (it != end(map))
 		{
 			mapUpperBoundKey = it->first;
+			--it;
+			mapLowerBoundKey = it->first;
+			mapLowerBoundValue = it->second;
 		}
 
 		unsigned long long kvLowerBoundKey = 0;
 		unsigned long long kvLowerBoundValue = 0;
 		unsigned long long kvUpperBoundKey = 0;
-		if (kvContent.get(test[i], kvLowerBoundKey, kvUpperBoundKey, kvLowerBoundValue))
+		if (!kvContent.get(test[i], kvLowerBoundKey, kvUpperBoundKey, kvLowerBoundValue))
 		{
 			printf("search kv failed search key %llu\n", test[i]);
 			return 1;

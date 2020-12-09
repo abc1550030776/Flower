@@ -1,5 +1,6 @@
 #pragma once
 #include "Myfile.h"
+#include "IndexNode.h"
 #include "Index.h"
 #include <unordered_set>
 
@@ -11,7 +12,7 @@ public:
 	IndexFile();
 	bool init(const char* fileName, Index* index);
 
-	IndexNode* getIndexNode(unsigned long long indexId);
+	IndexNode* getIndexNode(unsigned long long indexId, unsigned char buildType = BUILD_TYPE_FILE);
 	IndexNode* getTempIndexNode(unsigned long long indexId);
 	bool writeFile(unsigned long long indexId, IndexNode* pIndexNode);
 	bool writeTempFile(unsigned long long indexId, IndexNode* pIndexNode);

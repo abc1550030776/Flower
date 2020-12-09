@@ -331,7 +331,7 @@ bool IndexNodeTypeOne::toBinary(char* buffer, int len)
 				totalSize += 16;
 				leftSize -= 16;
 			}
-			else if (value.second.childType == CHILD_TYPE_LEAF)
+			else if (value.second.childType == CHILD_TYPE_LEAF || value.second.childType == CHILD_TYPE_VALUE)
 			{
 				*((unsigned long long*)(leafBuffer + 16 * leafNum)) = value.first;
 				*((unsigned long long*)(leafBuffer + 16 * leafNum + 8)) = value.second.indexId;
@@ -403,7 +403,7 @@ bool IndexNodeTypeOne::toBinary(char* buffer, int len)
 	return true;
 }
 
-bool IndexNodeTypeOne::toObject(char* buffer, int len)
+bool IndexNodeTypeOne::toObject(char* buffer, int len, unsigned char buildType)
 {
 	//存储的时候前面有加上类型还有存储的大小所以前面加3个字节
 	if ((len + 3) > 4 * 1024)
@@ -473,7 +473,12 @@ bool IndexNodeTypeOne::toObject(char* buffer, int len)
 	{
 		unsigned long long findValue = *((unsigned long long*)p);
 		p += 8;
-		IndexNodeChild indexNodeChild(CHILD_TYPE_LEAF, *((unsigned long long*)p));
+		unsigned char childType = CHILD_TYPE_LEAF;
+		if (buildType == BUILD_TYPE_KV)
+		{
+			childType = CHILD_TYPE_VALUE;
+		}
+		IndexNodeChild indexNodeChild(childType, *((unsigned long long*)p));
 		bool ok = children.insert({ findValue, indexNodeChild }).second;
 		if (!ok)
 		{
@@ -744,7 +749,7 @@ bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 				totalSize += 12;
 				leftSize -= 12;
 			}
-			else if (value.second.childType == CHILD_TYPE_LEAF)
+			else if (value.second.childType == CHILD_TYPE_LEAF || value.second.childType == CHILD_TYPE_VALUE)
 			{
 				*((unsigned int*)(leafBuffer + 12 * leafNum)) = value.first;
 				*((unsigned long long*)(leafBuffer + 12 * leafNum + 4)) = value.second.indexId;
@@ -816,7 +821,7 @@ bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 	return true;
 }
 
-bool IndexNodeTypeTwo::toObject(char* buffer, int len)
+bool IndexNodeTypeTwo::toObject(char* buffer, int len, unsigned char buildType)
 {
 	//存储的时候前面有加上类型还有存储的大小所以前面加3个字节
 	if ((len + 3) > 4 * 1024)
@@ -885,7 +890,12 @@ bool IndexNodeTypeTwo::toObject(char* buffer, int len)
 	{
 		unsigned int findValue = *((unsigned int*)p);
 		p += 4;
-		IndexNodeChild indexNodeChild(CHILD_TYPE_LEAF, *((unsigned long long*)p));
+		unsigned char childType = CHILD_TYPE_LEAF;
+		if (buildType == BUILD_TYPE_KV)
+		{
+			childType = CHILD_TYPE_VALUE;
+		}
+		IndexNodeChild indexNodeChild(childType, *((unsigned long long*)p));
 		bool ok = children.insert({ findValue, indexNodeChild }).second;
 		if (!ok)
 		{
@@ -1261,7 +1271,7 @@ bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 				totalSize += 10;
 				leftSize -= 10;
 			}
-			else if (value.second.childType == CHILD_TYPE_LEAF)
+			else if (value.second.childType == CHILD_TYPE_LEAF || value.second.childType == CHILD_TYPE_VALUE)
 			{
 				*((unsigned short*)(leafBuffer + 10 * leafNum)) = value.first;
 				*((unsigned long long*)(leafBuffer + 10 * leafNum + 2)) = value.second.indexId;
@@ -1333,7 +1343,7 @@ bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 	return true;
 }
 
-bool IndexNodeTypeThree::toObject(char* buffer, int len)
+bool IndexNodeTypeThree::toObject(char* buffer, int len, unsigned char buildType)
 {
 	//存储的时候前面有加上类型还有存储的大小所以前面加3个字节
 	if ((len + 3) > 4 * 1024)
@@ -1402,7 +1412,12 @@ bool IndexNodeTypeThree::toObject(char* buffer, int len)
 	{
 		unsigned short findValue = *((unsigned short*)p);
 		p += 2;
-		IndexNodeChild indexNodeChild(CHILD_TYPE_LEAF, *((unsigned long long*)p));
+		unsigned char childType = CHILD_TYPE_LEAF;
+		if (buildType == BUILD_TYPE_KV)
+		{
+			childType = CHILD_TYPE_VALUE;
+		}
+		IndexNodeChild indexNodeChild(childType, *((unsigned long long*)p));
 		bool ok = children.insert({ findValue, indexNodeChild }).second;
 		if (!ok)
 		{
@@ -1779,7 +1794,7 @@ bool IndexNodeTypeFour::toBinary(char* buffer, int len)
 				totalSize += 9;
 				leftSize -= 9;
 			}
-			else if (value.second.childType == CHILD_TYPE_LEAF)
+			else if (value.second.childType == CHILD_TYPE_LEAF || value.second.childType == CHILD_TYPE_VALUE)
 			{
 				*((unsigned char*)(leafBuffer + 9 * leafNum)) = value.first;
 				*((unsigned long long*)(leafBuffer + 9 * leafNum + 1)) = value.second.indexId;
@@ -1851,7 +1866,7 @@ bool IndexNodeTypeFour::toBinary(char* buffer, int len)
 	return true;
 }
 
-bool IndexNodeTypeFour::toObject(char* buffer, int len)
+bool IndexNodeTypeFour::toObject(char* buffer, int len, unsigned char buildType)
 {
 	//存储的时候前面有加上类型还有存储的大小所以前面加3个字节
 	if ((len + 3) > 4 * 1024)
@@ -1920,7 +1935,12 @@ bool IndexNodeTypeFour::toObject(char* buffer, int len)
 	{
 		unsigned char findValue = *((unsigned char*)p);
 		p += 1;
-		IndexNodeChild indexNodeChild(CHILD_TYPE_LEAF, *((unsigned long long*)p));
+		unsigned char childType = CHILD_TYPE_LEAF;
+		if (buildType == BUILD_TYPE_KV)
+		{
+			childType = CHILD_TYPE_VALUE;
+		}
+		IndexNodeChild indexNodeChild(childType, *((unsigned long long*)p));
 		bool ok = children.insert({ findValue, indexNodeChild }).second;
 		if (!ok)
 		{

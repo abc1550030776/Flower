@@ -80,6 +80,17 @@ bool Myfile::write(fpos_t pos, void* data, size_t size)
 	return true;
 }
 
+size_t Myfile::readTail(fpos_t pos, void* data, size_t size)
+{
+	int flag = fsetpos(file, &pos);
+	if (flag != 0)
+	{
+		return 0;
+	}
+
+	return fread(data, 1, size, file);
+}
+
 Myfile::~Myfile()
 {
 	if (file != NULL)
