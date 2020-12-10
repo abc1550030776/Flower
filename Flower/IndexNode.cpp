@@ -764,7 +764,7 @@ bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 		*(unsigned short*)p = leafNum;
 		p += 2;
 		memcpy(p, leafBuffer, leafNum * 12);
-		p += leafNum * 16;
+		p += leafNum * 12;
 		totalSize += (2 + leafNum * 12);
 		leftSize -= (2 + leafNum * 12);
 	}
