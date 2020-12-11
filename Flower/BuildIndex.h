@@ -10,7 +10,7 @@ class BuildIndex
 public:
 	BuildIndex();
 	bool init(const char* fileName, Index* index, Index* kvIndex = nullptr);				//初始化
-	bool cutNodeSize(unsigned long long indexId, IndexNode* indexNode, unsigned char buildType = BUILD_TYPE_FILE);			//减少节点的大小使节点总是能保存在比较小的空间里面
+	bool cutNodeSize(unsigned long long indexId, IndexNode*& indexNode, unsigned char buildType = BUILD_TYPE_FILE);			//减少节点的大小使节点总是能保存在比较小的空间里面
 	IndexNode* getIndexNode(unsigned long long indexId, unsigned char buildType = BUILD_TYPE_FILE);		//根据某个节点id获取节点
 	bool changePreCmpLen(unsigned long long indexId, unsigned long long orgPreCmpLen, unsigned long long newPreCmpLen, unsigned char buildType = BUILD_TYPE_FILE);
 	bool mergeNode(unsigned long long preCmpLen, unsigned long long parentId, IndexNodeChild& leftChildNode, const IndexNodeChild& rightChildNode);

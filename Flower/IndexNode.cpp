@@ -581,11 +581,11 @@ IndexNode* IndexNodeTypeOne::changeType(BuildIndex* buildIndex, unsigned char bu
 	return ret;
 }
 
-bool IndexNodeTypeOne::cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId, unsigned char buildType)
+IndexNode* IndexNodeTypeOne::cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId, unsigned char buildType)
 {
 	if (buildIndex == nullptr)
 	{
-		return false;
+		return nullptr;
 	}
 	for (auto& it : children)
 	{
@@ -594,22 +594,23 @@ bool IndexNodeTypeOne::cutNodeSize(BuildIndex* buildIndex, unsigned long long in
 			IndexNode* node = buildIndex->getIndexNode(it.second.getIndexId(), buildType);
 			if (node == nullptr)
 			{
-				return false;
+				return nullptr;
 			}
 
 			if (!buildIndex->cutNodeSize(it.second.getIndexId(), node, buildType))
 			{
-				return false;
+				return nullptr;
 			}
 		}
 	}
 
+	IndexNode* tmpNode = this;
 	//本身可能比256要大所以也要调用
-	if (!buildIndex->cutNodeSize(indexId, this, buildType))
+	if (!buildIndex->cutNodeSize(indexId, tmpNode, buildType))
 	{
-		return false;
+		return nullptr;
 	}
-	return true;
+	return tmpNode;
 }
 
 bool IndexNodeTypeOne::insertChildNode(BuildIndex* buildIndex, unsigned long long key, const IndexNodeChild& indexNodeChild, unsigned char buildType)
@@ -997,11 +998,11 @@ IndexNode* IndexNodeTypeTwo::changeType(BuildIndex* buildIndex, unsigned char bu
 	return ret;
 }
 
-bool IndexNodeTypeTwo::cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId, unsigned char buildType)
+IndexNode* IndexNodeTypeTwo::cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId, unsigned char buildType)
 {
 	if (buildIndex == nullptr)
 	{
-		return false;
+		return nullptr;
 	}
 	for (auto& it : children)
 	{
@@ -1010,22 +1011,23 @@ bool IndexNodeTypeTwo::cutNodeSize(BuildIndex* buildIndex, unsigned long long in
 			IndexNode* node = buildIndex->getIndexNode(it.second.getIndexId(), buildType);
 			if (node == nullptr)
 			{
-				return false;
+				return nullptr;
 			}
 
 			if (!buildIndex->cutNodeSize(it.second.getIndexId(), node, buildType))
 			{
-				return false;
+				return nullptr;
 			}
 		}
 	}
 
+	IndexNode* tmpNode = this;
 	//本身可能比256要大所以也要调用
-	if (!buildIndex->cutNodeSize(indexId, this, buildType))
+	if (!buildIndex->cutNodeSize(indexId, tmpNode, buildType))
 	{
-		return false;
+		return nullptr;
 	}
-	return true;
+	return tmpNode;
 }
 
 bool IndexNodeTypeTwo::insertChildNode(BuildIndex* buildIndex, unsigned long long key, const IndexNodeChild& indexNodeChild, unsigned char buildType)
@@ -1519,11 +1521,11 @@ IndexNode* IndexNodeTypeThree::changeType(BuildIndex* buildIndex, unsigned char 
 	return ret;
 }
 
-bool IndexNodeTypeThree::cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId, unsigned char buildType)
+IndexNode* IndexNodeTypeThree::cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId, unsigned char buildType)
 {
 	if (buildIndex == nullptr)
 	{
-		return false;
+		return nullptr;
 	}
 	for (auto& it : children)
 	{
@@ -1532,22 +1534,23 @@ bool IndexNodeTypeThree::cutNodeSize(BuildIndex* buildIndex, unsigned long long 
 			IndexNode* node = buildIndex->getIndexNode(it.second.getIndexId(), buildType);
 			if (node == nullptr)
 			{
-				return false;
+				return nullptr;
 			}
 
 			if (!buildIndex->cutNodeSize(it.second.getIndexId(), node, buildType))
 			{
-				return false;
+				return nullptr;
 			}
 		}
 	}
 
+	IndexNode* tmpNode = this;
 	//本身可能比256要大所以也要调用
-	if (!buildIndex->cutNodeSize(indexId, this, buildType))
+	if (!buildIndex->cutNodeSize(indexId, tmpNode, buildType))
 	{
-		return false;
+		return nullptr;
 	}
-	return true;
+	return tmpNode;
 }
 
 bool IndexNodeTypeThree::insertChildNode(BuildIndex* buildIndex, unsigned int key, const IndexNodeChild& indexNodeChild, unsigned char buildType)
@@ -2018,11 +2021,11 @@ IndexNode* IndexNodeTypeFour::changeType(BuildIndex* buildIndex, unsigned char b
 	return nullptr;
 }
 
-bool IndexNodeTypeFour::cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId, unsigned char buildType)
+IndexNode* IndexNodeTypeFour::cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId, unsigned char buildType)
 {
 	if (buildIndex == nullptr)
 	{
-		return false;
+		return nullptr;
 	}
 	for (auto& it : children)
 	{
@@ -2031,22 +2034,23 @@ bool IndexNodeTypeFour::cutNodeSize(BuildIndex* buildIndex, unsigned long long i
 			IndexNode* node = buildIndex->getIndexNode(it.second.getIndexId(), buildType);
 			if (node == nullptr)
 			{
-				return false;
+				return nullptr;
 			}
 
 			if (!buildIndex->cutNodeSize(it.second.getIndexId(), node, buildType))
 			{
-				return false;
+				return nullptr;
 			}
 		}
 	}
 
+	IndexNode* tmpNode = this;
 	//本身可能比256要大所以也要调用
-	if (!buildIndex->cutNodeSize(indexId, this, buildType))
+	if (!buildIndex->cutNodeSize(indexId, tmpNode, buildType))
 	{
-		return false;
+		return nullptr;
 	}
-	return true;
+	return tmpNode;
 }
 
 bool IndexNodeTypeFour::insertChildNode(BuildIndex* buildIndex, unsigned short key, const IndexNodeChild& indexNodeChild, unsigned char buildType)

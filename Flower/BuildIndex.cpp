@@ -59,7 +59,7 @@ bool BuildIndex::init(const char* fileName, Index* index, Index* kvIndex)
 	return true;
 }
 
-bool BuildIndex::cutNodeSize(unsigned long long indexId, IndexNode* indexNode, unsigned char buildType)
+bool BuildIndex::cutNodeSize(unsigned long long indexId, IndexNode*& indexNode, unsigned char buildType)
 {
 	if (indexNode == nullptr)
 	{
@@ -80,7 +80,11 @@ bool BuildIndex::cutNodeSize(unsigned long long indexId, IndexNode* indexNode, u
 	}
 
 	//改变了节点类型但是还是无法排除当前节点可能比256要大和产生的新的孩子节点比256要大所以调用节点的函数改变节点
-	newNode->cutNodeSize(this, indexId, buildType);
+	indexNode = newNode->cutNodeSize(this, indexId, buildType);
+	if (indexNode == nullptr)
+	{
+		return false;
+	}
 	return true;
 }
 
