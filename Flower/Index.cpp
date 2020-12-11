@@ -116,13 +116,13 @@ bool Index::reduceCache(unsigned long needReduceNum)
 bool Index::reduceCache()
 {
 	acquireSRWLockExclusive(&rwLock);
-	if (indexNodeCache.size() <= 1024)
+	if (indexNodeCache.size() <= 16 * 1024)
 	{
 		releaseSRWLockExclusive(&rwLock);
 		return true;
 	}
 
-	unsigned long needReduceNum = indexNodeCache.size() - 1024;
+	unsigned long needReduceNum = indexNodeCache.size() - 16 * 1024;
 	auto it = end(IndexIdPreority);
 	--it;
 	for (unsigned int i = 0; i < needReduceNum; ++i)

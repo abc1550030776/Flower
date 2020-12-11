@@ -45,26 +45,18 @@ IndexNode* IndexFile::getIndexNode(unsigned long long indexId, unsigned char bui
 
 	//从文件当中把数据读取出来
 	char* buffer = (char*)malloc(8 * 1024);
+	if (buffer == nullptr)
+	{
+		return nullptr;
+	}
 
 	//在文件当中的存储位置是用索引id * 4 * 1024来定的,有些存储的存储的比较大会大于4k
 	fpos_t pos;
 	pos.__pos = indexId * 4 * 1024;
-	if (!indexFile.read(pos, buffer, 4 * 1024))
+	if (!indexFile.read(pos, buffer, 3))
 	{
-		//有可能已经读取到了文件的结尾这样就不够4k个字节这里读取末尾并且检测读取到的数据大小是不是正确
-		size_t readSize = indexFile.readTail(pos, buffer, 4 * 1024);
-		if (readSize == 0)
-		{
-			free(buffer);
-			return nullptr;
-		}
-		unsigned short* pDataLen = (unsigned short*)(buffer + 1);
-		unsigned short dataLen = *pDataLen + 3;
-		if (readSize != dataLen)
-		{
-			free(buffer);
-			return nullptr;
-		}
+		free(buffer);
+		return nullptr;
 	}
 
 	//根据不同的节点类型创建节点
@@ -91,19 +83,15 @@ IndexNode* IndexFile::getIndexNode(unsigned long long indexId, unsigned char bui
 	p++;
 	unsigned short len = *((unsigned short*)p);
 	p += 2;
-	if ((len + 3) > 4 * 1024)
+	//把剩下的字节给读取出来
+	pos.__pos = indexId * 4 * 1024 + 3;
+	if (!indexFile.read(pos, &buffer[3], len))
 	{
-		//把剩下的字节给读取出来
-		fpos_t pos;
-		pos.__pos = (indexId + 1) * 4 * 1024;
-		if (!indexFile.read(pos, &buffer[4 * 1024], len + 3 - 4 * 1024))
-		{
-			delete pIndexNode;
-			free(buffer);
-			return nullptr;
-		}
-		pIndexNode->setIsBig(true);
+		delete pIndexNode;
+		free(buffer);
+		return nullptr;
 	}
+	pIndexNode->setIsBig(true);
 
 	//把二进制转成节点的里面的数据
 	if (!pIndexNode->toObject(p, len, buildType))
@@ -148,26 +136,18 @@ IndexNode* IndexFile::getTempIndexNode(unsigned long long indexId)
 
 	//从文件当中把数据读取出来
 	char* buffer = (char*)malloc(8 * 1024);
+	if (buffer == nullptr)
+	{
+		return nullptr;
+	}
 
 	//在文件当中的存储位置是用索引id * 4 * 1024来定的,有些存储的存储的比较大会大于4k
 	fpos_t pos;
 	pos.__pos = indexId * 4 * 1024;
-	if (!indexFile.read(pos, buffer, 4 * 1024))
+	if (!indexFile.read(pos, buffer, 3))
 	{
-		//有可能已经读取到了文件的结尾这样就不够4k个字节这里读取末尾并且检测读取到的数据大小是不是正确
-		size_t readSize = indexFile.readTail(pos, buffer, 4 * 1024);
-		if (readSize == 0)
-		{
-			free(buffer);
-			return nullptr;
-		}
-		unsigned short* pDataLen = (unsigned short*)(buffer + 1);
-		unsigned short dataLen = *pDataLen + 3;
-		if (readSize != dataLen)
-		{
-			free(buffer);
-			return nullptr;
-		}
+		free(buffer);
+		return nullptr;
 	}
 
 	//根据不同的节点类型创建节点
@@ -193,19 +173,15 @@ IndexNode* IndexFile::getTempIndexNode(unsigned long long indexId)
 	p++;
 	unsigned short len = *((unsigned short*)p);
 	p += 2;
-	if ((len + 3) > 4 * 1024)
+	//把剩下的字节给读取出来
+	pos.__pos = indexId * 4 * 1024 + 3;
+	if (!indexFile.read(pos, &buffer[3], len))
 	{
-		//把剩下的字节给读取出来
-		fpos_t pos;
-		pos.__pos = (indexId + 1) * 4 * 1024;
-		if (!indexFile.read(pos, &buffer[4 * 1024], len + 3 - 4 * 1024))
-		{
-			delete pIndexNode;
-			free(buffer);
-			return nullptr;
-		}
-		pIndexNode->setIsBig(true);
+		delete pIndexNode;
+		free(buffer);
+		return nullptr;
 	}
+	pIndexNode->setIsBig(true);
 
 	//把二进制转成节点的里面的数据
 	if (!pIndexNode->toObject(p, len))
@@ -403,12 +379,12 @@ bool IndexFile::reduceCache()
 	else
 	{
 		unsigned long size = pIndex->size();
-		if (size <= 1024)
+		if (size <= 16 * 1024)
 		{
 			return true;
 		}
 
-		unsigned long needReduceNum = size - 1024;
+		unsigned long needReduceNum = size - 16 * 1024;
 
 		//把优先级最低的那些节点取出来。
 		std::vector<unsigned long long> indexIdVec;
