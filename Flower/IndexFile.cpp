@@ -91,7 +91,10 @@ IndexNode* IndexFile::getIndexNode(unsigned long long indexId, unsigned char bui
 		free(buffer);
 		return nullptr;
 	}
-	pIndexNode->setIsBig(true);
+	if ((len + 3) > 4 * 1024)
+	{
+		pIndexNode->setIsBig(true);
+	}
 
 	//把二进制转成节点的里面的数据
 	if (!pIndexNode->toObject(p, len, buildType))
@@ -181,7 +184,10 @@ IndexNode* IndexFile::getTempIndexNode(unsigned long long indexId)
 		free(buffer);
 		return nullptr;
 	}
-	pIndexNode->setIsBig(true);
+	if ((len + 3) > 4 * 1024)
+	{
+		pIndexNode->setIsBig(true);
+	}
 
 	//把二进制转成节点的里面的数据
 	if (!pIndexNode->toObject(p, len))
