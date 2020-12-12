@@ -116,7 +116,7 @@ bool Index::reduceCache(unsigned long needReduceNum)
 
 bool Index::reduceCache()
 {
-	if (getAvailableMemRate() >= 0.1)
+	if (getAvailableMemRate() >= 0.2)
 	{
 		return true;
 	}

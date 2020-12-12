@@ -385,7 +385,7 @@ bool IndexFile::reduceCache()
 	}
 	else
 	{
-		if (getAvailableMemRate() >= 0.1)
+		if (getAvailableMemRate() >= 0.2)
 		{
 			return true;
 		}
@@ -534,4 +534,9 @@ bool IndexFile::putIndexNode(IndexNode* indexNode)
 	}
 
 	return pIndex->putIndexNode(indexNode);
+}
+
+size_t IndexFile::size()
+{
+	return pIndex->size();
 }

@@ -25,6 +25,7 @@ public:
 	unsigned long long getRootIndexId();													//获取根节点id
 	bool writeEveryCache();																	//把缓存当中的数据全部写盘
 	bool putIndexNode(IndexNode* indexNode);												//外部使用完了告诉说外部已经不再引用
+	size_t size();																			//返回内存中索引的数量
 private:
 	Myfile indexFile;
 	Index* pIndex;
