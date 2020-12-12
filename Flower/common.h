@@ -12,3 +12,5 @@ unsigned short swiftBigLittleEnd(unsigned short value);
 unsigned int swiftBigLittleEnd(unsigned int value);
 
 unsigned long long swiftBigLittleEnd(unsigned long long value);
+
+float getAvailableMemRate();

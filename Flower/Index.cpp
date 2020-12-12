@@ -1,6 +1,7 @@
 #include "Index.h"
 #include "UniqueGenerator.h"
 #include "IndexNode.h"
+#include "common.h"
 
 Index::Index()
 {
@@ -115,14 +116,13 @@ bool Index::reduceCache(unsigned long needReduceNum)
 
 bool Index::reduceCache()
 {
-	acquireSRWLockExclusive(&rwLock);
-	if (indexNodeCache.size() <= 16 * 1024)
+	if (getAvailableMemRate() >= 0.1)
 	{
-		releaseSRWLockExclusive(&rwLock);
 		return true;
 	}
+	acquireSRWLockExclusive(&rwLock);
 
-	unsigned long needReduceNum = indexNodeCache.size() - 16 * 1024;
+	unsigned long needReduceNum = indexNodeCache.size() / 5;
 	auto it = end(IndexIdPreority);
 	--it;
 	for (unsigned int i = 0; i < needReduceNum; ++i)

@@ -1,6 +1,7 @@
 #include "IndexNode.h"
 #include "BuildIndex.h"
 #include "UniqueGenerator.h"
+#include "common.h"
 
 IndexFile::IndexFile()
 {
@@ -384,13 +385,12 @@ bool IndexFile::reduceCache()
 	}
 	else
 	{
-		unsigned long size = pIndex->size();
-		if (size <= 16 * 1024)
+		if (getAvailableMemRate() >= 0.1)
 		{
 			return true;
 		}
 
-		unsigned long needReduceNum = size - 16 * 1024;
+		unsigned long needReduceNum = pIndex->size() / 5;
 
 		//把优先级最低的那些节点取出来。
 		std::vector<unsigned long long> indexIdVec;

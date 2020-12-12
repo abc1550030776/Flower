@@ -1,5 +1,6 @@
 #include "common.h"
 #include <string.h>
+#include <stdio.h>
 
 bool getIndexPath(const char* dstFilePath, char* indexPath)
 {
@@ -62,4 +63,26 @@ unsigned long long swiftBigLittleEnd(unsigned long long value)
 	unsigned long long highValue = (unsigned long long)swiftBigLittleEnd((unsigned int)value);
 	unsigned long long lowValue = (unsigned long long)swiftBigLittleEnd((unsigned int)(value >> 32));
 	return lowValue + (highValue << 32);
+}
+
+float getAvailableMemRate()
+{
+	FILE* fd;
+	fd = fopen("/proc/meminfo", "r");
+	if (fd == NULL)
+	{
+		return 0;
+	}
+	char buff[256];
+	fgets(buff, sizeof(buff), fd);
+	char name[20];
+	unsigned long total;
+	char name2[20];
+	sscanf(buff, "%s %lu %s\n", name, &total, name2);
+	unsigned long totalMem = total;
+	fgets(buff, sizeof(buff), fd);
+	fgets(buff, sizeof(buff), fd);
+	sscanf(buff, "%s %lu %s\n", name, &total, name2);
+	fclose(fd);
+	return float(total) / float(totalMem);
 }
