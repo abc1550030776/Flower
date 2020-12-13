@@ -48,6 +48,8 @@ int main()
 		return 1;
 	}
 
+	printf("search File success\n");
+
 	//打开文件看看查找的字符串对不对。
 	FILE* file = fopen("/test", "rb");
 	if (file == nullptr)
