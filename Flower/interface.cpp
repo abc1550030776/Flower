@@ -39,7 +39,7 @@ bool SearchFile(const char* fileName, const char* searchTarget, unsigned int tar
 		return false;
 	}
 	//这里使用多线程搜索
-	SetWithLock resultSet(*set);
+	SetWithLock resultSet(set);
 
 	Index index;
 	SearchIndex searchIndex[8];
