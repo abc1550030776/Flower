@@ -2904,7 +2904,7 @@ bool BuildIndex::build()
 
 		//一直创建节点到缓存或者是从硬盘读取数据到缓存内存太大可能不够用所以这里调整缓存
 		indexFile.reduceCache();
-		printf("%lu\n", indexFile.size());
+		//printf("%lu\n", indexFile.size());
 	}
 
 	//设置文件的索引文件的根节点
@@ -2915,7 +2915,7 @@ bool BuildIndex::build()
 	{
 		return false;
 	}
-
+	printf("build finish\n");
 	return true;
 }
 
