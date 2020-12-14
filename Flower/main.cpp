@@ -7,6 +7,7 @@
 #include "KVContent.h"
 #include "common.h"
 #include "BuildIndex.h"
+#include "sys/time.h"
 
 int main()
 {
@@ -16,7 +17,10 @@ int main()
 	getcwd(pPath, 256);
 
 	printf("filePath: %s\n", pPath);
-
+	struct timeval start;
+	struct timeval aend;
+	unsigned long diff;
+	gettimeofday(&start, nullptr);
 	if(!BuildDstIndex("/test"))
 	{
 		printf("build index fail\n");
@@ -24,6 +28,9 @@ int main()
 	}
 
 	printf("build success\n");
+	gettimeofday(&aend, nullptr);
+	diff = 1000000 * (aend.tv_sec - start.tv_sec) + aend.tv_usec - aend.tv_usec;
+	printf("build use time %ld\n", diff);
 
 	//从文件当中读取一点点数据作为搜索
 	char searchTarget[16] = { 0 };
@@ -41,6 +48,7 @@ int main()
 		printf("read fail");
 		return 1;
 	}
+	gettimeofday(&start, nullptr);
 	std::set<unsigned long long> result;
 	if(!SearchFile("/test", searchTarget, 16, &result))
 	{
@@ -49,6 +57,9 @@ int main()
 	}
 
 	printf("search File success\n");
+	gettimeofday(&aend, nullptr);
+	diff = 1000000 * (aend.tv_sec - start.tv_sec) + aend.tv_usec - aend.tv_usec;
+	printf("search use time %ld\n", diff);
 
 	//打开文件看看查找的字符串对不对。
 	FILE* file = fopen("/test", "rb");
