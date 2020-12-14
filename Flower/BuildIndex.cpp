@@ -2873,42 +2873,99 @@ bool BuildIndex::addKV(unsigned long long key, unsigned long long value)
 
 bool BuildIndex::build()
 {
-	//首先构建根节点
-	IndexNode* pNode = indexFile.newIndexNode(NODE_TYPE_ONE, 0);
-
-	if (pNode == nullptr)
+	IndexNodeChild finalNode;
+	if (dstFileSize <= 8)
 	{
-		return false;
-	}
+		IndexNode* pNode = indexFile.newIndexNode(NODE_TYPE_ONE, 0);
 
-	pNode->setStart(0);						//根节点的开始位置为文件的开头
-	pNode->setLen(dstFileSize - dstFileSize % 8);
-	pNode->setParentID(0);					//根节点没有父节点id为0
-
-	pNode->insertLeafSet(0);				//根节点是特殊的有一个叶子节点从开头直到结尾
-
-	IndexNodeChild rootIndex(CHILD_TYPE_NODE, pNode->getIndexId());
-
-	//接下来把各个8字节开始的位置做一个节点然后不停的合并到一起
-	for (unsigned long long filePos = 8; filePos < dstFileSize; filePos += 8)
-	{
-		IndexNodeChild indexNodeChild(CHILD_TYPE_LEAF, filePos);
-
-		//printf("mergeNode filePos %llu\n", filePos);
-
-		if (!mergeNode(0, 0, rootIndex, indexNodeChild))
+		if (pNode == nullptr)
 		{
-			printf("mergeNode fail filePos %llu\n", filePos);
 			return false;
 		}
 
-		//一直创建节点到缓存或者是从硬盘读取数据到缓存内存太大可能不够用所以这里调整缓存
-		indexFile.reduceCache();
-		//printf("%lu\n", indexFile.size());
+		pNode->setStart(0);						//根节点的开始位置为文件的开头
+		pNode->setLen(dstFileSize - dstFileSize % 8);
+		pNode->setParentID(0);					//根节点没有父节点id为0
+
+		pNode->insertLeafSet(0);				//根节点是特殊的有一个叶子节点从开头直到结尾
+
+		finalNode.setChildType(CHILD_TYPE_NODE);
+		finalNode.setIndexId(pNode->getIndexId());
+	}
+	else
+	{
+		//这里建立一个后面需要合并的队列
+		std::deque<IndexNodeChild> indexNodeChilds;
+		bool needNewleftNode = true;
+		IndexNodeChild leftNode;
+		//接下来把各个8字节开始的位置做一个节点然后不停的合并到一起
+		for (unsigned long long filePos = 0; filePos < dstFileSize; filePos += 8)
+		{
+			if (needNewleftNode)
+			{
+				leftNode.setChildType(CHILD_TYPE_LEAF);
+				leftNode.setIndexId(filePos);
+				needNewleftNode = false;
+				continue;
+			}
+			IndexNodeChild indexNodeChild(CHILD_TYPE_LEAF, filePos);
+
+			//printf("mergeNode filePos %llu\n", filePos);
+
+			if (!mergeNode(0, 0, leftNode, indexNodeChild))
+			{
+				printf("mergeNode fail filePos %llu\n", filePos);
+				return false;
+			}
+
+			if (indexFile.size() >= 256 * 1024)
+			{
+				needNewleftNode = true;
+				indexNodeChilds.push_back(leftNode);
+				//后面合成新的节点里面的数据和这里无关这里就先把里面的数据先清空
+				if (!indexFile.writeEveryCache())
+				{
+					return false;
+				}
+			}
+			//printf("%lu\n", indexFile.size());
+		}
+
+		if (!needNewleftNode)
+		{
+			indexNodeChilds.push_back(leftNode);
+		}
+		//从这里出来了以后后面合成比较大的节点
+		while (!indexNodeChilds.empty())
+		{
+			if (indexNodeChilds.size() > 1)
+			{
+				IndexNodeChild leftNode = indexNodeChilds.front();
+				indexNodeChilds.pop_front();
+				if (!mergeNode(0, 0, leftNode, indexNodeChilds.front()))
+				{
+					return false;
+				}
+				indexNodeChilds.pop_front();
+				indexNodeChilds.push_back(leftNode);
+				//比较大的两个节点合并了以后内存消耗会比较大这里做个减少缓存操作
+				if (!indexFile.reduceCache())
+				{
+					return false;
+				}
+			}
+			else
+			{
+				IndexNodeChild& nodeChild = indexNodeChilds.front();
+				finalNode.setChildType(nodeChild.getType());
+				finalNode.setIndexId(nodeChild.getIndexId());
+				indexNodeChilds.pop_front();
+			}
+		}
 	}
 
 	//设置文件的索引文件的根节点
-	indexFile.setRootIndexId(rootIndex.getIndexId());
+	indexFile.setRootIndexId(finalNode.getIndexId());
 
 	//还有很多缓存里面的数据从来都没有写过盘的全部写盘根节点id也写入文件
 	if (!indexFile.writeEveryCache())
