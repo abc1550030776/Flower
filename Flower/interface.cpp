@@ -39,14 +39,14 @@ bool SearchFile(const char* fileName, const char* searchTarget, unsigned int tar
 		return false;
 	}
 	//这里使用多线程搜索
-	SetWithLock resultSet(set);
+	SetWithLock* resultSet = new SetWithLock(set);
 
 	Index index;
 	SearchIndex searchIndex[8];
 	pthread_t pids[8];
 	for (unsigned char i = 0; i < sizeof(pids) / sizeof(pids[0]); ++i)
 	{
-		searchIndex[i].init(searchTarget, targetLen, &resultSet, fileName, &index, i);
+		searchIndex[i].init(searchTarget, targetLen, resultSet, fileName, &index, i);
 		if (pthread_create(&pids[i], NULL, ThreadFun, &searchIndex[i]) != 0)
 		{
 			for (unsigned int j = 0; j < i; ++j)
@@ -54,6 +54,7 @@ bool SearchFile(const char* fileName, const char* searchTarget, unsigned int tar
 				pthread_join(pids[j], NULL);
 			}
 
+			delete resultSet;
 			return false;
 		}
 	}
@@ -69,6 +70,6 @@ bool SearchFile(const char* fileName, const char* searchTarget, unsigned int tar
 			success = false;
 		}
 	}
-
+	delete resultSet;
 	return success;
 }

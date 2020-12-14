@@ -23,7 +23,7 @@ int main()
 		return 1;
 	}
 
-	printf("build success");
+	printf("build success\n");
 
 	//从文件当中读取一点点数据作为搜索
 	char searchTarget[16] = { 0 };
