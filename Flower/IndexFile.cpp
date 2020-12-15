@@ -385,7 +385,7 @@ bool IndexFile::reduceCache()
 	}
 	else
 	{
-		if (getAvailableMemRate() >= 0.2)
+		if (getAvailableMemRate() >= 0.4)
 		{
 			return true;
 		}
