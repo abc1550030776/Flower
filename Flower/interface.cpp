@@ -1,10 +1,34 @@
 #include "Index.h"
 #include "BuildIndex.h"
 #include "SearchIndex.h"
+#include <sys/resource.h>
 
 //创建索引
 bool BuildDstIndex(const char* fileName)
 {
+	//创建的时候可能递归的层数会很大可能遇到栈空间不够用的情况先修改栈空间大小
+	const rlim_t kStackSize = 1024 * 1024 * 1024;   // min stack size = 1 GB
+	struct rlimit rl;
+	int result;
+
+	result = getrlimit(RLIMIT_STACK, &rl);
+	if (result == 0)
+	{
+		if (rl.rlim_cur < kStackSize)
+		{
+			rl.rlim_cur = kStackSize;
+			result = setrlimit(RLIMIT_STACK, &rl);
+			if (result != 0)
+			{
+				fprintf(stderr, "setrlimit returned result = %d\n", result);
+				return false;
+			}
+		}
+	}
+	else
+	{
+		return false;
+	}
 	Index index(USE_TYPE_BUILD);
 
 	BuildIndex buildIndex;
