@@ -2873,6 +2873,7 @@ bool BuildIndex::addKV(unsigned long long key, unsigned long long value)
 
 bool BuildIndex::build()
 {
+	/*
 	//首先构建根节点
 	IndexNode* pNode = indexFile.newIndexNode(NODE_TYPE_ONE, 0);
 
@@ -2909,7 +2910,8 @@ bool BuildIndex::build()
 
 	//设置文件的索引文件的根节点
 	indexFile.setRootIndexId(rootIndex.getIndexId());
-	/*
+	*/
+	
 	IndexNodeChild finalNode;
 	if (dstFileSize <= 8)
 	{
@@ -2933,10 +2935,10 @@ bool BuildIndex::build()
 	{
 		//这里建立一个后面需要合并的队列
 		std::deque<IndexNodeChild> indexNodeChilds;
-		bool needNewleftNode = true;
-		IndexNodeChild leftNode;
+		bool needNewleftNode = false;
+		IndexNodeChild leftNode(CHILD_TYPE_LEAF, 0);
 		//接下来把各个8字节开始的位置做一个节点然后不停的合并到一起
-		for (unsigned long long filePos = 0; filePos < dstFileSize; filePos += 8)
+		for (unsigned long long filePos = 8; filePos < dstFileSize; filePos += 8)
 		{
 			if (needNewleftNode)
 			{
@@ -2955,7 +2957,7 @@ bool BuildIndex::build()
 				return false;
 			}
 
-			if (indexFile.size() >= 256 * 1024)
+			if (filePos % (4 * 1024 * 1024) == 0)
 			{
 				needNewleftNode = true;
 				indexNodeChilds.push_back(leftNode);
@@ -3003,7 +3005,6 @@ bool BuildIndex::build()
 
 	//设置文件的索引文件的根节点
 	indexFile.setRootIndexId(finalNode.getIndexId());
-	*/
 
 	//还有很多缓存里面的数据从来都没有写过盘的全部写盘根节点id也写入文件
 	if (!indexFile.writeEveryCache())
