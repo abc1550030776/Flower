@@ -22,8 +22,8 @@ int main()
 	getcwd(pPath, 256);
 
 	fprintf(out, "filePath: %s\n", pPath);
-	int fd = ::fileno(out);
-	::fsync(fd);
+	fclose(out);
+	out = fopen("out", "a");
 	struct timeval start;
 	struct timeval aend;
 	unsigned long diff;
@@ -36,13 +36,13 @@ int main()
 	}
 
 	fprintf(out, "build success\n");
-	fd = ::fileno(out);
-	::fsync(fd);
+	fclose(out);
+	out = fopen("out", "a");
 	gettimeofday(&aend, nullptr);
 	diff = 1000000 * (aend.tv_sec - start.tv_sec) + aend.tv_usec - aend.tv_usec;
 	fprintf(out, "build use time %ld\n", diff);
-	fd = ::fileno(out);
-	::fsync(fd);
+	fclose(out);
+	out = fopen("out", "a");
 
 	//从文件当中读取一点点数据作为搜索
 	char searchTarget[16] = { 0 };
@@ -72,13 +72,13 @@ int main()
 	}
 
 	fprintf(out, "search File success\n");
-	fd = ::fileno(out);
-	::fsync(fd);
+	fclose(out);
+	out = fopen("out", "a");
 	gettimeofday(&aend, nullptr);
 	diff = 1000000 * (aend.tv_sec - start.tv_sec) + aend.tv_usec - aend.tv_usec;
 	fprintf(out, "search use time %ld\n", diff);
-	fd = ::fileno(out);
-	::fsync(fd);
+	fclose(out);
+	out = fopen("out", "a");
 
 	//打开文件看看查找的字符串对不对。
 	FILE* file = fopen("/test", "rb");
