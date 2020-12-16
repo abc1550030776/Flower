@@ -11,33 +11,38 @@
 
 int main()
 {
-
+	FILE* out = fopen("out", "w");
+	if (out == nullptr)
+	{
+		printf("file open error");
+		return 1;
+	}
 	char pPath[256] = { 0 };
 
 	getcwd(pPath, 256);
 
-	printf("filePath: %s\n", pPath);
+	fprintf(out, "filePath: %s\n", pPath);
 	struct timeval start;
 	struct timeval aend;
 	unsigned long diff;
 	gettimeofday(&start, nullptr);
 	if(!BuildDstIndex("/test"))
 	{
-		printf("build index fail\n");
+		fprintf(out, "build index fail\n");
 		return 1;
 	}
 
-	printf("build success\n");
+	fprintf(out, "build success\n");
 	gettimeofday(&aend, nullptr);
 	diff = 1000000 * (aend.tv_sec - start.tv_sec) + aend.tv_usec - aend.tv_usec;
-	printf("build use time %ld\n", diff);
+	fprintf(out, "build use time %ld\n", diff);
 
 	//从文件当中读取一点点数据作为搜索
 	char searchTarget[16] = { 0 };
 	Myfile myfile;
 	if (!myfile.init("/test", false))
 	{
-		printf("file init fail");
+		fprintf(out, "file init fail");
 		return 1;
 	}
 
@@ -45,27 +50,27 @@ int main()
 	pos.__pos = 1024;
 	if (!myfile.read(pos, searchTarget, 16))
 	{
-		printf("read fail");
+		fprintf(out, "read fail");
 		return 1;
 	}
 	gettimeofday(&start, nullptr);
 	std::set<unsigned long long> result;
 	if(!SearchFile("/test", searchTarget, 16, &result))
 	{
-		printf("search fail \n");
+		fprintf(out, "search fail \n");
 		return 1;
 	}
 
-	printf("search File success\n");
+	fprintf(out, "search File success\n");
 	gettimeofday(&aend, nullptr);
 	diff = 1000000 * (aend.tv_sec - start.tv_sec) + aend.tv_usec - aend.tv_usec;
-	printf("search use time %ld\n", diff);
+	fprintf(out, "search use time %ld\n", diff);
 
 	//打开文件看看查找的字符串对不对。
 	FILE* file = fopen("/test", "rb");
 	if (file == nullptr)
 	{
-		printf("file open error");
+		fprintf(out, "file open error");
 		return 1;
 	}
 
@@ -79,7 +84,7 @@ int main()
 		if (fread(buffer, 16, 1, file) != 1)
 		{
 			fclose(file);
-			printf("read file error filepos %llu", val);
+			fprintf(out, "read file error filepos %llu", val);
 			return 1;
 		}
 
@@ -88,7 +93,7 @@ int main()
 		if (memcmp(buffer, searchTarget, 16))
 		{
 			fclose(file);
-			printf("search word pos not correct resultPos %llu result word %s", val, buffer);
+			fprintf(out, "search word pos not correct resultPos %llu result word %s", val, buffer);
 			return 1;
 		}
 	}
@@ -112,19 +117,19 @@ int main()
 	{
 		if (!buildInex.addKV(key[i], val[i]))
 		{
-			printf("add kv failed\n");
+			fprintf(out, "add kv failed\n");
 			return false;
 		}
 	}
 	if (!buildInex.writeKvEveryCache())
 	{
-		printf("write cache failed\n");
+		fprintf(out, "write cache failed\n");
 		return 1;
 	}
 	char kvIndexFile[4096];
 	if (!getKVFilePath("/test", kvIndexFile))
 	{
-		printf("get kv indexFile name failed\n");
+		fprintf(out, "get kv indexFile name failed\n");
 		return 1;
 	}
 	KVContent kvContent;
@@ -151,12 +156,12 @@ int main()
 		unsigned long long kvUpperBoundKey = 0;
 		if (!kvContent.get(test[i], kvLowerBoundKey, kvUpperBoundKey, kvLowerBoundValue))
 		{
-			printf("search kv failed search key %llu\n", test[i]);
+			fprintf(out, "search kv failed search key %llu\n", test[i]);
 			return 1;
 		}
 		if (mapLowerBoundKey != kvLowerBoundKey || mapUpperBoundKey != kvUpperBoundKey || mapLowerBoundValue != kvLowerBoundValue)
 		{
-			printf("search value not right right lowerKey %llu, upperKey %llu, value %llu, find lowerKey %llu, upperKey %llu, value %llu", mapLowerBoundKey, mapUpperBoundKey, mapLowerBoundValue, kvLowerBoundKey, kvUpperBoundKey, kvLowerBoundValue);
+			fprintf(out, "search value not right right lowerKey %llu, upperKey %llu, value %llu, find lowerKey %llu, upperKey %llu, value %llu", mapLowerBoundKey, mapUpperBoundKey, mapLowerBoundValue, kvLowerBoundKey, kvUpperBoundKey, kvLowerBoundValue);
 			return 1;
 		}
 	}
