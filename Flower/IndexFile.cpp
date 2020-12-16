@@ -390,7 +390,7 @@ bool IndexFile::reduceCache()
 			return true;
 		}
 
-		unsigned long needReduceNum = pIndex->size() / 5;
+		unsigned long needReduceNum = pIndex->size() / 2;
 
 		//把优先级最低的那些节点取出来。
 		std::vector<unsigned long long> indexIdVec;
