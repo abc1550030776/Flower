@@ -2957,7 +2957,7 @@ bool BuildIndex::build()
 				return false;
 			}
 
-			if (filePos % (4 * 1024 * 1024) == 0)
+			if (filePos % (2 * 1024 * 1024) == 0)
 			{
 				needNewleftNode = true;
 				indexNodeChilds.push_back(leftNode);

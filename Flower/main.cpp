@@ -8,6 +8,7 @@
 #include "common.h"
 #include "BuildIndex.h"
 #include "sys/time.h"
+#include "SearchContext.h"
 
 int main()
 {
@@ -62,9 +63,11 @@ int main()
 		fclose(out);
 		return 1;
 	}
+	SearchContext searchContext;
+	searchContext.init("/test");
 	gettimeofday(&start, nullptr);
 	std::set<unsigned long long> result;
-	if(!SearchFile("/test", searchTarget, 16, &result))
+	if(!searchContext.search(searchTarget, 16, &result))
 	{
 		fprintf(out, "search fail \n");
 		fclose(out);
@@ -90,6 +93,45 @@ int main()
 	}
 
 	char buffer[16];
+
+	for (auto& val : result)
+	{
+		fpos_t pos;
+		pos.__pos = val;
+		fsetpos(file, &pos);
+		if (fread(buffer, 16, 1, file) != 1)
+		{
+			fclose(file);
+			fprintf(out, "read file error filepos %llu", val);
+			fclose(out);
+			return 1;
+		}
+
+		//buffer[10] = '\0';
+		//printf("file content %s \n", buffer);
+		if (memcmp(buffer, searchTarget, 16))
+		{
+			fclose(file);
+			fprintf(out, "search word pos not correct resultPos %llu result word %s", val, buffer);
+			fclose(out);
+			return 1;
+		}
+	}
+
+	result.clear();
+	gettimeofday(&start, nullptr);
+	if (!searchContext.search(searchTarget, 16, &result))
+	{
+		fprintf(out, "search fail \n");
+		fclose(out);
+		return 1;
+	}
+
+	gettimeofday(&aend, nullptr);
+	diff = 1000000 * (aend.tv_sec - start.tv_sec) + aend.tv_usec - aend.tv_usec;
+	fprintf(out, "search use time %ld\n", diff);
+	fclose(out);
+	out = fopen("out", "a");
 
 	for (auto& val : result)
 	{
