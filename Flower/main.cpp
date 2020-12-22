@@ -46,7 +46,8 @@ int main()
 	out = fopen("out", "a");
 
 	//从文件当中读取一点点数据作为搜索
-	char searchTarget[16] = { 0 };
+	const unsigned long searchStrLen = 32;
+	char searchTarget[searchStrLen] = { 0 };
 	Myfile myfile;
 	if (!myfile.init("/test", false))
 	{
@@ -57,7 +58,7 @@ int main()
 
 	fpos_t pos;
 	pos.__pos = 1024;
-	if (!myfile.read(pos, searchTarget, 16))
+	if (!myfile.read(pos, searchTarget, searchStrLen))
 	{
 		fprintf(out, "read fail");
 		fclose(out);
@@ -67,7 +68,7 @@ int main()
 	searchContext.init("/test");
 	gettimeofday(&start, nullptr);
 	std::set<unsigned long long> result;
-	if(!searchContext.search(searchTarget, 16, &result))
+	if(!searchContext.search(searchTarget, searchStrLen, &result))
 	{
 		fprintf(out, "search fail \n");
 		fclose(out);
@@ -92,14 +93,14 @@ int main()
 		return 1;
 	}
 
-	char buffer[16];
+	char buffer[searchStrLen];
 
 	for (auto& val : result)
 	{
 		fpos_t pos;
 		pos.__pos = val;
 		fsetpos(file, &pos);
-		if (fread(buffer, 16, 1, file) != 1)
+		if (fread(buffer, searchStrLen, 1, file) != 1)
 		{
 			fclose(file);
 			fprintf(out, "read file error filepos %llu", val);
@@ -109,7 +110,7 @@ int main()
 
 		//buffer[10] = '\0';
 		//printf("file content %s \n", buffer);
-		if (memcmp(buffer, searchTarget, 16))
+		if (memcmp(buffer, searchTarget, searchStrLen))
 		{
 			fclose(file);
 			fprintf(out, "search word pos not correct resultPos %llu result word %s", val, buffer);
@@ -120,7 +121,7 @@ int main()
 
 	result.clear();
 	gettimeofday(&start, nullptr);
-	if (!searchContext.search(searchTarget, 16, &result))
+	if (!searchContext.search(searchTarget, searchStrLen, &result))
 	{
 		fprintf(out, "search fail \n");
 		fclose(out);
@@ -138,7 +139,7 @@ int main()
 		fpos_t pos;
 		pos.__pos = val;
 		fsetpos(file, &pos);
-		if (fread(buffer, 16, 1, file) != 1)
+		if (fread(buffer, searchStrLen, 1, file) != 1)
 		{
 			fclose(file);
 			fprintf(out, "read file error filepos %llu", val);
@@ -148,7 +149,7 @@ int main()
 
 		//buffer[10] = '\0';
 		//printf("file content %s \n", buffer);
-		if (memcmp(buffer, searchTarget, 16))
+		if (memcmp(buffer, searchTarget, searchStrLen))
 		{
 			fclose(file);
 			fprintf(out, "search word pos not correct resultPos %llu result word %s", val, buffer);
