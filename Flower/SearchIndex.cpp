@@ -11,9 +11,10 @@ SearchIndex::SearchIndex()
 	resultSet = nullptr;
 	dstFileSize = 0;
 	skipCharNum = 0;
+	rootIndexId = 0;
 }
 
-bool SearchIndex::init(const char* searchTarget, unsigned int targetLen, SetWithLock* resultSet, const char* fileName, Index* index, unsigned char skipCharNum)
+bool SearchIndex::init(const char* searchTarget, unsigned int targetLen, SetWithLock* resultSet, const char* fileName, Index* index, unsigned char skipCharNum, unsigned long rootOrder)
 {
 	if (index == nullptr)
 	{
@@ -62,6 +63,13 @@ bool SearchIndex::init(const char* searchTarget, unsigned int targetLen, SetWith
 	stat(fileName, &statbuf);
 	dstFileSize = statbuf.st_size;
 	this->skipCharNum = skipCharNum;
+
+	//读取根节点的id
+	rootIndexId = indexFile.getRootIndexIdByOrder(rootOrder);
+	if (rootIndexId == 0)
+	{
+		return false;
+	}
 	return true;
 }
 
@@ -153,12 +161,6 @@ private:
 bool SearchIndex::search()
 {
 	//首先进行跳过比较的部分然后
-	//获取索引文件的根节点
-	unsigned long long rootIndexId = indexFile.getRootIndexId();
-	if (rootIndexId == 0)
-	{
-		return false;
-	}
 
 	std::deque<SkipStruct> skipQue;
 	std::deque<SearchTask> searchTaskQue;

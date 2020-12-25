@@ -3,6 +3,7 @@
 #include "IndexNode.h"
 #include "Index.h"
 #include <unordered_set>
+#include <vector>
 
 class Index;
 class IndexNode;
@@ -26,9 +27,15 @@ public:
 	bool writeEveryCache();																	//把缓存当中的数据全部写盘
 	bool putIndexNode(IndexNode* indexNode);												//外部使用完了告诉说外部已经不再引用
 	size_t size();																			//返回内存中索引的数量
+	bool writeCacheWithoutRootIndex();														//把所有的缓存写入文件当中但是不处理根节点部分
+	void pushRootIndexId(unsigned long long rootIndexId);									//已经把一块和并完成了记录这个根节点
+	void setInitMaxUniqueNum(unsigned long long initMaxUniqueNum);							//设置生成器初始值
+	bool writeEveryRootIndexId();															//把所有的rootIndexId写入文件当中
+	unsigned long long getRootIndexIdByOrder(unsigned long rootOrder);						//根据根节点次序获取根节点id
 private:
 	Myfile indexFile;
 	Index* pIndex;
 	std::unordered_set<unsigned long long> tempIndexNodeId;
 	unsigned long long rootIndexId;
+	std::vector<unsigned long long> rootIndexIds;											//为了加快构建速度现在把一个文件分成一块一块每一块一个rootIndexId
 };

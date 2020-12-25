@@ -39,12 +39,13 @@ bool BuildDstIndex(const char* fileName)
 	return buildIndex.build();
 }
 
-static void* ThreadFun(void* arg)
+/*static void* ThreadFun(void* arg)
 {
 	SearchIndex* searchIndex = (SearchIndex*) arg;
 	return (void*)searchIndex->search();
-}
+}*/
 
+/*
 //查询文件
 bool SearchFile(const char* fileName, const char* searchTarget, unsigned int targetLen, std::set<unsigned long long>* set)
 {
@@ -97,3 +98,4 @@ bool SearchFile(const char* fileName, const char* searchTarget, unsigned int tar
 	delete resultSet;
 	return success;
 }
+*/

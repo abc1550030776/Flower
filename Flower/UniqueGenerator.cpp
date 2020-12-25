@@ -28,3 +28,8 @@ void UniqueGenerator::recycleNumber(unsigned long long number)
 {
 	recycleNumbers.push(number);
 }
+
+void UniqueGenerator::setInitMaxUniqueNum(unsigned long long initMaxUniqueNum)
+{
+	maxUniqueNum = initMaxUniqueNum;
+}

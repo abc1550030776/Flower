@@ -28,6 +28,7 @@ public:
 	bool putIndexNode(IndexNode* indexNode);												//外部使用完了告诉说外部已经不再引用
 	unsigned long long acquireTwoNumber();													//获取两个连续的id
 	void recycleNumber(unsigned long long indexId);											//回收indexId
+	void setInitMaxUniqueNum(unsigned long long initMaxUniqueNum);							//设置生成器的初始值
 	~Index();																				//析构缓存
 private:
 	unsigned char useType;																	//使用的方式如果是用于查询的时候是多线程的

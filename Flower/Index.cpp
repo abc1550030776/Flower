@@ -326,3 +326,8 @@ Index::~Index()
 {
 	clearCache();
 }
+
+void Index::setInitMaxUniqueNum(unsigned long long initMaxUniqueNum)
+{
+	generator.setInitMaxUniqueNum(initMaxUniqueNum);
+}

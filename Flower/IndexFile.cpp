@@ -540,3 +540,79 @@ size_t IndexFile::size()
 {
 	return pIndex->size();
 }
+
+bool IndexFile::writeCacheWithoutRootIndex()
+{
+	if (pIndex == nullptr)
+	{
+		return false;
+	}
+
+	unsigned long size = pIndex->size();
+
+	std::vector<unsigned long long> indexIdVec;
+	std::vector<IndexNode*> indexNodeVec;
+	indexIdVec.reserve(size);
+	indexNodeVec.reserve(size);
+
+	if (!pIndex->getLastNodes(size, indexIdVec, indexNodeVec))
+	{
+		return false;
+	}
+
+	//把所有需要减少的节点全部写盘
+	for (unsigned long i = 0; i < size; ++i)
+	{
+		if (!writeFile(indexIdVec[i], indexNodeVec[i]))
+		{
+			return false;
+		}
+	}
+
+	pIndex->clearCache();
+	return true;
+}
+
+void IndexFile::pushRootIndexId(unsigned long long rootIndexId)
+{
+	rootIndexIds.push_back(rootIndexId);
+}
+
+void IndexFile::setInitMaxUniqueNum(unsigned long long initMaxUniqueNum)
+{
+	if (pIndex == nullptr)
+	{
+		return;
+	}
+	pIndex->setInitMaxUniqueNum(initMaxUniqueNum);
+}
+
+bool IndexFile::writeEveryRootIndexId()
+{
+	unsigned long long size = rootIndexIds.size();
+	//先把那个根节点的id的数量写入文件当中
+	fpos_t pos;
+	pos.__pos = 0;
+	if (!indexFile.write(pos, &size, 8))
+	{
+		return false;
+	}
+	pos.__pos = 8;
+	if (!indexFile.write(pos, &(rootIndexIds[0]), 8 * size))
+	{
+		return false;
+	}
+	return true;
+}
+
+unsigned long long IndexFile::getRootIndexIdByOrder(unsigned long rootOrder)
+{
+	unsigned long long rootIndexId = 0;
+	fpos_t pos;
+	pos.__pos = (rootOrder + 1) * 8;
+	if (!indexFile.read(pos, &rootIndexId, 8))
+	{
+		return 0;
+	}
+	return rootIndexId;
+}
