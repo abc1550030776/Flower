@@ -59,8 +59,7 @@ bool SearchContext::init(const char* fileName, unsigned long threadNum)
 
 static void* ThreadFun(void* arg)
 {
-	SearchIndex* searchIndex = (SearchIndex*)arg;
-	return (void*)searchIndex->search();
+	return (void*)((SearchIndex*)arg)->search();
 }
 
 class SearchHelper
@@ -125,9 +124,9 @@ private:
 		//等待线程的退出
 		for (unsigned int i = 0; i < sizeof(pids) / sizeof(pids[0]); ++i)
 		{
-			bool ret = false;
-			pthread_join(pids[i], (void**)&ret);
-			if (!ret)
+			void* ret = nullptr;
+			pthread_join(pids[i], &ret);
+			if (!((bool)ret))
 			{
 				success = false;
 			}
@@ -145,8 +144,7 @@ private:
 
 static void* HelperThreadFun(void* arg)
 {
-	SearchHelper* searchIndex = (SearchHelper*)arg;
-	return (void*)searchIndex->search();
+	return (void*)((SearchHelper*)arg)->search();
 }
 
 bool SearchContext::search(const char* searchTarget, unsigned int targetLen, std::set<unsigned long long>* set)
@@ -208,9 +206,9 @@ bool SearchContext::search(const char* searchTarget, unsigned int targetLen, std
 	//等待线程的退出
 	for (unsigned int i = 0; i < helpers.size(); ++i)
 	{
-		bool ret = false;
-		pthread_join(pids[i], (void**)&ret);
-		if (!ret)
+		void* ret = nullptr;
+		pthread_join(pids[i], &ret);
+		if (!((bool)ret))
 		{
 			success = false;
 		}
