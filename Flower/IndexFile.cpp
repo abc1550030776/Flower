@@ -570,6 +570,12 @@ bool IndexFile::writeCacheWithoutRootIndex()
 	}
 
 	pIndex->clearCache();
+
+	//后面创建的节点不会和前面节点有关系所以这里同步一次磁盘减少缓存
+	if (!indexFile.sync())
+	{
+		return false;
+	}
 	return true;
 }
 

@@ -1,5 +1,6 @@
 #include "Myfile.h"
 #include <stdlib.h>
+#include <unistd.h>
 
 Myfile::Myfile()
 {
@@ -89,6 +90,15 @@ size_t Myfile::readTail(fpos_t pos, void* data, size_t size)
 	}
 
 	return fread(data, 1, size, file);
+}
+
+bool Myfile::sync()
+{
+	if (fdatasync(fileno(file)) == -1)
+	{
+		return false;
+	}
+	return true;
 }
 
 Myfile::~Myfile()

@@ -8,6 +8,7 @@ public:
 	bool read(fpos_t pos, void* data, size_t size);
 	bool write(fpos_t pos, void* data, size_t size);
 	size_t readTail(fpos_t pos, void* data, size_t size);
+	bool sync();
 	~Myfile();
 private:
 	FILE* file;
