@@ -1,6 +1,7 @@
 #include "common.h"
 #include <string.h>
 #include <stdio.h>
+#include <stdarg.h>
 
 bool getIndexPath(const char* dstFilePath, char* indexPath)
 {
@@ -85,4 +86,25 @@ float getAvailableMemRate()
 	sscanf(buff, "%s %lu %s\n", name, &total, name2);
 	fclose(fd);
 	return float(total) / float(totalMem);
+}
+
+bool FlwPrintf(const char* fileName, const char* format, ...)
+{
+	FILE* fd = fopen(fileName, "a");
+	if (fd == nullptr)
+	{
+		return false;
+	}
+
+	va_list valist;
+	va_start(valist, format);
+	if (vfprintf(fd, format, valist) == -1)
+	{
+		va_end(valist);
+		fclose(fd);
+		return false;
+	}
+	va_end(valist);
+	fclose(fd);
+	return true;
 }

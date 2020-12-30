@@ -2,6 +2,7 @@
 #include <memory.h>
 #include "common.h"
 #include <sys/stat.h>
+#include "sys/time.h"
 
 BuildIndex::BuildIndex()
 {
@@ -2881,6 +2882,11 @@ bool BuildIndex::build()
 	indexFile.setInitMaxUniqueNum(needBlock);
 	bool needNewleftNode = true;
 	IndexNodeChild leftNode(CHILD_TYPE_LEAF, 0);
+	struct timeval start;
+	struct timeval end;
+	unsigned long diff;
+	gettimeofday(&start, nullptr);
+	int times = 0;
 	//接下来把各个8字节开始的位置做一个节点然后不停的合并到一起
 	for (unsigned long long filePos = 0; filePos < dstFileSize; filePos += 8)
 	{
@@ -2903,13 +2909,22 @@ bool BuildIndex::build()
 
 		if (filePos % (2 * 1024 * 1024) == 0)
 		{
+			gettimeofday(&end, nullptr);
+			diff = 1000000 * (end.tv_sec - start.tv_sec) + end.tv_usec - start.tv_usec;
+			FlwPrintf("out", "time %d cal use time %ld", times, diff);
 			needNewleftNode = true;
 			indexFile.pushRootIndexId(leftNode.getIndexId());
+			gettimeofday(&start, nullptr);
 			//后面合成新的节点里面的数据和这里无关这里就先把里面的数据先清空
 			if (!indexFile.writeCacheWithoutRootIndex())
 			{
 				return false;
 			}
+			gettimeofday(&end, nullptr);
+			diff = 1000000 * (end.tv_sec - start.tv_sec) + end.tv_usec - start.tv_usec;
+			FlwPrintf("out", "time %d write disk use time %ld", times, diff);
+			gettimeofday(&start, nullptr);
+			++times;
 		}
 		//printf("%lu\n", indexFile.size());
 	}

@@ -14,3 +14,5 @@ unsigned int swiftBigLittleEnd(unsigned int value);
 unsigned long long swiftBigLittleEnd(unsigned long long value);
 
 float getAvailableMemRate();
+
+bool FlwPrintf(const char* fileName, const char* format, ...);

@@ -40,7 +40,7 @@ int main()
 	fclose(out);
 	out = fopen("out", "a");
 	gettimeofday(&aend, nullptr);
-	diff = 1000000 * (aend.tv_sec - start.tv_sec) + aend.tv_usec - aend.tv_usec;
+	diff = 1000000 * (aend.tv_sec - start.tv_sec) + aend.tv_usec - start.tv_usec;
 	fprintf(out, "build use time %ld\n", diff);
 	fclose(out);
 	out = fopen("out", "a");
@@ -79,7 +79,7 @@ int main()
 	fclose(out);
 	out = fopen("out", "a");
 	gettimeofday(&aend, nullptr);
-	diff = 1000000 * (aend.tv_sec - start.tv_sec) + aend.tv_usec - aend.tv_usec;
+	diff = 1000000 * (aend.tv_sec - start.tv_sec) + aend.tv_usec - start.tv_usec;
 	fprintf(out, "search use time %ld\n", diff);
 	fclose(out);
 	out = fopen("out", "a");
@@ -129,7 +129,7 @@ int main()
 	}
 
 	gettimeofday(&aend, nullptr);
-	diff = 1000000 * (aend.tv_sec - start.tv_sec) + aend.tv_usec - aend.tv_usec;
+	diff = 1000000 * (aend.tv_sec - start.tv_sec) + aend.tv_usec - start.tv_usec;
 	fprintf(out, "search use time %ld\n", diff);
 	fclose(out);
 	out = fopen("out", "a");
