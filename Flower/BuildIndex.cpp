@@ -2911,7 +2911,7 @@ bool BuildIndex::build()
 		{
 			gettimeofday(&end, nullptr);
 			diff = 1000000 * (end.tv_sec - start.tv_sec) + end.tv_usec - start.tv_usec;
-			FlwPrintf("out", "time %d cal use time %ld", times, diff);
+			FlwPrintf("out", "time %d cal use time %ld\n", times, diff);
 			needNewleftNode = true;
 			indexFile.pushRootIndexId(leftNode.getIndexId());
 			gettimeofday(&start, nullptr);
@@ -2922,7 +2922,7 @@ bool BuildIndex::build()
 			}
 			gettimeofday(&end, nullptr);
 			diff = 1000000 * (end.tv_sec - start.tv_sec) + end.tv_usec - start.tv_usec;
-			FlwPrintf("out", "time %d write disk use time %ld", times, diff);
+			FlwPrintf("out", "time %d write disk use time %ld\n", times, diff);
 			gettimeofday(&start, nullptr);
 			++times;
 		}
