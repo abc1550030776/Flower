@@ -2931,6 +2931,10 @@ bool BuildIndex::build()
 
 	if (!needNewleftNode)
 	{
+		gettimeofday(&end, nullptr);
+		diff = 1000000 * (end.tv_sec - start.tv_sec) + end.tv_usec - start.tv_usec;
+		FlwPrintf("out", "time %d cal use time %ld\n", times, diff);
+		gettimeofday(&start, nullptr);
 		//这个时候分两种情况一种情况是leftNode是叶子节点一种情况是leftNode是非叶子节点
 		if (leftNode.getType() == CHILD_TYPE_LEAF)
 		{
@@ -2962,6 +2966,9 @@ bool BuildIndex::build()
 				return false;
 			}
 		}
+		gettimeofday(&end, nullptr);
+		diff = 1000000 * (end.tv_sec - start.tv_sec) + end.tv_usec - start.tv_usec;
+		FlwPrintf("out", "time %d write disk use time %ld\n", times, diff);
 	}
 
 	//把所有的根节点写入到索引文件当中
