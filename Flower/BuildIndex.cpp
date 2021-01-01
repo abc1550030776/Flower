@@ -2887,9 +2887,65 @@ bool BuildIndex::build()
 	unsigned long diff;
 	gettimeofday(&start, nullptr);
 	int times = 0;
+	unsigned long long lineNum = 0;	//第几行从0开始
+	//一开始就是第一行所以添加第一行
+	if (!addKV(0, lineNum))
+	{
+		return false;
+	}
+	++lineNum;
 	//接下来把各个8字节开始的位置做一个节点然后不停的合并到一起
 	for (unsigned long long filePos = 0; filePos < dstFileSize; filePos += 8)
 	{
+		//读取后面的几个字节看看有没有换行符
+		unsigned char buffer[8];
+		if (filePos + 8 < dstFileSize)
+		{
+			fpos_t pos;
+			pos.__pos = filePos;
+			if (!dstFile.read(pos, buffer, 8))
+			{
+				return false;
+			}
+
+			for (int i = 0; i < 8; ++i)
+			{
+				if (buffer[i] == '\n')
+				{
+					if (!addKV(filePos + i + 1, lineNum))
+					{
+						return false;
+					}
+					++lineNum;
+				}
+			}
+		}
+		else
+		{
+			fpos_t pos;
+			pos.__pos = filePos;
+			if (!dstFile.read(pos, buffer, dstFileSize - filePos))
+			{
+				return false;
+			}
+
+			for (unsigned long long i = 0; i < (dstFileSize - filePos); ++i)
+			{
+				if (buffer[i] == '\n')
+				{
+					//遇到换行符说明有新的一行但是有可能是最后一个字节最后一个字节后面没有新行
+					if ((filePos + i + 1) < dstFileSize)
+					{
+						if (!addKV(filePos + i + 1, lineNum))
+						{
+							return false;
+						}
+						++lineNum;
+					}
+				}
+			}
+		}
+
 		if (needNewleftNode)
 		{
 			leftNode.setChildType(CHILD_TYPE_LEAF);

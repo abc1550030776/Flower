@@ -86,6 +86,7 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Myfile.cpp" />
     <ClCompile Include="ReadWriteLock.cpp" />
+    <ClCompile Include="ResultMapWithLock.cpp" />
     <ClCompile Include="SearchContext.cpp" />
     <ClCompile Include="SearchIndex.cpp" />
     <ClCompile Include="SetWithLock.cpp" />
@@ -102,6 +103,7 @@
     <ClInclude Include="KVContent.h" />
     <ClInclude Include="Myfile.h" />
     <ClInclude Include="ReadWriteLock.h" />
+    <ClInclude Include="ResultMapWithLock.h" />
     <ClInclude Include="SearchContext.h" />
     <ClInclude Include="SearchIndex.h" />
     <ClInclude Include="SetWithLock.h" />

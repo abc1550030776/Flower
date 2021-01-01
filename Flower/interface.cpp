@@ -2,6 +2,7 @@
 #include "BuildIndex.h"
 #include "SearchIndex.h"
 #include <sys/resource.h>
+#include "interface.h"
 
 //创建索引
 bool BuildDstIndex(const char* fileName)
@@ -37,6 +38,25 @@ bool BuildDstIndex(const char* fileName)
 		return false;
 	}
 	return buildIndex.build();
+}
+
+LineAndColumn::LineAndColumn()
+{
+	lineNum = 0;
+	columnNum = 0;
+}
+
+LineAndColumn::LineAndColumn(unsigned long long lineNum, unsigned long long columnNum) : lineNum(lineNum), columnNum(columnNum)
+{}
+
+unsigned long long LineAndColumn::GetLineNum()
+{
+	return lineNum;
+}
+
+unsigned long long LineAndColumn::GetColumnNum()
+{
+	return columnNum;
 }
 
 /*static void* ThreadFun(void* arg)

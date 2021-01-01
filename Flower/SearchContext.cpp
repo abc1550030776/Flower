@@ -5,6 +5,8 @@
 #include "SearchIndex.h"
 #include <thread>
 #include "common.h"
+#include "ResultMapWithLock.h"
+#include "KVContent.h"
 
 SearchContext::SearchContext()
 {
@@ -12,9 +14,10 @@ SearchContext::SearchContext()
 	dstFileName = nullptr;
 	threadNum = 0;
 	rootIndexNum = 0;
+	kvIndex = nullptr;
 }
 
-bool SearchContext::init(const char* fileName, unsigned long threadNum)
+bool SearchContext::init(const char* fileName, unsigned long threadNum, bool searchLine)
 {
 	if (fileName == nullptr)
 	{
@@ -53,6 +56,11 @@ bool SearchContext::init(const char* fileName, unsigned long threadNum)
 	if (!indexFile.read(pos, &rootIndexNum, 8))
 	{
 		return false;
+	}
+
+	if (searchLine)
+	{
+		kvIndex = new Index();
 	}
 	return true;
 }
@@ -147,6 +155,121 @@ static void* HelperThreadFun(void* arg)
 	return (void*)((SearchHelper*)arg)->search();
 }
 
+class SearchPosAndLineHelper
+{
+public:
+	SearchPosAndLineHelper()
+	{
+		searchTarget = nullptr;
+		targetLen = 0;
+		resultMap = nullptr;
+		dstFileName = nullptr;
+		index = nullptr;
+		orderStart = 0;
+		orderEnd = 0;
+	}
+	bool init(const char* searchTarget, unsigned int targetLen, ResultMapWithLock* resultMap, const char* dstFileName, Index* index, unsigned long orderStart, unsigned long orderEnd, Index* kvIndex)
+	{
+		this->searchTarget = searchTarget;
+		this->targetLen = targetLen;
+		this->resultMap = resultMap;
+		this->dstFileName = dstFileName;
+		this->index = index;
+		orderStart = orderStart;
+		orderEnd = orderEnd;
+		char kvIndexFile[4096] = {};
+		if (!getKVFilePath(dstFileName, kvIndexFile))
+		{
+			return false;
+		}
+		if (!kvContent.init(kvIndexFile, kvIndex))
+		{
+			return false;
+		}
+		return true;
+	}
+
+	bool search()
+	{
+		if (resultMap == nullptr)
+		{
+			return false;
+		}
+		for (unsigned long order = orderStart; order < orderEnd; ++order)
+		{
+			std::set<unsigned long long> set;
+			SetWithLock resultSet(&set);
+			if (!searchOneOrder(order, &resultSet))
+			{
+				return false;
+			}
+
+			//通过这一部分的搜索结果查找是第几行第几列
+			unsigned long long lowerKey = 0;
+			unsigned long long upperKey = 0;
+			unsigned long long value = 0;
+			for (auto& filePos : set)
+			{
+				if (!kvContent.get(filePos, lowerKey, upperKey, value))
+				{
+					return false;
+				}
+
+				//判断是否是最后一行或者是是否是搜索的结果在同一行之内
+				if (upperKey == filePos || (filePos + targetLen) <= upperKey)
+				{
+					resultMap->insert(filePos, value, filePos - lowerKey);
+				}
+			}
+		}
+		return true;
+	}
+private:
+	bool searchOneOrder(unsigned long order, SetWithLock* resultSet)
+	{
+		SearchIndex searchIndex[8];
+		pthread_t pids[8];
+		for (unsigned char i = 0; i < sizeof(pids) / sizeof(pids[0]); ++i)
+		{
+			searchIndex[i].init(searchTarget, targetLen, resultSet, dstFileName, index, i, order);
+			if (pthread_create(&pids[i], NULL, ThreadFun, &searchIndex[i]) != 0)
+			{
+				for (unsigned int j = 0; j < i; ++j)
+				{
+					pthread_join(pids[j], NULL);
+				}
+				return false;
+			}
+		}
+
+		bool success = true;
+		//等待线程的退出
+		for (unsigned int i = 0; i < sizeof(pids) / sizeof(pids[0]); ++i)
+		{
+			void* ret = nullptr;
+			pthread_join(pids[i], &ret);
+			if (!((bool)ret))
+			{
+				success = false;
+			}
+		}
+		return success;
+	}
+	const char* searchTarget;
+	unsigned int targetLen;
+	ResultMapWithLock* resultMap;
+	const char* dstFileName;
+	Index* index;
+	KVContent kvContent;
+	unsigned long orderStart;
+	unsigned long orderEnd;
+};
+
+static void* PosAndLineHelperThreadFun(void* arg)
+{
+	return (void*)((SearchPosAndLineHelper*)arg)->search();
+}
+
 bool SearchContext::search(const char* searchTarget, unsigned int targetLen, std::set<unsigned long long>* set)
 {
 	if (dstFileName == nullptr)
@@ -217,6 +340,79 @@ bool SearchContext::search(const char* searchTarget, unsigned int targetLen, std
 	return success;
 }
 
+bool SearchContext::search(const char* searchTarget, unsigned int targetLen, ResultMap* map)
+{
+	if (dstFileName == nullptr)
+	{
+		return false;
+	}
+
+	if (index == nullptr)
+	{
+		return false;
+	}
+
+	if (kvIndex == nullptr)
+	{
+		return false;
+	}
+
+	if (searchTarget == nullptr)
+	{
+		return false;
+	}
+
+	if (map == nullptr)
+	{
+		return false;
+	}
+
+	ResultMapWithLock resultMap(*map);
+
+	//这里先算出需要多少个helper,每个helper都会开8个线程这里控制线程数不会超过核心数太多
+	unsigned long helperCount = (threadNum + 8 - 1) / 8;
+	//算出每个helper算多少个根节点
+	unsigned long rootPerHelper = (rootIndexNum + helperCount - 1) / helperCount;
+	//算出了每个helper算多少个root了以后有可能是无法平均分导致不需要那么多个helper就能算完所有root所以这里修正一下。
+	helperCount = (rootIndexNum + rootPerHelper - 1) / rootPerHelper;
+
+	std::vector<SearchPosAndLineHelper> helpers(helperCount);
+	std::vector<pthread_t> pids(helperCount);
+	for (unsigned long i = 0; i < helpers.size(); ++i)
+	{
+		unsigned long orderStart = i * rootPerHelper;
+		unsigned long orderEnd = orderStart + rootPerHelper;
+		if (orderEnd > rootIndexNum)
+		{
+			orderEnd = rootIndexNum;
+		}
+		if (!helpers[i].init(searchTarget, targetLen, &resultMap, dstFileName, index, orderStart, orderEnd, kvIndex))
+		{
+			return false;
+		}
+		if (pthread_create(&pids[i], NULL, PosAndLineHelperThreadFun, &helpers[i]) != 0)
+		{
+			for (unsigned int j = 0; j < i; ++j)
+			{
+				pthread_join(pids[j], NULL);
+			}
+			return false;
+		}
+	}
+	bool success = true;
+	//等待线程的退出
+	for (unsigned int i = 0; i < helpers.size(); ++i)
+	{
+		void* ret = nullptr;
+		pthread_join(pids[i], &ret);
+		if (!((bool)ret))
+		{
+			success = false;
+		}
+	}
+	return success;
+}
+
 SearchContext::~SearchContext()
 {
 	if (index != nullptr)
@@ -229,5 +425,11 @@ SearchContext::~SearchContext()
 	{
 		delete[] dstFileName;
 		dstFileName = nullptr;
+	}
+
+	if (kvIndex != nullptr)
+	{
+		delete kvIndex;
+		kvIndex = nullptr;
 	}
 }
