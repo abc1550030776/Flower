@@ -2872,7 +2872,7 @@ bool BuildIndex::addKV(unsigned long long key, unsigned long long value)
 	return true;
 }
 
-bool BuildIndex::build()
+bool BuildIndex::build(bool needBuildLineIndex, char delimiter)
 {
 	//判断需要多少个4k个字节的块才开始放第一个节点
 	//每2m个字节做为一块看看至少可以弄多少个根节点id
@@ -2888,59 +2888,65 @@ bool BuildIndex::build()
 	gettimeofday(&start, nullptr);
 	int times = 0;
 	unsigned long long lineNum = 0;	//第几行从0开始
-	//一开始就是第一行所以添加第一行
-	if (!addKV(0, lineNum))
+	if (needBuildLineIndex)
 	{
-		return false;
+		//一开始就是第一行所以添加第一行
+		if (!addKV(0, lineNum))
+		{
+			return false;
+		}
+		++lineNum;
 	}
-	++lineNum;
 	//接下来把各个8字节开始的位置做一个节点然后不停的合并到一起
 	for (unsigned long long filePos = 0; filePos < dstFileSize; filePos += 8)
 	{
-		//读取后面的几个字节看看有没有换行符
-		unsigned char buffer[8];
-		if (filePos + 8 < dstFileSize)
+		if (needBuildLineIndex)
 		{
-			fpos_t pos;
-			pos.__pos = filePos;
-			if (!dstFile.read(pos, buffer, 8))
+			//读取后面的几个字节看看有没有换行符
+			unsigned char buffer[8];
+			if (filePos + 8 < dstFileSize)
 			{
-				return false;
-			}
-
-			for (int i = 0; i < 8; ++i)
-			{
-				if (buffer[i] == '\n')
+				fpos_t pos;
+				pos.__pos = filePos;
+				if (!dstFile.read(pos, buffer, 8))
 				{
-					if (!addKV(filePos + i + 1, lineNum))
-					{
-						return false;
-					}
-					++lineNum;
+					return false;
 				}
-			}
-		}
-		else
-		{
-			fpos_t pos;
-			pos.__pos = filePos;
-			if (!dstFile.read(pos, buffer, dstFileSize - filePos))
-			{
-				return false;
-			}
 
-			for (unsigned long long i = 0; i < (dstFileSize - filePos); ++i)
-			{
-				if (buffer[i] == '\n')
+				for (int i = 0; i < 8; ++i)
 				{
-					//遇到换行符说明有新的一行但是有可能是最后一个字节最后一个字节后面没有新行
-					if ((filePos + i + 1) < dstFileSize)
+					if (buffer[i] == delimiter)
 					{
 						if (!addKV(filePos + i + 1, lineNum))
 						{
 							return false;
 						}
 						++lineNum;
+					}
+				}
+			}
+			else
+			{
+				fpos_t pos;
+				pos.__pos = filePos;
+				if (!dstFile.read(pos, buffer, dstFileSize - filePos))
+				{
+					return false;
+				}
+
+				for (unsigned long long i = 0; i < (dstFileSize - filePos); ++i)
+				{
+					if (buffer[i] == delimiter)
+					{
+						//遇到换行符说明有新的一行但是有可能是最后一个字节最后一个字节后面没有新行
+						if ((filePos + i + 1) < dstFileSize)
+						{
+							if (!addKV(filePos + i + 1, lineNum))
+							{
+								return false;
+							}
+							++lineNum;
+						}
 					}
 				}
 			}

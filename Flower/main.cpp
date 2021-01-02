@@ -29,7 +29,7 @@ int main()
 	struct timeval aend;
 	unsigned long diff;
 	gettimeofday(&start, nullptr);
-	if(!BuildDstIndex("/test"))
+	if(!BuildDstIndex("/test", true))
 	{
 		fprintf(out, "build index fail\n");
 		fclose(out);
@@ -65,9 +65,9 @@ int main()
 		return 1;
 	}
 	SearchContext searchContext;
-	searchContext.init("/test");
+	searchContext.init("/test", 0, true);
 	gettimeofday(&start, nullptr);
-	std::set<unsigned long long> result;
+	ResultMap result;
 	if(!searchContext.search(searchTarget, searchStrLen, &result))
 	{
 		fprintf(out, "search fail \n");
@@ -98,12 +98,12 @@ int main()
 	for (auto& val : result)
 	{
 		fpos_t pos;
-		pos.__pos = val;
+		pos.__pos = val.first;
 		fsetpos(file, &pos);
 		if (fread(buffer, searchStrLen, 1, file) != 1)
 		{
 			fclose(file);
-			fprintf(out, "read file error filepos %llu", val);
+			fprintf(out, "read file error filepos %llu", val.first);
 			fclose(out);
 			return 1;
 		}
@@ -113,10 +113,13 @@ int main()
 		if (memcmp(buffer, searchTarget, searchStrLen))
 		{
 			fclose(file);
-			fprintf(out, "search word pos not correct resultPos %llu result word %s", val, buffer);
+			fprintf(out, "search word pos not correct resultPos %llu result word %s", val.first, buffer);
 			fclose(out);
 			return 1;
 		}
+
+		//打印搜索到的位置和行
+		FlwPrintf("out", "searchResult filePos %llu, lineNum %llu, columnNum %llu\n", val.first, val.second.GetLineNum(), val.second.GetColumnNum());
 	}
 
 	result.clear();
@@ -137,12 +140,12 @@ int main()
 	for (auto& val : result)
 	{
 		fpos_t pos;
-		pos.__pos = val;
+		pos.__pos = val.first;
 		fsetpos(file, &pos);
 		if (fread(buffer, searchStrLen, 1, file) != 1)
 		{
 			fclose(file);
-			fprintf(out, "read file error filepos %llu", val);
+			fprintf(out, "read file error filepos %llu", val.first);
 			fclose(out);
 			return 1;
 		}
@@ -152,7 +155,7 @@ int main()
 		if (memcmp(buffer, searchTarget, searchStrLen))
 		{
 			fclose(file);
-			fprintf(out, "search word pos not correct resultPos %llu result word %s", val, buffer);
+			fprintf(out, "search word pos not correct resultPos %llu result word %s", val.first, buffer);
 			fclose(out);
 			return 1;
 		}
@@ -172,7 +175,7 @@ int main()
 	Index index(USE_TYPE_BUILD);
 	Index kvIndex(USE_TYPE_BUILD);
 	BuildIndex buildInex;
-	buildInex.init("/test", &index, &kvIndex);
+	buildInex.init("/testkv", &index, &kvIndex);
 	for (unsigned long i = 0; i < sizeof(key) / sizeof(key[0]); ++i)
 	{
 		if (!buildInex.addKV(key[i], val[i]))
@@ -189,7 +192,7 @@ int main()
 		return 1;
 	}
 	char kvIndexFile[4096];
-	if (!getKVFilePath("/test", kvIndexFile))
+	if (!getKVFilePath("/testkv", kvIndexFile))
 	{
 		fprintf(out, "get kv indexFile name failed\n");
 		fclose(out);

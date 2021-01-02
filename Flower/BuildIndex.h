@@ -18,7 +18,7 @@ public:
 	IndexNode* changeNodeType(unsigned long long indexId, IndexNode* indexNode, unsigned char buildType = BUILD_TYPE_FILE);
 	IndexNode* newKvNode(unsigned char nodeType, unsigned long long preCmpLen);
 	bool addKV(unsigned long long key, unsigned long long value);
-	bool build();												//构建文件索引
+	bool build(bool needBuildLineIndex = false, char delimiter = '\n');	//构建文件索引
 	bool writeKvEveryCache();									//把所有的kv的缓存写入硬盘中
 private:
 	Myfile dstFile;									//需要构建索引的目标文件

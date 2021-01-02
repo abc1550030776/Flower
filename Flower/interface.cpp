@@ -5,7 +5,7 @@
 #include "interface.h"
 
 //创建索引
-bool BuildDstIndex(const char* fileName)
+bool BuildDstIndex(const char* fileName, bool needBuildLineIndex, char delimiter)
 {
 	//创建的时候可能递归的层数会很大可能遇到栈空间不够用的情况先修改栈空间大小
 	const rlim_t kStackSize = 1024 * 1024 * 1024;   // min stack size = 1 GB
@@ -37,7 +37,7 @@ bool BuildDstIndex(const char* fileName)
 	{
 		return false;
 	}
-	return buildIndex.build();
+	return buildIndex.build(needBuildLineIndex, delimiter);
 }
 
 LineAndColumn::LineAndColumn()

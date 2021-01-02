@@ -15,6 +15,6 @@ private:
 
 typedef std::map<unsigned long long, LineAndColumn> ResultMap;
 
-bool BuildDstIndex(const char* fileName);
+bool BuildDstIndex(const char* fileName, bool needBuildLineIndex = false, char delimiter = '\n');
 
 //bool SearchFile(const char* fileName, const char* searchTarget, unsigned int targetLen, std::set<unsigned long long>* set);
