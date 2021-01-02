@@ -50,7 +50,10 @@ bool BuildIndex::init(const char* fileName, Index* index, Index* kvIndex)
 
 	if (kvIndex != nullptr)
 	{
-		kvIndexFile.init(kVFileName, kvIndex);
+		if (!kvIndexFile.init(kVFileName, kvIndex))
+		{
+			return false;
+		}
 	}
 
 	//获取文件的大小
