@@ -31,11 +31,22 @@ bool BuildDstIndex(const char* fileName, bool needBuildLineIndex, char delimiter
 		return false;
 	}
 	Index index(USE_TYPE_BUILD);
+	Index kvIndex(USE_TYPE_BUILD);
 
 	BuildIndex buildIndex;
-	if (!buildIndex.init(fileName, &index))
+	if (needBuildLineIndex)
 	{
-		return false;
+		if (!buildIndex.init(fileName, &index, &kvIndex))
+		{
+			return false;
+		}
+	}
+	else
+	{
+		if (!buildIndex.init(fileName, &index))
+		{
+			return false;
+		}
 	}
 	return buildIndex.build(needBuildLineIndex, delimiter);
 }
