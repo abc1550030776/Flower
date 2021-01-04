@@ -175,8 +175,8 @@ public:
 		this->resultMap = resultMap;
 		this->dstFileName = dstFileName;
 		this->index = index;
-		orderStart = orderStart;
-		orderEnd = orderEnd;
+		this->orderStart = orderStart;
+		this->orderEnd = orderEnd;
 		char kvIndexFile[4096] = {};
 		if (!getKVFilePath(dstFileName, kvIndexFile))
 		{
