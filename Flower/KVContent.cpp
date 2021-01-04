@@ -1347,194 +1347,197 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 			//需要寻找小小的upperbound但是前面又没取得任何大于key的upperbound所以这样的值是不存在的不存在就直接让值等于查找的值
 			retUpperBound = bigEndKey;
 		}
-
-		while (upperCmpLen != 8)
+		else
 		{
-			if (upperIndexNode->getLen() != 0)
-			{
-				unsigned long long partOfKey = upperIndexNode->getPartOfKey();
-				unsigned char* pLB = (unsigned char*)&retUpperBound;
-				memcpy(&pLB[upperCmpLen], &partOfKey, upperIndexNode->getLen());
-				upperCmpLen += lowerIndexNode->getLen();
-			}
 
-			//一直找最小的孩子节点
-			switch (upperIndexNode->getType())
+			while (upperCmpLen != 8)
 			{
-			case NODE_TYPE_ONE:
-			{
-				IndexNodeTypeOne* pTmpIndexNode = (IndexNodeTypeOne*)upperIndexNode;
-				std::unordered_map<unsigned long long, IndexNodeChild>& map = pTmpIndexNode->getChildren();
-				unsigned long long key = map.begin()->first;
-				unsigned long long indexId = map.begin()->second.getIndexId();
-				for (auto& val : map)
+				if (upperIndexNode->getLen() != 0)
 				{
-					if (swiftBigLittleEnd(val.first) < swiftBigLittleEnd(key))
-					{
-						key = val.first;
-						indexId = val.second.getIndexId();
-					}
+					unsigned long long partOfKey = upperIndexNode->getPartOfKey();
+					unsigned char* pLB = (unsigned char*)&retUpperBound;
+					memcpy(&pLB[upperCmpLen], &partOfKey, upperIndexNode->getLen());
+					upperCmpLen += lowerIndexNode->getLen();
 				}
-				unsigned char* pUB = (unsigned char*)&retUpperBound;
-				memcpy(&pUB[upperCmpLen], &key, 8);
-				if (upperCmpLen + 8 < 8)
+
+				//一直找最小的孩子节点
+				switch (upperIndexNode->getType())
 				{
-					indexFile.putIndexNode(upperIndexNode);
-
-					upperIndexNode = indexFile.getIndexNode(indexId, BUILD_TYPE_KV);
-					if (upperIndexNode == nullptr)
+				case NODE_TYPE_ONE:
+				{
+					IndexNodeTypeOne* pTmpIndexNode = (IndexNodeTypeOne*)upperIndexNode;
+					std::unordered_map<unsigned long long, IndexNodeChild>& map = pTmpIndexNode->getChildren();
+					unsigned long long key = map.begin()->first;
+					unsigned long long indexId = map.begin()->second.getIndexId();
+					for (auto& val : map)
 					{
-						if (lowerIndexNode != nullptr)
+						if (swiftBigLittleEnd(val.first) < swiftBigLittleEnd(key))
 						{
-							indexFile.putIndexNode(lowerIndexNode);
+							key = val.first;
+							indexId = val.second.getIndexId();
 						}
-
-						if (indexNode != rootIndexNode)
-						{
-							indexFile.putIndexNode(rootIndexNode);
-						}
-
-						if (indexNode != nullptr)
-						{
-							indexFile.putIndexNode(indexNode);
-						}
-						return false;
 					}
+					unsigned char* pUB = (unsigned char*)&retUpperBound;
+					memcpy(&pUB[upperCmpLen], &key, 8);
+					if (upperCmpLen + 8 < 8)
+					{
+						indexFile.putIndexNode(upperIndexNode);
+
+						upperIndexNode = indexFile.getIndexNode(indexId, BUILD_TYPE_KV);
+						if (upperIndexNode == nullptr)
+						{
+							if (lowerIndexNode != nullptr)
+							{
+								indexFile.putIndexNode(lowerIndexNode);
+							}
+
+							if (indexNode != rootIndexNode)
+							{
+								indexFile.putIndexNode(rootIndexNode);
+							}
+
+							if (indexNode != nullptr)
+							{
+								indexFile.putIndexNode(indexNode);
+							}
+							return false;
+						}
+					}
+					upperCmpLen += 8;
 				}
-				upperCmpLen += 8;
-			}
 				break;
-			case NODE_TYPE_TWO:
-			{
-				IndexNodeTypeTwo* pTmpIndexNode = (IndexNodeTypeTwo*)upperIndexNode;
-				std::unordered_map<unsigned int, IndexNodeChild>& map = pTmpIndexNode->getChildren();
-				unsigned int key = map.begin()->first;
-				unsigned long long indexId = map.begin()->second.getIndexId();
-				for (auto& val : map)
+				case NODE_TYPE_TWO:
 				{
-					if (swiftBigLittleEnd(val.first) < swiftBigLittleEnd(key))
+					IndexNodeTypeTwo* pTmpIndexNode = (IndexNodeTypeTwo*)upperIndexNode;
+					std::unordered_map<unsigned int, IndexNodeChild>& map = pTmpIndexNode->getChildren();
+					unsigned int key = map.begin()->first;
+					unsigned long long indexId = map.begin()->second.getIndexId();
+					for (auto& val : map)
 					{
-						key = val.first;
-						indexId = val.second.getIndexId();
+						if (swiftBigLittleEnd(val.first) < swiftBigLittleEnd(key))
+						{
+							key = val.first;
+							indexId = val.second.getIndexId();
+						}
 					}
-				}
-				unsigned char* pUB = (unsigned char*)&retUpperBound;
-				memcpy(&pUB[upperCmpLen], &key, 4);
-				if (upperCmpLen + 4 < 8)
-				{
-					indexFile.putIndexNode(upperIndexNode);
-
-					upperIndexNode = indexFile.getIndexNode(indexId, BUILD_TYPE_KV);
-					if (upperIndexNode == nullptr)
+					unsigned char* pUB = (unsigned char*)&retUpperBound;
+					memcpy(&pUB[upperCmpLen], &key, 4);
+					if (upperCmpLen + 4 < 8)
 					{
-						if (lowerIndexNode != nullptr)
-						{
-							indexFile.putIndexNode(lowerIndexNode);
-						}
+						indexFile.putIndexNode(upperIndexNode);
 
-						if (indexNode != rootIndexNode)
+						upperIndexNode = indexFile.getIndexNode(indexId, BUILD_TYPE_KV);
+						if (upperIndexNode == nullptr)
 						{
-							indexFile.putIndexNode(rootIndexNode);
-						}
+							if (lowerIndexNode != nullptr)
+							{
+								indexFile.putIndexNode(lowerIndexNode);
+							}
 
-						if (indexNode != nullptr)
-						{
-							indexFile.putIndexNode(indexNode);
+							if (indexNode != rootIndexNode)
+							{
+								indexFile.putIndexNode(rootIndexNode);
+							}
+
+							if (indexNode != nullptr)
+							{
+								indexFile.putIndexNode(indexNode);
+							}
+							return false;
 						}
-						return false;
 					}
+					upperCmpLen += 4;
 				}
-				upperCmpLen += 4;
-			}
 				break;
-			case NODE_TYPE_THREE:
-			{
-				IndexNodeTypeThree* pTmpIndexNode = (IndexNodeTypeThree*)upperIndexNode;
-				std::unordered_map<unsigned short, IndexNodeChild>& map = pTmpIndexNode->getChildren();
-				unsigned short key = map.begin()->first;
-				unsigned long long indexId = map.begin()->second.getIndexId();
-				for (auto& val : map)
+				case NODE_TYPE_THREE:
 				{
-					if (swiftBigLittleEnd(val.first) < swiftBigLittleEnd(key))
+					IndexNodeTypeThree* pTmpIndexNode = (IndexNodeTypeThree*)upperIndexNode;
+					std::unordered_map<unsigned short, IndexNodeChild>& map = pTmpIndexNode->getChildren();
+					unsigned short key = map.begin()->first;
+					unsigned long long indexId = map.begin()->second.getIndexId();
+					for (auto& val : map)
 					{
-						key = val.first;
-						indexId = val.second.getIndexId();
+						if (swiftBigLittleEnd(val.first) < swiftBigLittleEnd(key))
+						{
+							key = val.first;
+							indexId = val.second.getIndexId();
+						}
 					}
-				}
-				unsigned char* pUB = (unsigned char*)&retUpperBound;
-				memcpy(&pUB[upperCmpLen], &key, 2);
-				if (upperCmpLen + 2 < 8)
-				{
-					indexFile.putIndexNode(upperIndexNode);
-
-					upperIndexNode = indexFile.getIndexNode(indexId, BUILD_TYPE_KV);
-					if (upperIndexNode == nullptr)
+					unsigned char* pUB = (unsigned char*)&retUpperBound;
+					memcpy(&pUB[upperCmpLen], &key, 2);
+					if (upperCmpLen + 2 < 8)
 					{
-						if (lowerIndexNode != nullptr)
-						{
-							indexFile.putIndexNode(lowerIndexNode);
-						}
+						indexFile.putIndexNode(upperIndexNode);
 
-						if (indexNode != rootIndexNode)
+						upperIndexNode = indexFile.getIndexNode(indexId, BUILD_TYPE_KV);
+						if (upperIndexNode == nullptr)
 						{
-							indexFile.putIndexNode(rootIndexNode);
-						}
+							if (lowerIndexNode != nullptr)
+							{
+								indexFile.putIndexNode(lowerIndexNode);
+							}
 
-						if (indexNode != nullptr)
-						{
-							indexFile.putIndexNode(indexNode);
+							if (indexNode != rootIndexNode)
+							{
+								indexFile.putIndexNode(rootIndexNode);
+							}
+
+							if (indexNode != nullptr)
+							{
+								indexFile.putIndexNode(indexNode);
+							}
+							return false;
 						}
-						return false;
 					}
+					upperIndexNode += 2;
 				}
-				upperIndexNode += 2;
-			}
 				break;
-			case NODE_TYPE_FOUR:
-			{
-				IndexNodeTypeFour* pTmpIndexNode = (IndexNodeTypeFour*)upperIndexNode;
-				std::unordered_map<unsigned char, IndexNodeChild>& map = pTmpIndexNode->getChildren();
-				unsigned char key = map.begin()->first;
-				unsigned long long indexId = map.begin()->second.getIndexId();
-				for (auto& val : map)
+				case NODE_TYPE_FOUR:
 				{
-					if (swiftBigLittleEnd(val.first) < swiftBigLittleEnd(key))
+					IndexNodeTypeFour* pTmpIndexNode = (IndexNodeTypeFour*)upperIndexNode;
+					std::unordered_map<unsigned char, IndexNodeChild>& map = pTmpIndexNode->getChildren();
+					unsigned char key = map.begin()->first;
+					unsigned long long indexId = map.begin()->second.getIndexId();
+					for (auto& val : map)
 					{
-						key = val.first;
-						indexId = val.second.getIndexId();
+						if (swiftBigLittleEnd(val.first) < swiftBigLittleEnd(key))
+						{
+							key = val.first;
+							indexId = val.second.getIndexId();
+						}
 					}
-				}
-				unsigned char* pUB = (unsigned char*)&retUpperBound;
-				memcpy(&pUB[upperCmpLen], &key, 1);
-				if (upperCmpLen + 1 < 8)
-				{
-					indexFile.putIndexNode(upperIndexNode);
-
-					upperIndexNode = indexFile.getIndexNode(indexId, BUILD_TYPE_KV);
-					if (upperIndexNode == nullptr)
+					unsigned char* pUB = (unsigned char*)&retUpperBound;
+					memcpy(&pUB[upperCmpLen], &key, 1);
+					if (upperCmpLen + 1 < 8)
 					{
-						if (lowerIndexNode != nullptr)
-						{
-							indexFile.putIndexNode(lowerIndexNode);
-						}
+						indexFile.putIndexNode(upperIndexNode);
 
-						if (indexNode != rootIndexNode)
+						upperIndexNode = indexFile.getIndexNode(indexId, BUILD_TYPE_KV);
+						if (upperIndexNode == nullptr)
 						{
-							indexFile.putIndexNode(rootIndexNode);
-						}
+							if (lowerIndexNode != nullptr)
+							{
+								indexFile.putIndexNode(lowerIndexNode);
+							}
 
-						if (indexNode != nullptr)
-						{
-							indexFile.putIndexNode(indexNode);
+							if (indexNode != rootIndexNode)
+							{
+								indexFile.putIndexNode(rootIndexNode);
+							}
+
+							if (indexNode != nullptr)
+							{
+								indexFile.putIndexNode(indexNode);
+							}
+							return false;
 						}
-						return false;
 					}
+					upperCmpLen += 1;
 				}
-				upperCmpLen += 1;
-			}
 				break;
-			default:
-				break;
+				default:
+					break;
+				}
 			}
 		}
 	}
