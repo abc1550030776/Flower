@@ -46,7 +46,7 @@ int main()
 	out = fopen("out", "a");
 
 	//从文件当中读取一点点数据作为搜索
-	const unsigned long searchStrLen = 256;
+	const unsigned long searchStrLen = 4 * 1024;
 	char searchTarget[searchStrLen] = { 0 };
 	Myfile myfile;
 	if (!myfile.init("/test", false))
