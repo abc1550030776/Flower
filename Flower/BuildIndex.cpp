@@ -3041,6 +3041,12 @@ bool BuildIndex::build(bool needBuildLineIndex, char delimiter)
 	{
 		return false;
 	}
+
+	//把所有的行数据写进硬盘
+	if (!kvIndexFile.writeEveryCache())
+	{
+		return false;
+	}
 	printf("build finish\n");
 	return true;
 }
