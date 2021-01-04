@@ -14,6 +14,10 @@ const char CMP_STATUS_EQUAL = 2;
 
 bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsigned long long& upperBound, unsigned long long& value)
 {
+	if (key == 256713)
+	{
+		key = 256713;
+	}
 	unsigned long long bigEndKey = swiftBigLittleEnd(key);
 	unsigned long long rootIndexId = indexFile.getRootIndexId();
 	unsigned char* kp = (unsigned char*)&bigEndKey;
@@ -1489,7 +1493,7 @@ bool KVContent::get(unsigned long long key, unsigned long long& lowerBound, unsi
 							return false;
 						}
 					}
-					upperIndexNode += 2;
+					upperCmpLen += 2;
 				}
 				break;
 				case NODE_TYPE_FOUR:
