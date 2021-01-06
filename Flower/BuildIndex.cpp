@@ -2881,7 +2881,7 @@ bool BuildIndex::build(bool needBuildLineIndex, char delimiter)
 	//每2m个字节做为一块看看至少可以弄多少个根节点id
 	unsigned long rootIndexCount = (dstFileSize + 2 * 1024 * 1024 - 1) / (2 * 1024 * 1024);
 	//算出这么多个根节点id还有前面的存储数量的东西要多少个4k块存储
-	unsigned long needBlock = ((rootIndexCount + 1) * 8 + 4 * 1024 - 1) / (4 * 1024);
+	unsigned long needBlock = ((rootIndexCount + 1) * 8 + SIZE_PER_INDEX_FILE_GRID - 1) / SIZE_PER_INDEX_FILE_GRID;
 	indexFile.setInitMaxUniqueNum(needBlock);
 	bool needNewleftNode = true;
 	IndexNodeChild leftNode(CHILD_TYPE_LEAF, 0);

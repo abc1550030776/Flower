@@ -45,7 +45,7 @@ IndexNode* IndexFile::getIndexNode(unsigned long long indexId, unsigned char bui
 	}
 
 	//从文件当中把数据读取出来
-	char* buffer = (char*)malloc(8 * 1024);
+	char* buffer = (char*)malloc(MAX_SIZE_PER_INDEX_NODE);
 	if (buffer == nullptr)
 	{
 		return nullptr;
@@ -53,7 +53,7 @@ IndexNode* IndexFile::getIndexNode(unsigned long long indexId, unsigned char bui
 
 	//在文件当中的存储位置是用索引id * 4 * 1024来定的,有些存储的存储的比较大会大于4k
 	fpos_t pos;
-	pos.__pos = indexId * 4 * 1024;
+	pos.__pos = indexId * SIZE_PER_INDEX_FILE_GRID;
 	if (!indexFile.read(pos, buffer, 3))
 	{
 		free(buffer);
@@ -85,17 +85,14 @@ IndexNode* IndexFile::getIndexNode(unsigned long long indexId, unsigned char bui
 	unsigned short len = *((unsigned short*)p);
 	p += 2;
 	//把剩下的字节给读取出来
-	pos.__pos = indexId * 4 * 1024 + 3;
+	pos.__pos = indexId * SIZE_PER_INDEX_FILE_GRID + 3;
 	if (!indexFile.read(pos, &buffer[3], len))
 	{
 		delete pIndexNode;
 		free(buffer);
 		return nullptr;
 	}
-	if ((len + 3) > 4 * 1024)
-	{
-		pIndexNode->setIsBig(true);
-	}
+	pIndexNode->setGridNum((unsigned char)((len + 2 + SIZE_PER_INDEX_FILE_GRID) / SIZE_PER_INDEX_FILE_GRID));
 
 	//把二进制转成节点的里面的数据
 	if (!pIndexNode->toObject(p, len, buildType))
@@ -139,7 +136,7 @@ IndexNode* IndexFile::getTempIndexNode(unsigned long long indexId)
 	//从文件当中读取但是不放入缓存
 
 	//从文件当中把数据读取出来
-	char* buffer = (char*)malloc(8 * 1024);
+	char* buffer = (char*)malloc(MAX_SIZE_PER_INDEX_NODE);
 	if (buffer == nullptr)
 	{
 		return nullptr;
@@ -147,7 +144,7 @@ IndexNode* IndexFile::getTempIndexNode(unsigned long long indexId)
 
 	//在文件当中的存储位置是用索引id * 4 * 1024来定的,有些存储的存储的比较大会大于4k
 	fpos_t pos;
-	pos.__pos = indexId * 4 * 1024;
+	pos.__pos = indexId * SIZE_PER_INDEX_FILE_GRID;
 	if (!indexFile.read(pos, buffer, 3))
 	{
 		free(buffer);
@@ -178,17 +175,14 @@ IndexNode* IndexFile::getTempIndexNode(unsigned long long indexId)
 	unsigned short len = *((unsigned short*)p);
 	p += 2;
 	//把剩下的字节给读取出来
-	pos.__pos = indexId * 4 * 1024 + 3;
+	pos.__pos = indexId * SIZE_PER_INDEX_FILE_GRID + 3;
 	if (!indexFile.read(pos, &buffer[3], len))
 	{
 		delete pIndexNode;
 		free(buffer);
 		return nullptr;
 	}
-	if ((len + 3) > 4 * 1024)
-	{
-		pIndexNode->setIsBig(true);
-	}
+	pIndexNode->setGridNum((unsigned char)((len + 2 + SIZE_PER_INDEX_FILE_GRID) / SIZE_PER_INDEX_FILE_GRID));
 
 	//把二进制转成节点的里面的数据
 	if (!pIndexNode->toObject(p, len))
@@ -218,21 +212,21 @@ bool IndexFile::writeFile(unsigned long long indexId, IndexNode* pIndexNode)
 		return true;
 	}
 
-	char* buffer = (char*)malloc(8 * 1024);
+	char* buffer = (char*)malloc(MAX_SIZE_PER_INDEX_NODE);
 	char* p = buffer + 1;
-	bool ok = pIndexNode->toBinary(p, 8 * 1024 - 1);
+	bool ok = pIndexNode->toBinary(p, MAX_SIZE_PER_INDEX_NODE - 1);
 	if (!ok)
 	{
 		free(buffer);
 		return false;
 	}
 	short len = *((short*)p);
-	if ((len + 3) > 4 * 1024 && !pIndexNode->getIsBig())
+	if ((len + 3) > (pIndexNode->getGridNum() * SIZE_PER_INDEX_FILE_GRID))
 	{
 		std::vector<unsigned long long> indexIdVec;
 		std::vector<IndexNode*> indexNodeVec;
-		//节点的大小比默认的4k的大小还要大这个时候换一个可以保存8k大小的id
-		unsigned long long newIndexId = pIndex->acquireTwoNumber();
+		//节点的大小比本来要存储使用的格子的大小还要大这个时候换一个可以保存相应大小的id
+		unsigned long long newIndexId = pIndex->acquireNumber((unsigned char)((len + 2 + SIZE_PER_INDEX_FILE_GRID) / SIZE_PER_INDEX_FILE_GRID));
 
 		//由于节点的id已经改变了所以也要把父节点对应的孩子节点id和孩子节点对应的父节点id修改
 		
@@ -306,20 +300,21 @@ bool IndexFile::writeFile(unsigned long long indexId, IndexNode* pIndexNode)
 
 		//父节点还有所有的孩子节点的父节点id都改变了以后这个节点就是用新节点id了。
 		//创建了新的节点的id所以旧的节点的id就无效了放回去
-		pIndex->recycleNumber(indexId);
+		pIndex->recycleNumber(indexId, pIndexNode->getGridNum());
 		indexId = newIndexId;
 		pIndexNode->setIndexId(indexId);
 	}
-	else if ((len + 3) <= 4 * 1024 && pIndexNode->getIsBig())
+	else if ((len + 3) <= ((pIndexNode->getGridNum() - 1) * SIZE_PER_INDEX_FILE_GRID))
 	{
-		//写入的时候发现只需要4k的存储空间就够了,但是从硬盘里面读出来的时候是超过4k的,大于4k的部分已经不需要了把一个id回收
-		pIndex->recycleNumber(indexId + 1);
+		//写入的时候发现只需要更小的存储空间就够了,但是从硬盘里面读出来的时候是超过当前的大小,大于原本大小的部分已经不需要了把一个id回收
+		unsigned char newGridNum = (unsigned char)((len + 2 + SIZE_PER_INDEX_FILE_GRID) / SIZE_PER_INDEX_FILE_GRID);
+		pIndex->recycleNumber(indexId + newGridNum, (unsigned char)(pIndexNode->getGridNum() - newGridNum));
 	}
 
 	//把这个节点的数据写进磁盘里面
 	*((unsigned char*)buffer) = pIndexNode->getType();
 	fpos_t pos;
-	pos.__pos = indexId * 4 * 1024;
+	pos.__pos = indexId * SIZE_PER_INDEX_FILE_GRID;
 	indexFile.write(pos, buffer, len + 3);
 
 	free(buffer);
@@ -342,9 +337,9 @@ bool IndexFile::writeTempFile(unsigned long long indexId, IndexNode* pIndexNode)
 	}
 
 	//把数据写入文件当中
-	char* buffer = (char*)malloc(8 * 1024);
+	char* buffer = (char*)malloc(MAX_SIZE_PER_INDEX_NODE);
 	char* p = buffer + 1;
-	bool ok = pIndexNode->toBinary(p, 8 * 1024 - 1);
+	bool ok = pIndexNode->toBinary(p, MAX_SIZE_PER_INDEX_NODE - 1);
 	if (!ok)
 	{
 		free(buffer);
@@ -358,7 +353,7 @@ bool IndexFile::writeTempFile(unsigned long long indexId, IndexNode* pIndexNode)
 	*((unsigned char*)buffer) = pIndexNode->getType();
 	short len = *((short*)p);
 	fpos_t pos;
-	pos.__pos = indexId * 4 * 1024;
+	pos.__pos = indexId * SIZE_PER_INDEX_FILE_GRID;
 	indexFile.write(pos, buffer, len + 3);
 	
 	//写入完成了以后堆内存进行释放
@@ -390,7 +385,7 @@ bool IndexFile::reduceCache()
 			return true;
 		}
 
-		unsigned long needReduceNum = (unsigned long)pIndex->size() * 0.7;
+		unsigned long needReduceNum = (unsigned long)((double)pIndex->size() * 0.7);
 
 		//把优先级最低的那些节点取出来。
 		std::vector<unsigned long long> indexIdVec;

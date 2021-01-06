@@ -224,7 +224,7 @@ IndexNode* Index::newIndexNode(unsigned char nodeType, unsigned long long preCmp
 	}
 
 	//获取新创建的节点的id
-	unsigned long long indexId = generator.acquireNumber();
+	unsigned long long indexId = generator.acquireNumber(1);
 
 	//将新创建的节点插入到缓存当中
 	bool ok = indexNodeCache.insert({ indexId, pNode }).second;
@@ -269,10 +269,11 @@ bool Index::deleteIndexNode(unsigned long long indexId)
 		return false;
 	}
 
+	generator.recycleNumber(indexId, it->second->getGridNum());
+
 	delete it->second;
 	indexNodeCache.erase(it);
 	IndexIdPreority.erase(ipIt);
-	generator.recycleNumber(indexId);
 	return true;
 }
 
@@ -312,14 +313,14 @@ bool Index::putIndexNode(IndexNode* indexNode)
 	return true;
 }
 
-unsigned long long Index::acquireTwoNumber()
+unsigned long long Index::acquireNumber(unsigned char numCount)
 {
-	return generator.acquireTwoNumber();
+	return generator.acquireNumber(numCount);
 }
 
-void Index::recycleNumber(unsigned long long indexId)
+void Index::recycleNumber(unsigned long long indexId, unsigned char numCount)
 {
-	generator.recycleNumber(indexId);
+	generator.recycleNumber(indexId, numCount);
 }
 
 Index::~Index()

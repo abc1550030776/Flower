@@ -51,7 +51,7 @@ unsigned char swiftBigLittleEnd(unsigned char value)
 
 unsigned short swiftBigLittleEnd(unsigned short value)
 {
-	return ((value & 0x00FF) << 8) | ((value & 0xFF00) >> 8);
+	return (unsigned short)(((value & 0x00FF) << 8) | ((value & 0xFF00) >> 8));
 }
 
 unsigned int swiftBigLittleEnd(unsigned int value)

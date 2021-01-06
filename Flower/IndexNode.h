@@ -27,10 +27,8 @@ public:
 	IndexNode();
 	virtual bool toBinary(char *buffer, int len) = 0;					//把这个结构体转成二进制好进行存储
 	virtual bool toObject(char* buffer, int len, unsigned char buildType = BUILD_TYPE_FILE) = 0;					//把二进制转成结构体
-	void setIsBig(bool isBig);											//设置是不是大的节点块
 	unsigned long long getPreCmpLen();									//获取这个节点前面已经比较过的长度
 	bool getIsModified();												//获取节点是否已经修改过
-	bool getIsBig();													//获取是否是比较大的节点
 	unsigned long long getParentId();									//获取父节点Id;
 	virtual unsigned char getType() = 0;								//获取节点的类型
 	virtual bool changeChildIndexId(unsigned long long orgIndexId, unsigned long long newIndexId) = 0;
@@ -59,6 +57,8 @@ public:
 	unsigned long long getPartOfKey();
 	void setPartOfKey(unsigned long long partOfKey);
 	void swiftPartOfKey(unsigned long long byte);
+	unsigned char getGridNum();
+	void setGridNum(unsigned char gridNum);
 	virtual ~IndexNode();
 protected:
 	unsigned long long start;	//在原文件当中的位置
@@ -68,9 +68,9 @@ protected:
 	unsigned long long indexId;		//节点的id;
 	unsigned long long partOfKey;	//索引有可能用于建立键值存储的情况这里记录一部分的key值
 	std::set<unsigned long long> leafSet;	//有些叶子节点是指向结尾的,为了节省空间这里记录这些比较到这个节点一部分全部一样的叶子节点的开始比较位置
-	bool isBig;					//有些节点写入硬盘大于4k字节就是big
 	bool isModified;			//从缓存中删除了以后是否需要写入硬盘
 	volatile unsigned long refCount;		//搜索文件的时候是采用多线程的这个时候有可能多个线程同时使用同一个的情况不好判断删除的时机所以这里加一个引用数量
+	unsigned char gridNum;		//在索引文件当中占用的格子数
 };
 
 class IndexNodeChild

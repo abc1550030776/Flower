@@ -8,16 +8,11 @@ IndexNode::IndexNode()
 	len = 0;
 	preCmpLen = 0;
 	parentID = 0;
-	isBig = false;
 	isModified = false;
 	indexId = 0;
 	refCount = 0;
 	partOfKey = 0;
-}
-
-void IndexNode::setIsBig(bool isBig)
-{
-	this->isBig = isBig;
+	gridNum = 1;
 }
 
 unsigned long long IndexNode::getPreCmpLen()
@@ -28,11 +23,6 @@ unsigned long long IndexNode::getPreCmpLen()
 bool IndexNode::getIsModified()
 {
 	return isModified;
-}
-
-bool IndexNode::getIsBig()
-{
-	return isBig;
 }
 
 unsigned long long IndexNode::getParentId()
@@ -246,6 +236,16 @@ void IndexNode::swiftPartOfKey(unsigned long long byte)
 	partOfKey = partOfKey >> (byte * 8);
 }
 
+unsigned char IndexNode::getGridNum()
+{
+	return gridNum;
+}
+
+void IndexNode::setGridNum(unsigned char gridNum)
+{
+	this->gridNum = gridNum;
+}
+
 IndexNode::~IndexNode()
 {}
 
@@ -405,11 +405,8 @@ bool IndexNodeTypeOne::toBinary(char* buffer, int len)
 
 bool IndexNodeTypeOne::toObject(char* buffer, int len, unsigned char buildType)
 {
-	//存储的时候前面有加上类型还有存储的大小所以前面加3个字节
-	if ((len + 3) > 4 * 1024)
-	{
-		isBig = true;
-	}
+	gridNum = (unsigned char)((len + 2 + SIZE_PER_INDEX_FILE_GRID) / SIZE_PER_INDEX_FILE_GRID);
+
 	char* p = buffer;
 	int leftSize = len;
 	if (leftSize < 40)
@@ -562,7 +559,7 @@ IndexNode* IndexNodeTypeOne::changeType(BuildIndex* buildIndex, unsigned char bu
 	ret->setParentID(getParentId());
 	ret->setIndexId(getIndexId());
 	ret->setPartOfKey(getPartOfKey());
-	ret->setIsBig(getIsBig());
+	ret->setGridNum(getGridNum());
 
 	//遍历自己的孩子节点对每个节点放到新的map当中
 	for (auto& value : children)
@@ -824,11 +821,8 @@ bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 
 bool IndexNodeTypeTwo::toObject(char* buffer, int len, unsigned char buildType)
 {
-	//存储的时候前面有加上类型还有存储的大小所以前面加3个字节
-	if ((len + 3) > 4 * 1024)
-	{
-		isBig = true;
-	}
+	gridNum = (unsigned char)((len + 2 + SIZE_PER_INDEX_FILE_GRID) / SIZE_PER_INDEX_FILE_GRID);
+
 	char* p = buffer;
 	int leftSize = len;
 	if (leftSize < 40)
@@ -979,7 +973,7 @@ IndexNode* IndexNodeTypeTwo::changeType(BuildIndex* buildIndex, unsigned char bu
 	ret->setPreCmpLen(getPreCmpLen());
 	ret->setParentID(getParentId());
 	ret->setIndexId(getIndexId());
-	ret->setIsBig(getIsBig());
+	ret->setGridNum(getGridNum());
 
 	//遍历自己的孩子节点对每个节点放到新的map当中
 	for (auto& value : children)
@@ -1347,11 +1341,7 @@ bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 
 bool IndexNodeTypeThree::toObject(char* buffer, int len, unsigned char buildType)
 {
-	//存储的时候前面有加上类型还有存储的大小所以前面加3个字节
-	if ((len + 3) > 4 * 1024)
-	{
-		isBig = true;
-	}
+	gridNum = (unsigned char)((len + 2 + SIZE_PER_INDEX_FILE_GRID) / SIZE_PER_INDEX_FILE_GRID);
 	char* p = buffer;
 	int leftSize = len;
 	if (leftSize < 40)
@@ -1502,7 +1492,7 @@ IndexNode* IndexNodeTypeThree::changeType(BuildIndex* buildIndex, unsigned char 
 	ret->setPreCmpLen(getPreCmpLen());
 	ret->setParentID(getParentId());
 	ret->setIndexId(getIndexId());
-	ret->setIsBig(getIsBig());
+	ret->setGridNum(getGridNum());
 
 	//遍历自己的孩子节点对每个节点放到新的map当中
 	for (auto& value : children)
@@ -1871,11 +1861,8 @@ bool IndexNodeTypeFour::toBinary(char* buffer, int len)
 
 bool IndexNodeTypeFour::toObject(char* buffer, int len, unsigned char buildType)
 {
-	//存储的时候前面有加上类型还有存储的大小所以前面加3个字节
-	if ((len + 3) > 4 * 1024)
-	{
-		isBig = true;
-	}
+	gridNum = (unsigned char)((len + 2 + SIZE_PER_INDEX_FILE_GRID) / SIZE_PER_INDEX_FILE_GRID);
+
 	char* p = buffer;
 	int leftSize = len;
 	if (leftSize < 40)

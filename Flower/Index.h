@@ -26,8 +26,8 @@ public:
 	void clearCache();																		//清除缓存
 	unsigned char getUseType();																//获取使用方式
 	bool putIndexNode(IndexNode* indexNode);												//外部使用完了告诉说外部已经不再引用
-	unsigned long long acquireTwoNumber();													//获取两个连续的id
-	void recycleNumber(unsigned long long indexId);											//回收indexId
+	unsigned long long acquireNumber(unsigned char numCount);								//获取连续的几个数
+	void recycleNumber(unsigned long long indexId, unsigned char numCount);					//回收indexId
 	void setInitMaxUniqueNum(unsigned long long initMaxUniqueNum);							//设置生成器的初始值
 	~Index();																				//析构缓存
 private:
