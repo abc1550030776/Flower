@@ -2684,7 +2684,10 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 			leftNode->setIsModified(true);
 
 			//右边的节点完全融入了左边的节点所以右边的节点可以说是完全不存在删除
-			kvIndexFile.deleteIndexNode(rightNode->getIndexId());
+			if (!kvIndexFile.deleteIndexNode(rightNode->getIndexId()))
+			{
+				return false;
+			}
 
 			leftChildNode.setIndexId(leftNode->getIndexId());
 
