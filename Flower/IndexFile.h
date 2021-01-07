@@ -5,6 +5,9 @@
 #include <unordered_set>
 #include <vector>
 
+const char WRITE_FILE_CHECK_EVERY_ROOT = 0;
+const char WRITE_FILE_CHECK_NEW_ROOT = 1;
+
 class Index;
 class IndexNode;
 class IndexFile
@@ -15,7 +18,7 @@ public:
 
 	IndexNode* getIndexNode(unsigned long long indexId, unsigned char buildType = BUILD_TYPE_FILE);
 	IndexNode* getTempIndexNode(unsigned long long indexId);
-	bool writeFile(unsigned long long indexId, IndexNode* pIndexNode);
+	bool writeFile(unsigned long long indexId, IndexNode* pIndexNode, char writeFileType = WRITE_FILE_CHECK_EVERY_ROOT);
 	bool writeTempFile(unsigned long long indexId, IndexNode* pIndexNode);
 	bool reduceCache();
 	bool changePreCmpLen(unsigned long long indexId, unsigned long long orgPreCmpLen, unsigned long long newPreCmpLen);

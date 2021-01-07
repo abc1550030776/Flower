@@ -200,7 +200,7 @@ IndexNode* IndexFile::getTempIndexNode(unsigned long long indexId)
 }
 
 //把某个节点写入到文件当中
-bool IndexFile::writeFile(unsigned long long indexId, IndexNode* pIndexNode)
+bool IndexFile::writeFile(unsigned long long indexId, IndexNode* pIndexNode, char writeFileType)
 {
 	if (pIndexNode == nullptr)
 	{
@@ -298,6 +298,39 @@ bool IndexFile::writeFile(unsigned long long indexId, IndexNode* pIndexNode)
 			writeTempFile(indexIdVec[i], indexNodeVec[i]);
 		}
 
+		//写文件的时候改变了节点的id,可能改变的是根节点的id这个时候把根节点id也改掉
+		if (writeFileType == WRITE_FILE_CHECK_EVERY_ROOT)
+		{
+			if (rootIndexId == indexId)
+			{
+				rootIndexId = newIndexId;
+			}
+			else
+			{
+				if (!rootIndexIds.empty())
+				{
+					for (unsigned long i = 0; i < rootIndexIds.size(); ++i)
+					{
+						if (rootIndexIds[i] == indexId)
+						{
+							rootIndexIds[i] = newIndexId;
+							break;
+						}
+					}
+				}
+			}
+		}
+		else
+		{
+			//构建文件索引的时候把文件分成一块一块,构建完一块生成新的根节点先放到节点列表的最后面然后再写入所以最后那个节点是最新的
+			if (!rootIndexIds.empty())
+			{
+				if (rootIndexIds.back() == indexId)
+				{
+					rootIndexIds.back() = newIndexId;
+				}
+			}
+		}
 		//父节点还有所有的孩子节点的父节点id都改变了以后这个节点就是用新节点id了。
 		//创建了新的节点的id所以旧的节点的id就无效了放回去
 		pIndex->recycleNumber(indexId, pIndexNode->getGridNum());
@@ -558,7 +591,7 @@ bool IndexFile::writeCacheWithoutRootIndex()
 	//把所有需要减少的节点全部写盘
 	for (unsigned long i = 0; i < size; ++i)
 	{
-		if (!writeFile(indexIdVec[i], indexNodeVec[i]))
+		if (!writeFile(indexIdVec[i], indexNodeVec[i], WRITE_FILE_CHECK_NEW_ROOT))
 		{
 			return false;
 		}
