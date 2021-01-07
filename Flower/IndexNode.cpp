@@ -1187,6 +1187,16 @@ bool IndexNodeTypeTwo::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeTwo
 		auto it = children.find(child.first);
 		if (it == end(children))
 		{
+			//如果是普通的节点的话孩子节点换了一个父节点所以先改变节点的父节点
+			if (child.second.getType() == CHILD_TYPE_NODE)
+			{
+				IndexNode* indexNode = buildIndex->getIndexNode(child.second.getIndexId(), buildType);
+				if (indexNode == nullptr)
+				{
+					return false;
+				}
+				indexNode->setParentID(indexId);
+			}
 			//直接插入到孩子的map当中
 			children.insert({ child.first, child.second });
 		}
@@ -1706,6 +1716,16 @@ bool IndexNodeTypeThree::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeT
 		auto it = children.find(child.first);
 		if (it == end(children))
 		{
+			//如果是普通的节点的话孩子节点换了一个父节点所以先改变节点的父节点
+			if (child.second.getType() == CHILD_TYPE_NODE)
+			{
+				IndexNode* indexNode = buildIndex->getIndexNode(child.second.getIndexId(), buildType);
+				if (indexNode == nullptr)
+				{
+					return false;
+				}
+				indexNode->setParentID(indexId);
+			}
 			//直接插入到孩子的map当中
 			children.insert({ child.first, child.second });
 		}
@@ -2203,6 +2223,16 @@ bool IndexNodeTypeFour::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeFo
 		auto it = children.find(child.first);
 		if (it == end(children))
 		{
+			//如果是普通的节点的话孩子节点换了一个父节点所以先改变节点的父节点
+			if (child.second.getType() == CHILD_TYPE_NODE)
+			{
+				IndexNode* indexNode = buildIndex->getIndexNode(child.second.getIndexId(), buildType);
+				if (indexNode == nullptr)
+				{
+					return false;
+				}
+				indexNode->setParentID(indexId);
+			}
 			//直接插入到孩子的map当中
 			children.insert({ child.first, child.second });
 		}
