@@ -69,10 +69,33 @@ bool BuildIndex::cutNodeSize(unsigned long long indexId, IndexNode*& indexNode, 
 	{
 		return false;
 	}
-	//首先先判断节点的大小是否比预计的还要大
-	if (indexNode->getChildrenNum() <= 256)
+	//首先先判断节点的大小是否比预计的还要大,除开孩子结点的数据还有其他数据这里预留4k大小用于保存其他数据
+	switch (indexNode->getType())
 	{
+	case NODE_TYPE_ONE:
+		if (indexNode->getChildrenNum() <= ((MAX_SIZE_PER_INDEX_NODE - 4 * 1024) / 16))
+		{
+			return true;
+		}
+		break;
+	case NODE_TYPE_TWO:
+		if (indexNode->getChildrenNum() <= ((MAX_SIZE_PER_INDEX_NODE - 4 * 1024) / 12))
+		{
+			return true;
+		}
+		break;
+	case NODE_TYPE_THREE:
+		if (indexNode->getChildrenNum() <= ((MAX_SIZE_PER_INDEX_NODE - 4 * 1024) / 10))
+		{
+			return true;
+		}
+		break;
+	case NODE_TYPE_FOUR:
 		return true;
+		break;
+	default:
+		return false;
+		break;
 	}
 
 	//改变节点类型让节点的孩子结点的键小点这样孩子节点会少点

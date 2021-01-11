@@ -1,5 +1,5 @@
 {
-  "host_identifier": "1411615494",
+  "host_identifier": "-483961689",
   "predefines": {
     "cpp_compiler": "g++",
     "c_compiler": "g++",
@@ -512,7 +512,5 @@
     "char": 1
   },
   "wchar_t_type": "int",
-  "ptrdiff_t_type": "long",
-  "size_t_type": "unsigned long",
   "supports_x86_64": true
 }
