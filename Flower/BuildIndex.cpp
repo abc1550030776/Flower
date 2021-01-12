@@ -2906,9 +2906,9 @@ bool BuildIndex::addKV(unsigned long long key, unsigned long long value)
 
 bool BuildIndex::build(bool needBuildLineIndex, char delimiter)
 {
-	//判断需要多少个4k个字节的块才开始放第一个节点
-	//每2m个字节做为一块看看至少可以弄多少个根节点id
-	unsigned long rootIndexCount = (dstFileSize + 2 * 1024 * 1024 - 1) / (2 * 1024 * 1024);
+	//判断需要多少个索引文件的格子的块才开始放第一个节点
+	//每DST_SIZE_PER_ROOT个字节作为一块看看至少可以弄多少个根节点id
+	unsigned long rootIndexCount = (dstFileSize + DST_SIZE_PER_ROOT - 1) / DST_SIZE_PER_ROOT;
 	//算出这么多个根节点id还有前面的存储数量的东西要多少个4k块存储
 	unsigned long needBlock = ((rootIndexCount + 1) * 8 + SIZE_PER_INDEX_FILE_GRID - 1) / SIZE_PER_INDEX_FILE_GRID;
 	indexFile.setInitMaxUniqueNum(needBlock);
@@ -3001,7 +3001,7 @@ bool BuildIndex::build(bool needBuildLineIndex, char delimiter)
 			return false;
 		}
 
-		if (filePos % (2 * 1024 * 1024) == 0)
+		if (filePos % DST_SIZE_PER_ROOT == 0)
 		{
 			gettimeofday(&end, nullptr);
 			diff = 1000000 * (end.tv_sec - start.tv_sec) + end.tv_usec - start.tv_usec;
