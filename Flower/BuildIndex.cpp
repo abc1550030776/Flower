@@ -2879,6 +2879,10 @@ bool BuildIndex::addKV(unsigned long long key, unsigned long long value)
 
 	IndexNodeChild leftNodeChild(CHILD_TYPE_NODE, rootIndexId);
 	IndexNode* newIndexNode = kvIndexFile.newIndexNode(NODE_TYPE_ONE, 0);
+	if (newIndexNode == nullptr)
+	{
+		return false;
+	}
 	newIndexNode->setStart(0);
 	newIndexNode->setLen(0);
 	newIndexNode->setParentID(0);
