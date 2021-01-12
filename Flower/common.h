@@ -1,8 +1,8 @@
 #pragma once
 
-const unsigned short SIZE_PER_INDEX_FILE_GRID = 256;				//索引文件里面一个格子的大小、每个节点可能占用多个格子
+const unsigned short SIZE_PER_INDEX_FILE_GRID = 128;				//索引文件里面一个格子的大小、每个节点可能占用多个格子
 
-const unsigned short MAX_SIZE_PER_INDEX_NODE = 36 * 1024;			//每个索引节点在索引文件里面最多占用的大小
+const unsigned short MAX_SIZE_PER_INDEX_NODE = 20 * 1024;			//每个索引节点在索引文件里面最多占用的大小
 
 bool getIndexPath(const char* dstFilePath, char* indexPath);
 
