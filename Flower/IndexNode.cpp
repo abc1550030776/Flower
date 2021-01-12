@@ -313,7 +313,7 @@ bool IndexNodeTypeOne::toBinary(char* buffer, int len)
 		p += 2;
 		totalSize += 2;
 		leftSize -= 2;
-		char leafBuffer[256 * 16];
+		char leafBuffer[(MAX_SIZE_PER_INDEX_NODE - 4 * 1024) / 16 * 16];
 		unsigned short leafNum = 0;
 		for (auto& value : children)
 		{
@@ -739,7 +739,7 @@ bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 		p += 2;
 		totalSize += 2;
 		leftSize -= 2;
-		char leafBuffer[256 * 12];
+		char leafBuffer[(MAX_SIZE_PER_INDEX_NODE - 4 * 1024) / 12 * 12];
 		unsigned short leafNum = 0;
 		for (auto& value : children)
 		{
@@ -1269,7 +1269,7 @@ bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 		p += 2;
 		totalSize += 2;
 		leftSize -= 2;
-		char leafBuffer[256 * 10];
+		char leafBuffer[(MAX_SIZE_PER_INDEX_NODE - 4 * 1024) / 10 * 10];
 		unsigned short leafNum = 0;
 		for (auto& value : children)
 		{
