@@ -4,7 +4,7 @@ const unsigned short SIZE_PER_INDEX_FILE_GRID = 128;				//索引文件里面一�
 
 const unsigned short MAX_SIZE_PER_INDEX_NODE = 20 * 1024;			//每个索引节点在索引文件里面最多占用的大小
 
-const unsigned short DST_SIZE_PER_ROOT = 8 * 1024;					//多少个目标文件字节的数据构建一个一部分的根节点
+const unsigned int DST_SIZE_PER_ROOT = 8 * 1024 * 1024;					//多少个目标文件字节的数据构建一个一部分的根节点
 
 bool getIndexPath(const char* dstFilePath, char* indexPath);
 
