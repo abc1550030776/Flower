@@ -2903,7 +2903,10 @@ bool BuildIndex::addKV(unsigned long long key, unsigned long long value)
 	//添加完数据以后根节点可能发生改变所以要改变下根节点
 	kvIndexFile.setRootIndexId(leftNodeChild.getIndexId());
 
-	kvIndexFile.reduceCache();
+	if (!kvIndexFile.reduceCache())
+	{
+		return false;
+	}
 
 	return true;
 }

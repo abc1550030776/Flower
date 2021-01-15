@@ -20,6 +20,7 @@ public:
 	IndexNode* getTempIndexNode(unsigned long long indexId);
 	bool writeFile(unsigned long long indexId, IndexNode* pIndexNode, char writeFileType = WRITE_FILE_CHECK_EVERY_ROOT);
 	bool writeTempFile(unsigned long long indexId, IndexNode* pIndexNode);
+	bool writeEveryLaterWriteNodes();
 	bool reduceCache();
 	bool changePreCmpLen(unsigned long long indexId, unsigned long long orgPreCmpLen, unsigned long long newPreCmpLen);
 	bool swapNode(unsigned long long indexId, IndexNode* newNode);
@@ -41,4 +42,6 @@ private:
 	std::unordered_set<unsigned long long> tempIndexNodeId;
 	unsigned long long rootIndexId;
 	std::vector<unsigned long long> rootIndexIds;											//为了加快构建速度现在把一个文件分成一块一块每一块一个rootIndexId
+	std::unordered_set<unsigned long long> writeDiskIds;									//记录没有改变id就写入硬盘当中的节点id
+	std::unordered_set<IndexNode*> laterWriteNodes;											//记录稍后写入硬盘的节点
 };

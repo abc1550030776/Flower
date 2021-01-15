@@ -1106,7 +1106,10 @@ bool IndexNodeTypeTwo::insertChildNode(BuildIndex* buildIndex, unsigned long lon
 			childIndexNode->setParentID(indexId);
 			IndexNodeTypeTwo* pTmpNode = (IndexNodeTypeTwo*)childIndexNode;
 			unsigned char* kp = (unsigned char*)&key;
-			pTmpNode->insertChildNode(buildIndex, *(unsigned int*)(&kp[4]), indexNodeChild, BUILD_TYPE_KV);
+			if (!pTmpNode->insertChildNode(buildIndex, *(unsigned int*)(&kp[4]), indexNodeChild, BUILD_TYPE_KV))
+			{
+				return false;
+			}
 			childIndexNode->setIsModified(true);
 			newIndexNodeChild.setChildType(CHILD_TYPE_NODE);
 			newIndexNodeChild.setIndexId(childIndexNode->getIndexId());
@@ -1635,7 +1638,10 @@ bool IndexNodeTypeThree::insertChildNode(BuildIndex* buildIndex, unsigned int ke
 			childIndexNode->setParentID(indexId);
 			IndexNodeTypeThree* pTmpNode = (IndexNodeTypeThree*)childIndexNode;
 			unsigned char* kp = (unsigned char*)&key;
-			pTmpNode->insertChildNode(buildIndex, *(unsigned short*)(&kp[2]), indexNodeChild, BUILD_TYPE_KV);
+			if (!pTmpNode->insertChildNode(buildIndex, *(unsigned short*)(&kp[2]), indexNodeChild, BUILD_TYPE_KV))
+			{
+				return false;
+			}
 			childIndexNode->setIsModified(true);
 			newIndexNodeChild.setChildType(CHILD_TYPE_NODE);
 			newIndexNodeChild.setIndexId(childIndexNode->getIndexId());
@@ -2142,7 +2148,10 @@ bool IndexNodeTypeFour::insertChildNode(BuildIndex* buildIndex, unsigned short k
 			childIndexNode->setParentID(indexId);
 			IndexNodeTypeFour* pTmpNode = (IndexNodeTypeFour*)childIndexNode;
 			unsigned char* kp = (unsigned char*)&key;
-			pTmpNode->insertChildNode(buildIndex, *(unsigned char*)(&kp[1]), indexNodeChild, BUILD_TYPE_KV);
+			if (!pTmpNode->insertChildNode(buildIndex, *(unsigned char*)(&kp[1]), indexNodeChild, BUILD_TYPE_KV))
+			{
+				return false;
+			}
 			childIndexNode->setIsModified(true);
 			newIndexNodeChild.setChildType(CHILD_TYPE_NODE);
 			newIndexNodeChild.setIndexId(childIndexNode->getIndexId());

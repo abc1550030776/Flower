@@ -337,18 +337,28 @@ bool IndexFile::writeFile(unsigned long long indexId, IndexNode* pIndexNode, cha
 		indexId = newIndexId;
 		pIndexNode->setIndexId(indexId);
 	}
-	else if ((len + 3) <= ((pIndexNode->getGridNum() - 1) * SIZE_PER_INDEX_FILE_GRID))
+	else
 	{
-		//写入的时候发现只需要更小的存储空间就够了,但是从硬盘里面读出来的时候是超过当前的大小,大于原本大小的部分已经不需要了把一个id回收
-		unsigned char newGridNum = (unsigned char)((len + 2 + SIZE_PER_INDEX_FILE_GRID) / SIZE_PER_INDEX_FILE_GRID);
-		pIndex->recycleNumber(indexId + newGridNum, (unsigned char)(pIndexNode->getGridNum() - newGridNum));
+		//不改变indexid写盘记录到已经写入硬盘的记录里面
+		writeDiskIds.insert(indexId);
+		if ((len + 3) <= ((pIndexNode->getGridNum() - 1) * SIZE_PER_INDEX_FILE_GRID))
+		{
+			//写入的时候发现只需要更小的存储空间就够了,但是从硬盘里面读出来的时候是超过当前的大小,大于原本大小的部分已经不需要了把一个id回收
+			unsigned char newGridNum = (unsigned char)((len + 2 + SIZE_PER_INDEX_FILE_GRID) / SIZE_PER_INDEX_FILE_GRID);
+			pIndex->recycleNumber(indexId + newGridNum, (unsigned char)(pIndexNode->getGridNum() - newGridNum));
+			pIndexNode->setGridNum(newGridNum);
+		}
 	}
 
 	//把这个节点的数据写进磁盘里面
 	*((unsigned char*)buffer) = pIndexNode->getType();
 	fpos_t pos;
 	pos.__pos = indexId * SIZE_PER_INDEX_FILE_GRID;
-	indexFile.write(pos, buffer, len + 3);
+	if (!indexFile.write(pos, buffer, len + 3))
+	{
+		free(buffer);
+		return false;
+	}
 
 	free(buffer);
 	return true;
@@ -364,6 +374,11 @@ bool IndexFile::writeTempFile(unsigned long long indexId, IndexNode* pIndexNode)
 	auto it = tempIndexNodeId.find(indexId);
 	if (it != end(tempIndexNodeId))
 	{
+		//之前已经写入硬盘的后面会直接从缓存删除现在又有修改所以记录下来在后面一次性写入
+		if (writeDiskIds.count(indexId) == 1)
+		{
+			laterWriteNodes.insert(pIndexNode);
+		}
 		pIndexNode->setIsModified(true);
 		tempIndexNodeId.erase(it);
 		return true;
@@ -387,11 +402,32 @@ bool IndexFile::writeTempFile(unsigned long long indexId, IndexNode* pIndexNode)
 	short len = *((short*)p);
 	fpos_t pos;
 	pos.__pos = indexId * SIZE_PER_INDEX_FILE_GRID;
-	indexFile.write(pos, buffer, len + 3);
+	if (!indexFile.write(pos, buffer, len + 3))
+	{
+		free(buffer);
+		delete pIndexNode;
+		return false;
+	}
 	
 	//写入完成了以后堆内存进行释放
 	free(buffer);
 	delete pIndexNode;
+	return true;
+}
+
+bool IndexFile::writeEveryLaterWriteNodes()
+{
+	for (auto& value : laterWriteNodes)
+	{
+		if (!writeFile(value->getIndexId(), value))
+		{
+			return false;
+		}
+	}
+
+	//所有的后来写入的节点都已经写入后清空两个辅助的容器
+	writeDiskIds.clear();
+	laterWriteNodes.clear();
 	return true;
 }
 
@@ -413,7 +449,7 @@ bool IndexFile::reduceCache()
 	}
 	else
 	{
-		if (getAvailableMemRate() >= 0.5)
+		if (getAvailableMemRate() >= 0.4)
 		{
 			return true;
 		}
@@ -438,6 +474,12 @@ bool IndexFile::reduceCache()
 			{
 				return false;
 			}
+		}
+
+		//前面写入文件后有些修改了id的改变了其他的也要写盘的节点这些后来还要继续写盘才能删除
+		if (!writeEveryLaterWriteNodes())
+		{
+			return false;
 		}
 
 		//减少索引里面的相应数量的数据
@@ -542,6 +584,11 @@ bool IndexFile::writeEveryCache()																	//把缓存当中的数据全�
 		}
 	}
 
+	if (!writeEveryLaterWriteNodes())
+	{
+		return false;
+	}
+
 	pIndex->clearCache();
 
 	//把根节点的id写入到文件开头
@@ -595,6 +642,11 @@ bool IndexFile::writeCacheWithoutRootIndex()
 		{
 			return false;
 		}
+	}
+
+	if (!writeEveryLaterWriteNodes())
+	{
+		return false;
 	}
 
 	pIndex->clearCache();
