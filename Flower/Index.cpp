@@ -17,17 +17,15 @@ Index::Index(unsigned char useType)
 
 IndexNode* Index::getIndexNode(unsigned long long indexId)
 {
-	acquireSRWLockShared(&rwLock);
+	ShareLock lock(&rwLock);
 	auto it = indexNodeCache.find(indexId);
 	if (it == end(indexNodeCache))
 	{
-		releaseSRWLockShared(&rwLock);
 		return nullptr;
 	}
 
 	IndexNode* ret = it->second;
 	ret->increaseRef();
-	releaseSRWLockShared(&rwLock);
 	return ret;
 }
 
@@ -38,7 +36,7 @@ bool Index::insert(unsigned long long indexId, IndexNode*& pIndexNode)
 		return false;
 	}
 
-	acquireSRWLockExclusive(&rwLock);
+	UniqueLock lock(&rwLock);
 	auto pair = indexNodeCache.insert({ indexId, pIndexNode });
 	if (!pair.second)
 	{
@@ -48,17 +46,14 @@ bool Index::insert(unsigned long long indexId, IndexNode*& pIndexNode)
 			delete pIndexNode;
 			pIndexNode = pair.first->second;
 			pIndexNode->increaseRef();
-			releaseSRWLockExclusive(&rwLock);
 			return true;
 		}
-		releaseSRWLockExclusive(&rwLock);
 		return false;
 	}
 
 	//添加了索引缓存的同时也要添加优先级缓存
 	IndexIdPreority.insert({ pIndexNode->getPreCmpLen(), indexId });
 	pIndexNode->increaseRef();
-	releaseSRWLockExclusive(&rwLock);
 	return true;
 }
 
@@ -120,7 +115,8 @@ bool Index::reduceCache()
 	{
 		return true;
 	}
-	acquireSRWLockExclusive(&rwLock);
+
+	UniqueLock lock(&rwLock);
 
 	unsigned long needReduceNum = indexNodeCache.size() / 5;
 	auto it = end(IndexIdPreority);
@@ -131,7 +127,6 @@ bool Index::reduceCache()
 		auto cacheIt = indexNodeCache.find(curIt->second);
 		if (cacheIt == end(indexNodeCache))
 		{
-			releaseSRWLockExclusive(&rwLock);
 			return false;
 		}
 
@@ -143,7 +138,6 @@ bool Index::reduceCache()
 		indexNodeCache.erase(cacheIt);
 		IndexIdPreority.erase(curIt);
 	}
-	releaseSRWLockExclusive(&rwLock);
 	return true;
 }
 
@@ -299,7 +293,8 @@ bool Index::putIndexNode(IndexNode* indexNode)
 	{
 		return false;
 	}
-	acquireSRWLockShared(&rwLock);
+
+	ShareLock lock(&rwLock);
 	if (indexNode->decreaseAndTestZero())
 	{
 		//已经没有缓存或者是缓存清除从新添加了新的节点就删除
@@ -309,7 +304,6 @@ bool Index::putIndexNode(IndexNode* indexNode)
 			delete indexNode;
 		}
 	}
-	releaseSRWLockShared(&rwLock);
 	return true;
 }
 

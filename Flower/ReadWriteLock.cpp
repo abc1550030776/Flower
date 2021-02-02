@@ -82,7 +82,7 @@ static void releaseWaitBlockLockExclusiveImpl(PRTL_SRWLOCK SRWLock, PLINUX_SRWLO
 	(void)__sync_lock_test_and_set((unsigned long volatile*)& SRWLock->Ptr, (unsigned long)NewValue);
 
 	if (FirstWaitBlock->Exclusive) {
-		(void)__sync_fetch_and_or(&FirstWaitBlock->Wake, 1);
+		(void)__sync_fetch_and_or((long volatile*)&FirstWaitBlock->Wake, 1);
 	}
 	else {
 		PLINUX_SRWLOCK_SHARED_WAKE WakeChain, NextWake;
@@ -93,7 +93,7 @@ static void releaseWaitBlockLockExclusiveImpl(PRTL_SRWLOCK SRWLock, PLINUX_SRWLO
 		do {
 			NextWake = WakeChain->Next;
 
-			(void)__sync_fetch_and_or((long*)& WakeChain->Wake, 1);
+			(void)__sync_fetch_and_or((long volatile*)& WakeChain->Wake, 1);
 
 			WakeChain = NextWake;
 		} while (WakeChain != NULL);
@@ -125,36 +125,35 @@ static inline void releaseWaitBlockLockLastSharedImpl(PRTL_SRWLOCK SRWLock, PLIN
 
 	(void)__sync_lock_test_and_set((unsigned long volatile*)& SRWLock->Ptr, (unsigned long)NewValue);
 
-	(void)__sync_fetch_and_or(&FirstWaitBlock->Wake, 1);
+	(void)__sync_fetch_and_or((long volatile*)&FirstWaitBlock->Wake, 1);
 }
 
 static inline void releaseWaitBlockLockImpl(PRTL_SRWLOCK SRWLock)
 {
-	__sync_fetch_and_and((volatile unsigned long*)& SRWLock->Ptr, ~LINUX_SRWLOCK_CONTENTION_LOCK);
+	__sync_fetch_and_and((volatile unsigned long*)& SRWLock->Ptr, ~((unsigned long)LINUX_SRWLOCK_CONTENTION_LOCK));
 }
 
 static inline PLINUX_SRWLOCK_WAITBLOCK acquireWaitBlockLockImpl(PRTL_SRWLOCK SRWLock)
 {
-	unsigned long PrevValue;
+	unsigned long CurrentValue;
 	PLINUX_SRWLOCK_WAITBLOCK WaitBlock;
 
 	while (1) {
-		PrevValue = __sync_fetch_and_or((volatile unsigned long*)& SRWLock->Ptr, LINUX_SRWLOCK_CONTENTION_LOCK);
-
-		if (!(PrevValue & LINUX_SRWLOCK_CONTENTION_LOCK))
+		CurrentValue = *(volatile unsigned long*)&SRWLock->Ptr;
+		if (!(CurrentValue & LINUX_SRWLOCK_CONTENDED) || (CurrentValue & ~((unsigned long)LINUX_SRWLOCK_MASK)) == 0)
+		{
+			WaitBlock = NULL;
 			break;
+		}
+
+		if ((CurrentValue & LINUX_SRWLOCK_CONTENTION_LOCK) == 0 && __sync_bool_compare_and_swap((unsigned long volatile*)&SRWLock->Ptr, (unsigned long)CurrentValue, (unsigned long)CurrentValue | LINUX_SRWLOCK_CONTENTION_LOCK))
+		{
+			WaitBlock = (PLINUX_SRWLOCK_WAITBLOCK)(CurrentValue & ~((unsigned long)LINUX_SRWLOCK_MASK));
+			break;
+		}
 
 		pthread_yield();
 	}
-
-	if (!(PrevValue & LINUX_SRWLOCK_CONTENDED) || (PrevValue & ~LINUX_SRWLOCK_MASK) == 0) {
-		/* Too bad, looks like the wait block was removed in the
-		meanwhile, unlock again */
-		releaseWaitBlockLockImpl(SRWLock);
-		return NULL;
-	}
-
-	WaitBlock = (PLINUX_SRWLOCK_WAITBLOCK)(PrevValue & ~LINUX_SRWLOCK_MASK);
 
 	return WaitBlock;
 }
@@ -166,17 +165,9 @@ static inline void acquireSRWLockExclusiveWaitImpl(PRTL_SRWLOCK SRWLock, PLINUX_
 	while (1) {
 		CurrentValue = *(volatile unsigned long*)& SRWLock->Ptr;
 		if (!(CurrentValue & LINUX_SRWLOCK_SHARED)) {
-			if (CurrentValue & LINUX_SRWLOCK_CONTENDED) {
-				if (WaitBlock->Wake != 0) {
-					/* Our wait block became the first one
-					in the chain, we own the lock now! */
-					break;
-				}
-			}
-			else {
-				/* The last wait block was removed and/or we're
-				finally a simple exclusive lock. This means we
-				don't need to wait anymore, we acquired the lock! */
+			if (WaitBlock->Wake != 0) {
+				/* Our wait block became the first one
+				in the chain, we own the lock now! */
 				break;
 			}
 		}
@@ -187,38 +178,8 @@ static inline void acquireSRWLockExclusiveWaitImpl(PRTL_SRWLOCK SRWLock, PLINUX_
 
 static inline void acquireSRWLockSharedWaitImpl(PRTL_SRWLOCK SRWLock, PLINUX_SRWLOCK_WAITBLOCK FirstWait, PLINUX_SRWLOCK_SHARED_WAKE WakeChain)
 {
-	if (FirstWait != NULL) {
-		while (WakeChain->Wake == 0) {
-			pthread_yield();
-		}
-	}
-	else {
-		unsigned long CurrentValue;
-
-		while (1) {
-			CurrentValue = *(volatile unsigned long*)& SRWLock->Ptr;
-			if (CurrentValue & LINUX_SRWLOCK_SHARED) {
-				/* The LINUX_SRWLOCK_OWNED bit always needs to be set when
-				LINUX_SRWLOCK_SHARED is set! */
-				assert(CurrentValue & LINUX_SRWLOCK_OWNED);
-
-				if (CurrentValue & LINUX_SRWLOCK_CONTENDED) {
-					if (WakeChain->Wake != 0) {
-						/* Our wait block became the first one
-						in the chain, we own the lock now! */
-						break;
-					}
-				}
-				else {
-					/* The last wait block was removed and/or we're
-					finally a simple shared lock. This means we
-					don't need to wait anymore, we acquired the lock! */
-					break;
-				}
-			}
-
-			pthread_yield();
-		}
+	while (WakeChain->Wake == 0) {
+		pthread_yield();
 	}
 }
 
@@ -584,7 +545,7 @@ void releaseSRWLockExclusive(PRTL_SRWLOCK SRWLock)
 				bit. All other bits should be 0 now because this is a simple
 				exclusive lock and no one is waiting. */
 
-				assert(!(CurrentValue & ~LINUX_SRWLOCK_OWNED));
+				assert(!(CurrentValue & ~((unsigned long)LINUX_SRWLOCK_OWNED)));
 
 				NewValue = 0;
 				if (__sync_bool_compare_and_swap((unsigned long volatile*)& SRWLock->Ptr, (unsigned long)CurrentValue, (unsigned long)NewValue)) {
@@ -602,4 +563,26 @@ void releaseSRWLockExclusive(PRTL_SRWLOCK SRWLock)
 
 		pthread_yield();
 	}
+}
+
+UniqueLock::UniqueLock(PRTL_SRWLOCK SRWLock)
+{
+	acquireSRWLockExclusive(SRWLock);
+	this->SRWLock = SRWLock;
+}
+
+UniqueLock::~UniqueLock()
+{
+	releaseSRWLockExclusive(SRWLock);
+}
+
+ShareLock::ShareLock(PRTL_SRWLOCK SRWLock)
+{
+	acquireSRWLockShared(SRWLock);
+	this->SRWLock = SRWLock;
+}
+
+ShareLock::~ShareLock()
+{
+	releaseSRWLockShared(SRWLock);
 }

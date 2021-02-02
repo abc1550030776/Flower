@@ -34,7 +34,7 @@ private:
 	unsigned char useType;																	//使用的方式如果是用于查询的时候是多线程的
 	std::unordered_map<unsigned long long, IndexNode*> indexNodeCache;						//这里保存一部分的索引节点缓存这样可以加快速度
 	std::multimap<unsigned long long, unsigned long long> IndexIdPreority;					//这里保存索引的优先级key是索引的前面已经比较过的大小,越小优先级越大
-	RTL_SRWLOCK rwLock;																		//缓存在搜索模式下会被多个线程使用到加个读写锁
+	RTL_SRWLOCK  rwLock;																	//缓存在搜索模式下会被多个线程使用到加个读写锁
 	UniqueGenerator generator;																//唯一id生成器
 };
 
