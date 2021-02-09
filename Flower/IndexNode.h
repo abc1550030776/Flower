@@ -21,6 +21,7 @@ const unsigned char BUILD_TYPE_FILE = 0;
 const unsigned char BUILD_TYPE_KV = 1;
 
 class BuildIndex;
+class Myfile;
 class IndexNode
 {
 public:
@@ -53,7 +54,7 @@ public:
 	bool isZeroRef();													//判断是否是没有任何索引
 	bool decreaseAndTestZero();											//减少索引并判断是否是0
 	bool  getFirstLeafSet(unsigned long long* firstLeaf);	//获得最长的叶子节点
-	void addLeafPosToResult(unsigned long long leastEndPos, unsigned char skipCharNum, unsigned long long fileSize, SetWithLock& result);
+	bool addLeafPosToResult(unsigned long long leastEndPos, unsigned char skipCharNum, unsigned long long fileSize, SetWithLock& result, Myfile& dstFile, const char* searchTarget, unsigned int targetLen);
 	unsigned long long getPartOfKey();
 	void setPartOfKey(unsigned long long partOfKey);
 	void swiftPartOfKey(unsigned long long byte);

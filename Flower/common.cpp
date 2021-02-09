@@ -2,6 +2,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include "Myfile.h"
+#include "SetWithLock.h"
 
 bool getIndexPath(const char* dstFilePath, char* indexPath)
 {
@@ -106,5 +108,67 @@ bool FlwPrintf(const char* fileName, const char* format, ...)
 	}
 	va_end(valist);
 	fclose(fd);
+	return true;
+}
+
+bool AddFindPos(SetWithLock* resultSet, unsigned long long pos, char skipNum, Myfile& dstFile, const char* searchTarget, unsigned int targetLen)
+{
+	if (resultSet == nullptr)
+	{
+		return false;
+	}
+
+	if (searchTarget == nullptr)
+	{
+		return false;
+	}
+	//判断跳过的字节是否是负的来判断是否需要比较前面的几个字节
+	if (skipNum < 0)
+	{
+		//有可能是最开头的匹配后面的那段这个结果跳过不加入
+		if (pos == 0)
+		{
+			return true;
+		}
+
+		char absSkipNum = -skipNum;
+		if (pos < absSkipNum)
+		{
+			return false;
+		}
+		if (absSkipNum >= 8)
+		{
+			return false;
+		}
+		if (absSkipNum > targetLen)
+		{
+			return false;
+		}
+		unsigned long long possiblePos = pos - absSkipNum;
+		//从文件当中读取前面还没比较的部分比较全部相等了才算是找到
+		unsigned char buffer[8];
+		fpos_t filePos;
+		filePos.__pos = possiblePos;
+		if (!dstFile.read(filePos, buffer, absSkipNum))
+		{
+			return false;
+		}
+
+		for (char i = 0; i < absSkipNum; ++i)
+		{
+			if (buffer[i] != searchTarget[i])
+			{
+				return true;
+			}
+		}
+
+		//这部分都一样的话就是全部一样了找到了一个位置
+		resultSet->insert(possiblePos);
+	}
+	else
+	{
+		//找到的位置是跳过一部分以后再开始比较的所以已经匹配到结果直接加入就行了
+		resultSet->insert(pos + skipNum);
+	}
 	return true;
 }

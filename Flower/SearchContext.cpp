@@ -115,12 +115,12 @@ private:
 	{
 		SearchIndex searchIndex[8];
 		pthread_t pids[8];
-		for (unsigned char i = 0; i < sizeof(pids) / sizeof(pids[0]); ++i)
+		for (char i = 0; i < sizeof(pids) / sizeof(pids[0]); ++i)
 		{
 			searchIndex[i].init(searchTarget, targetLen, resultSet, dstFileName, index, i, order);
 			if (pthread_create(&pids[i], NULL, ThreadFun, &searchIndex[i]) != 0)
 			{
-				for (unsigned int j = 0; j < i; ++j)
+				for (char j = 0; j < i; ++j)
 				{
 					pthread_join(pids[j], NULL);
 				}
@@ -229,12 +229,12 @@ private:
 	{
 		SearchIndex searchIndex[8];
 		pthread_t pids[8];
-		for (unsigned char i = 0; i < sizeof(pids) / sizeof(pids[0]); ++i)
+		for (char i = 0; i < sizeof(pids) / sizeof(pids[0]); ++i)
 		{
 			searchIndex[i].init(searchTarget, targetLen, resultSet, dstFileName, index, i, order);
 			if (pthread_create(&pids[i], NULL, ThreadFun, &searchIndex[i]) != 0)
 			{
-				for (unsigned int j = 0; j < i; ++j)
+				for (char j = 0; j < i; ++j)
 				{
 					pthread_join(pids[j], NULL);
 				}

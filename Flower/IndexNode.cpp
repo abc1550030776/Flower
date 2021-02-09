@@ -206,19 +206,23 @@ bool  IndexNode::getFirstLeafSet(unsigned long long* firstLeaf)
 	return true;
 }
 
-void IndexNode::addLeafPosToResult(unsigned long long leastEndPos, unsigned char skipCharNum, unsigned long long fileSize, SetWithLock& result)
+bool IndexNode::addLeafPosToResult(unsigned long long leastEndPos, unsigned char skipCharNum, unsigned long long fileSize, SetWithLock& result, Myfile& dstFile, const char* searchTarget, unsigned int targetLen)
 {
 	for (auto& leaf : leafSet)
 	{
 		if (fileSize - leaf - preCmpLen >= leastEndPos)
 		{
-			result.insert(leaf + skipCharNum);
+			if (!AddFindPos(&result, leaf, skipCharNum, dstFile, searchTarget, targetLen))
+			{
+				return false;
+			}
 		}
 		else
 		{
 			break;
 		}
 	}
+	return true;
 }
 
 unsigned long long IndexNode::getPartOfKey()

@@ -14,7 +14,7 @@ SearchIndex::SearchIndex()
 	rootIndexId = 0;
 }
 
-bool SearchIndex::init(const char* searchTarget, unsigned int targetLen, SetWithLock* resultSet, const char* fileName, Index* index, unsigned char skipCharNum, unsigned long rootOrder)
+bool SearchIndex::init(const char* searchTarget, unsigned int targetLen, SetWithLock* resultSet, const char* fileName, Index* index, char skipCharNum, unsigned long rootOrder)
 {
 	if (index == nullptr)
 	{
@@ -80,7 +80,7 @@ public:
 	{
 		memset(this, 0, sizeof(*this));
 	}
-	void setSkipNum(unsigned char skipNum)
+	void setSkipNum(char skipNum)
 	{
 		this->skipNum = skipNum;
 	}
@@ -100,7 +100,7 @@ public:
 		return indexId;
 	}
 private:
-	unsigned char skipNum;
+	char skipNum;
 	unsigned long long indexId;
 };
 
@@ -165,139 +165,167 @@ bool SearchIndex::search()
 	std::deque<SkipStruct> skipQue;
 	std::deque<SearchTask> searchTaskQue;
 	std::deque<unsigned long long> indexIdQue;
-	skipQue.emplace_back();
-	SkipStruct& skipStruct = skipQue.back();
-	skipStruct.setSkipNum(skipCharNum);
-	skipStruct.setIndexId(rootIndexId);
-	for (; !skipQue.empty(); skipQue.pop_front())
+	char skipCharNum = this->skipCharNum;
+	//判断是否是可以先比较后面的如果可以就采用比较后面的方案否则就跳过前面几个字节
+	if (skipCharNum != 0)
 	{
-		SkipStruct& skipStruct = skipQue.front();
-
-		//获取节点
-		IndexNode* pNode = indexFile.getIndexNode(skipStruct.getIndexId());
-		if (pNode == nullptr)
+		if (skipCharNum + targetLen > 8)
 		{
-			return false;
+			skipCharNum = char(skipCharNum - 8);
 		}
+	}
 
-		//这里分几种情况
-		if (skipStruct.getSkipNum() < pNode->getLen())
+	//判断是否是先比较后面的那部分的还是跳过一部分的
+	if (skipCharNum < 0)
+	{
+		//先比较后面的直接建立一个搜索节点往下搜索就行了
+		searchTaskQue.emplace_back();
+		SearchTask& searchTask = searchTaskQue.back();
+		searchTask.setIndexIdOrStartPos(CHILD_TYPE_NODE);
+		searchTask.setSkipSize(0);
+		searchTask.setIndexId(rootIndexId);
+		searchTask.setTargetStart(-skipCharNum);
+	}
+	else
+	{
+		//这个时候就跳过一定的字节数后看看有多少个个搜索节点
+		skipQue.emplace_back();
+		SkipStruct& skipStruct = skipQue.back();
+		skipStruct.setSkipNum(skipCharNum);
+		skipStruct.setIndexId(rootIndexId);
+		for (; !skipQue.empty(); skipQue.pop_front())
 		{
-			searchTaskQue.emplace_back();
-			SearchTask& searchTask = searchTaskQue.back();
-			searchTask.setIndexIdOrStartPos(CHILD_TYPE_NODE);
-			searchTask.setSkipSize(skipStruct.getSkipNum());
-			searchTask.setIndexId(skipStruct.getIndexId());
-			searchTask.setTargetStart(0);
-		}
-		else
-		{
-			switch (pNode->getType())
+			SkipStruct& skipStruct = skipQue.front();
+
+			//获取节点
+			IndexNode* pNode = indexFile.getIndexNode(skipStruct.getIndexId());
+			if (pNode == nullptr)
 			{
-			case NODE_TYPE_ONE:
+				return false;
+			}
+
+			//这里分几种情况
+			if (skipStruct.getSkipNum() < pNode->getLen())
 			{
-				if (skipStruct.getSkipNum() < pNode->getLen() + 8)
+				searchTaskQue.emplace_back();
+				SearchTask& searchTask = searchTaskQue.back();
+				searchTask.setIndexIdOrStartPos(CHILD_TYPE_NODE);
+				searchTask.setSkipSize(skipStruct.getSkipNum());
+				searchTask.setIndexId(skipStruct.getIndexId());
+				searchTask.setTargetStart(0);
+			}
+			else
+			{
+				switch (pNode->getType())
 				{
-					unsigned long long subSkipNum = skipStruct.getSkipNum() - pNode->getLen();
-					IndexNodeTypeOne* pTmpNode = (IndexNodeTypeOne*)pNode;
-					std::unordered_map<unsigned long long, IndexNodeChild>& children = pTmpNode->getChildren();
-					//这里分两种情况
-					if (subSkipNum + targetLen <= 8)
+				case NODE_TYPE_ONE:
+				{
+					if (skipStruct.getSkipNum() < pNode->getLen() + 8)
 					{
-						for (auto& child : children)
+						unsigned long long subSkipNum = skipStruct.getSkipNum() - pNode->getLen();
+						IndexNodeTypeOne* pTmpNode = (IndexNodeTypeOne*)pNode;
+						std::unordered_map<unsigned long long, IndexNodeChild>& children = pTmpNode->getChildren();
+						//这里分两种情况
+						if (subSkipNum + targetLen <= 8)
 						{
-							const unsigned char* p = (const unsigned char*)& child.first;
-							unsigned long long i = 0;
-							for (; i < targetLen; ++i)
+							for (auto& child : children)
 							{
-								if (p[subSkipNum + i] != searchTarget[i])
+								const unsigned char* p = (const unsigned char*)&child.first;
+								unsigned long long i = 0;
+								for (; i < targetLen; ++i)
 								{
-									break;
+									if (p[subSkipNum + i] != searchTarget[i])
+									{
+										break;
+									}
+								}
+
+								if (i == targetLen)
+								{
+									if (child.second.getType() == CHILD_TYPE_LEAF)
+									{
+										if (!AddFindPos(resultSet, child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 8, skipCharNum, dstFile, searchTarget, targetLen))
+										{
+											indexFile.putIndexNode(pNode);
+											return false;
+										}
+									}
+									else
+									{
+										indexIdQue.push_back(child.second.getIndexId());
+									}
 								}
 							}
-
-							if (i == targetLen)
+						}
+						else
+						{
+							for (auto& child : children)
 							{
-								if (child.second.getType() == CHILD_TYPE_LEAF)
+								const unsigned char* p = (const unsigned char*)&child.first;
+								unsigned long long i = 0;
+								unsigned long long remainSize = 8 - subSkipNum;
+								for (; i < remainSize; ++i)
 								{
-									resultSet->insert(child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 8 + skipCharNum);
+									if (p[subSkipNum + i] != searchTarget[i])
+									{
+										break;
+									}
 								}
-								else
+
+								if (i == remainSize)
 								{
-									indexIdQue.push_back(child.second.getIndexId());
+									if (child.second.getType() == CHILD_TYPE_LEAF)
+									{
+										searchTaskQue.emplace_back();
+										SearchTask& searchTask = searchTaskQue.back();
+										searchTask.setIndexIdOrStartPos(CHILD_TYPE_LEAF);
+										searchTask.setSkipSize(pNode->getPreCmpLen() + pNode->getLen() + 8);
+										searchTask.setIndexId(child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 8);
+										searchTask.setTargetStart((unsigned int)remainSize);
+									}
+									else
+									{
+										searchTaskQue.emplace_back();
+										SearchTask& searchTask = searchTaskQue.back();
+										searchTask.setIndexIdOrStartPos(CHILD_TYPE_NODE);
+										searchTask.setSkipSize(0);
+										searchTask.setIndexId(child.second.getIndexId());
+										searchTask.setTargetStart((unsigned int)remainSize);
+									}
 								}
 							}
 						}
 					}
 					else
 					{
+						IndexNodeTypeOne* pTmpNode = (IndexNodeTypeOne*)pNode;
+						std::unordered_map<unsigned long long, IndexNodeChild>& children = pTmpNode->getChildren();
 						for (auto& child : children)
 						{
-							const unsigned char* p = (const unsigned char*)& child.first;
-							unsigned long long i = 0;
-							unsigned long long remainSize = 8 - subSkipNum;
-							for (; i < remainSize; ++i)
+							if (child.second.getType() == CHILD_TYPE_LEAF)
 							{
-								if (p[subSkipNum + i] != searchTarget[i])
-								{
-									break;
-								}
-							}
-
-							if (i == remainSize)
-							{
-								if (child.second.getType() == CHILD_TYPE_LEAF)
+								unsigned long long filePos = child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 8;
+								unsigned long long leafLen = dstFileSize - filePos;
+								if (leafLen >= pNode->getPreCmpLen() + skipStruct.getSkipNum() + targetLen)
 								{
 									searchTaskQue.emplace_back();
 									SearchTask& searchTask = searchTaskQue.back();
 									searchTask.setIndexIdOrStartPos(CHILD_TYPE_LEAF);
-									searchTask.setSkipSize(pNode->getPreCmpLen() + pNode->getLen() + 8);
-									searchTask.setIndexId(child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 8);
-									searchTask.setTargetStart((unsigned int)remainSize);
-								}
-								else
-								{
-									searchTaskQue.emplace_back();
-									SearchTask& searchTask = searchTaskQue.back();
-									searchTask.setIndexIdOrStartPos(CHILD_TYPE_NODE);
-									searchTask.setSkipSize(0);
-									searchTask.setIndexId(child.second.getIndexId());
-									searchTask.setTargetStart((unsigned int)remainSize);
+									searchTask.setSkipSize(pNode->getPreCmpLen() + skipStruct.getSkipNum());
+									searchTask.setIndexId(filePos);
+									searchTask.setTargetStart(0);
 								}
 							}
-						}
-					}
-				}
-				else
-				{
-					IndexNodeTypeOne* pTmpNode = (IndexNodeTypeOne*)pNode;
-					std::unordered_map<unsigned long long, IndexNodeChild>& children = pTmpNode->getChildren();
-					for (auto& child : children)
-					{
-						if (child.second.getType() == CHILD_TYPE_LEAF)
-						{
-							unsigned long long filePos = child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 8;
-							unsigned long long leafLen = dstFileSize - filePos;
-							if (leafLen >= pNode->getPreCmpLen() + skipStruct.getSkipNum() + targetLen)
+							else
 							{
-								searchTaskQue.emplace_back();
-								SearchTask& searchTask = searchTaskQue.back();
-								searchTask.setIndexIdOrStartPos(CHILD_TYPE_LEAF);
-								searchTask.setSkipSize(pNode->getPreCmpLen() + skipStruct.getSkipNum());
-								searchTask.setIndexId(filePos);
-								searchTask.setTargetStart(0);
+								skipQue.emplace_back();
+								SkipStruct& tmpSkipStruct = skipQue.back();
+								tmpSkipStruct.setSkipNum((unsigned char)(skipStruct.getSkipNum() - pNode->getLen() - 8));
+								tmpSkipStruct.setIndexId(child.second.getIndexId());
 							}
-						}
-						else
-						{
-							skipQue.emplace_back();
-							SkipStruct& tmpSkipStruct = skipQue.back();
-							tmpSkipStruct.setSkipNum((unsigned char)(skipStruct.getSkipNum() - pNode->getLen() - 8));
-							tmpSkipStruct.setIndexId(child.second.getIndexId());
 						}
 					}
 				}
-			}
 				break;
 				case NODE_TYPE_TWO:
 				{
@@ -325,7 +353,11 @@ bool SearchIndex::search()
 								{
 									if (child.second.getType() == CHILD_TYPE_LEAF)
 									{
-										resultSet->insert(child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 4 + skipCharNum);
+										if (!AddFindPos(resultSet, child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 4, skipCharNum, dstFile, searchTarget, targetLen))
+										{
+											indexFile.putIndexNode(pNode);
+											return false;
+										}
 									}
 									else
 									{
@@ -338,7 +370,7 @@ bool SearchIndex::search()
 						{
 							for (auto& child : children)
 							{
-								const unsigned char* p = (const unsigned char*)& child.first;
+								const unsigned char* p = (const unsigned char*)&child.first;
 								unsigned long long i = 0;
 								unsigned long long remainSize = 4 - subSkipNum;
 								for (; i < remainSize; ++i)
@@ -403,7 +435,7 @@ bool SearchIndex::search()
 						}
 					}
 				}
-					break;
+				break;
 				case NODE_TYPE_THREE:
 				{
 					if (skipStruct.getSkipNum() < pNode->getLen() + 2)
@@ -430,7 +462,11 @@ bool SearchIndex::search()
 								{
 									if (child.second.getType() == CHILD_TYPE_LEAF)
 									{
-										resultSet->insert(child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 2 + skipCharNum);
+										if (!AddFindPos(resultSet, child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 2, skipCharNum, dstFile, searchTarget, targetLen))
+										{
+											indexFile.putIndexNode(pNode);
+											return false;
+										}
 									}
 									else
 									{
@@ -443,7 +479,7 @@ bool SearchIndex::search()
 						{
 							for (auto& child : children)
 							{
-								const unsigned char* p = (const unsigned char*)& child.first;
+								const unsigned char* p = (const unsigned char*)&child.first;
 								unsigned long long i = 0;
 								unsigned long long remainSize = 2 - subSkipNum;
 								for (; i < remainSize; ++i)
@@ -535,7 +571,11 @@ bool SearchIndex::search()
 								{
 									if (child.second.getType() == CHILD_TYPE_LEAF)
 									{
-										resultSet->insert(child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 1 + skipCharNum);
+										if (!AddFindPos(resultSet, child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 1, skipCharNum, dstFile, searchTarget, targetLen))
+										{
+											indexFile.putIndexNode(pNode);
+											return false;
+										}
 									}
 									else
 									{
@@ -548,7 +588,7 @@ bool SearchIndex::search()
 						{
 							for (auto& child : children)
 							{
-								const unsigned char* p = (const unsigned char*)& child.first;
+								const unsigned char* p = (const unsigned char*)&child.first;
 								unsigned long long i = 0;
 								unsigned long long remainSize = 1 - subSkipNum;
 								for (; i < remainSize; ++i)
@@ -613,36 +653,37 @@ bool SearchIndex::search()
 						}
 					}
 				}
-					break;
+				break;
 				default:
 					break;
 
-			}
+				}
 
-			//还有可能有个叶子节点的一小部分相同
-			unsigned long long filePos = 0;
-			if (pNode->getFirstLeafSet(&filePos))
-			{
-				unsigned long long leafLen = dstFileSize - filePos;
-				if (leafLen > pNode->getPreCmpLen() + pNode->getLen())
+				//还有可能有个叶子节点的一小部分相同
+				unsigned long long filePos = 0;
+				if (pNode->getFirstLeafSet(&filePos))
 				{
-					unsigned long long overLen = leafLen - pNode->getPreCmpLen() - pNode->getLen();
-					if (overLen < 8)
+					unsigned long long leafLen = dstFileSize - filePos;
+					if (leafLen > pNode->getPreCmpLen() + pNode->getLen())
 					{
-						if (pNode->getPreCmpLen() + skipStruct.getSkipNum() + targetLen <= leafLen)
+						unsigned long long overLen = leafLen - pNode->getPreCmpLen() - pNode->getLen();
+						if (overLen < 8)
 						{
-							searchTaskQue.emplace_back();
-							SearchTask& searchTask = searchTaskQue.back();
-							searchTask.setIndexIdOrStartPos(CHILD_TYPE_LEAF);
-							searchTask.setSkipSize(pNode->getPreCmpLen() + skipStruct.getSkipNum());
-							searchTask.setIndexId(filePos);
-							searchTask.setTargetStart(0);
+							if (pNode->getPreCmpLen() + skipStruct.getSkipNum() + targetLen <= leafLen)
+							{
+								searchTaskQue.emplace_back();
+								SearchTask& searchTask = searchTaskQue.back();
+								searchTask.setIndexIdOrStartPos(CHILD_TYPE_LEAF);
+								searchTask.setSkipSize(pNode->getPreCmpLen() + skipStruct.getSkipNum());
+								searchTask.setIndexId(filePos);
+								searchTask.setTargetStart(0);
+							}
 						}
 					}
 				}
 			}
+			indexFile.putIndexNode(pNode);
 		}
-		indexFile.putIndexNode(pNode);
 	}
 
 	unsigned char count = 0;
@@ -731,7 +772,11 @@ bool SearchIndex::search()
 
 						if (suppleSize == lastSize)
 						{
-							resultSet->insert(filePos + skipCharNum);
+							if (!AddFindPos(resultSet, filePos, skipCharNum, dstFile, searchTarget, targetLen))
+							{
+								free(buffer);
+								return false;
+							}
 						}
 					}
 				}
@@ -848,7 +893,12 @@ bool SearchIndex::search()
 				//前面的字节完全一样接下来分二种情况考虑
 				if (skipSize + leftSearchTarget <= nodeLen)
 				{
-					pNode->addLeafPosToResult(skipSize + leftSearchTarget, skipCharNum, dstFileSize, *resultSet);
+					if (!pNode->addLeafPosToResult(skipSize + leftSearchTarget, skipCharNum, dstFileSize, *resultSet, dstFile, searchTarget, targetLen))
+					{
+						free(buffer);
+						indexFile.putIndexNode(pNode);
+						return false;
+					}
 					switch (pNode->getType())
 					{
 					case NODE_TYPE_ONE:
@@ -859,7 +909,12 @@ bool SearchIndex::search()
 						{
 							if (child.second.getType() == CHILD_TYPE_LEAF)
 							{
-								resultSet->insert(child.second.getIndexId() - pNode->getPreCmpLen() - nodeLen - 8 + skipCharNum);
+								if (!AddFindPos(resultSet, child.second.getIndexId() - pNode->getPreCmpLen() - nodeLen - 8, skipCharNum, dstFile, searchTarget, targetLen))
+								{
+									free(buffer);
+									indexFile.putIndexNode(pNode);
+									return false;
+								}
 							}
 							else
 							{
@@ -876,7 +931,12 @@ bool SearchIndex::search()
 						{
 							if (child.second.getType() == CHILD_TYPE_LEAF)
 							{
-								resultSet->insert(child.second.getIndexId() - pNode->getPreCmpLen() - nodeLen - 4 + skipCharNum);
+								if (!AddFindPos(resultSet, child.second.getIndexId() - pNode->getPreCmpLen() - nodeLen - 4, skipCharNum, dstFile, searchTarget, targetLen))
+								{
+									free(buffer);
+									indexFile.putIndexNode(pNode);
+									return false;
+								}
 							}
 							else
 							{
@@ -893,7 +953,12 @@ bool SearchIndex::search()
 						{
 							if (child.second.getType() == CHILD_TYPE_LEAF)
 							{
-								resultSet->insert(child.second.getIndexId() - pNode->getPreCmpLen() - nodeLen - 2 + skipCharNum);
+								if (!AddFindPos(resultSet, child.second.getIndexId() - pNode->getPreCmpLen() - nodeLen - 2, skipCharNum, dstFile, searchTarget, targetLen))
+								{
+									free(buffer);
+									indexFile.putIndexNode(pNode);
+									return false;
+								}
 							}
 							else
 							{
@@ -910,7 +975,12 @@ bool SearchIndex::search()
 						{
 							if (child.second.getType() == CHILD_TYPE_LEAF)
 							{
-								resultSet->insert(child.second.getIndexId() - pNode->getPreCmpLen() - nodeLen - 1 + skipCharNum);
+								if (!AddFindPos(resultSet, child.second.getIndexId() - pNode->getPreCmpLen() - nodeLen - 1, skipCharNum, dstFile, searchTarget, targetLen))
+								{
+									free(buffer);
+									indexFile.putIndexNode(pNode);
+									return false;
+								}
 							}
 							else
 							{
@@ -951,7 +1021,12 @@ bool SearchIndex::search()
 								{
 									if (child.second.getType() == CHILD_TYPE_LEAF)
 									{
-										resultSet->insert(child.second.getIndexId() - pNode->getPreCmpLen() - nodeLen - 8 + skipCharNum);
+										if (!AddFindPos(resultSet, child.second.getIndexId() - pNode->getPreCmpLen() - nodeLen - 8, skipCharNum, dstFile, searchTarget, targetLen))
+										{
+											free(buffer);
+											indexFile.putIndexNode(pNode);
+											return false;
+										}
 									}
 									else
 									{
@@ -969,7 +1044,12 @@ bool SearchIndex::search()
 								{
 									if (indexNodeChild->getType() == CHILD_TYPE_LEAF)
 									{
-										resultSet->insert(indexNodeChild->getIndexId() - pNode->getPreCmpLen() - nodeLen - 8 + skipCharNum);
+										if (!AddFindPos(resultSet, indexNodeChild->getIndexId() - pNode->getPreCmpLen() - nodeLen - 8, skipCharNum, dstFile, searchTarget, targetLen))
+										{
+											free(buffer);
+											indexFile.putIndexNode(pNode);
+											return false;
+										}
 									}
 									else
 									{
@@ -1024,7 +1104,12 @@ bool SearchIndex::search()
 								{
 									if (child.second.getType() == CHILD_TYPE_LEAF)
 									{
-										resultSet->insert(child.second.getIndexId() - pNode->getPreCmpLen() - nodeLen - 4 + skipCharNum);
+										if (!AddFindPos(resultSet, child.second.getIndexId() - pNode->getPreCmpLen() - nodeLen - 4, skipCharNum, dstFile, searchTarget, targetLen))
+										{
+											free(buffer);
+											indexFile.putIndexNode(pNode);
+											return false;
+										}
 									}
 									else
 									{
@@ -1042,7 +1127,12 @@ bool SearchIndex::search()
 								{
 									if (indexNodeChild->getType() == CHILD_TYPE_LEAF)
 									{
-										resultSet->insert(indexNodeChild->getIndexId() - pNode->getPreCmpLen() - nodeLen - 4 + skipCharNum);
+										if (!AddFindPos(resultSet, indexNodeChild->getIndexId() - pNode->getPreCmpLen() - nodeLen - 4, skipCharNum, dstFile, searchTarget, targetLen))
+										{
+											free(buffer);
+											indexFile.putIndexNode(pNode);
+											return false;
+										}
 									}
 									else
 									{
@@ -1097,7 +1187,12 @@ bool SearchIndex::search()
 								{
 									if (child.second.getType() == CHILD_TYPE_LEAF)
 									{
-										resultSet->insert(child.second.getIndexId() - pNode->getPreCmpLen() - nodeLen - 2 + skipCharNum);
+										if (!AddFindPos(resultSet, child.second.getIndexId() - pNode->getPreCmpLen() - nodeLen - 2, skipCharNum, dstFile, searchTarget, targetLen))
+										{
+											free(buffer);
+											indexFile.putIndexNode(pNode);
+											return false;
+										}
 									}
 									else
 									{
@@ -1115,7 +1210,12 @@ bool SearchIndex::search()
 								{
 									if (indexNodeChild->getType() == CHILD_TYPE_LEAF)
 									{
-										resultSet->insert(indexNodeChild->getIndexId() - pNode->getPreCmpLen() - nodeLen - 2 + skipCharNum);
+										if (!AddFindPos(resultSet, indexNodeChild->getIndexId() - pNode->getPreCmpLen() - nodeLen - 2, skipCharNum, dstFile, searchTarget, targetLen))
+										{
+											free(buffer);
+											indexFile.putIndexNode(pNode);
+											return false;
+										}
 									}
 									else
 									{
@@ -1170,7 +1270,12 @@ bool SearchIndex::search()
 								{
 									if (child.second.getType() == CHILD_TYPE_LEAF)
 									{
-										resultSet->insert(child.second.getIndexId() - pNode->getPreCmpLen() - nodeLen - 1 + skipCharNum);
+										if (!AddFindPos(resultSet, child.second.getIndexId() - pNode->getPreCmpLen() - nodeLen - 1, skipCharNum, dstFile, searchTarget, targetLen))
+										{
+											free(buffer);
+											indexFile.putIndexNode(pNode);
+											return false;
+										}
 									}
 									else
 									{
@@ -1188,7 +1293,12 @@ bool SearchIndex::search()
 								{
 									if (indexNodeChild->getType() == CHILD_TYPE_LEAF)
 									{
-										resultSet->insert(indexNodeChild->getIndexId() - pNode->getPreCmpLen() - nodeLen - 1 + skipCharNum);
+										if (!AddFindPos(resultSet, indexNodeChild->getIndexId() - pNode->getPreCmpLen() - nodeLen - 1, skipCharNum, dstFile, searchTarget, targetLen))
+										{
+											free(buffer);
+											indexFile.putIndexNode(pNode);
+											return false;
+										}
 									}
 									else
 									{
@@ -1270,7 +1380,11 @@ bool SearchIndex::search()
 		}
 
 		//将所有的leafSet中的叶子节点添加到结果当中因为全都是有效的
-		pNode->addLeafPosToResult(0, skipCharNum, dstFileSize, *resultSet);
+		if (!pNode->addLeafPosToResult(0, skipCharNum, dstFileSize, *resultSet, dstFile, searchTarget, targetLen))
+		{
+			indexFile.putIndexNode(pNode);
+			return false;
+		}
 
 		//把所有的叶子节点也加入
 		switch (pNode->getType())
@@ -1283,7 +1397,11 @@ bool SearchIndex::search()
 			{
 				if (child.second.getType() == CHILD_TYPE_LEAF)
 				{
-					resultSet->insert(child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 8 + skipCharNum);
+					if (!AddFindPos(resultSet, child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 8, skipCharNum, dstFile, searchTarget, targetLen))
+					{
+						indexFile.putIndexNode(pNode);
+						return false;
+					}
 				}
 				else
 				{
@@ -1300,7 +1418,11 @@ bool SearchIndex::search()
 			{
 				if (child.second.getType() == CHILD_TYPE_LEAF)
 				{
-					resultSet->insert(child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 4 + skipCharNum);
+					if (!AddFindPos(resultSet, child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 4, skipCharNum, dstFile, searchTarget, targetLen))
+					{
+						indexFile.putIndexNode(pNode);
+						return false;
+					}
 				}
 				else
 				{
@@ -1317,7 +1439,11 @@ bool SearchIndex::search()
 			{
 				if (child.second.getType() == CHILD_TYPE_LEAF)
 				{
-					resultSet->insert(child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 2 + skipCharNum);
+					if (!AddFindPos(resultSet, child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 2, skipCharNum, dstFile, searchTarget, targetLen))
+					{
+						indexFile.putIndexNode(pNode);
+						return false;
+					}
 				}
 				else
 				{
@@ -1334,7 +1460,11 @@ bool SearchIndex::search()
 			{
 				if (child.second.getType() == CHILD_TYPE_LEAF)
 				{
-					resultSet->insert(child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 1 + skipCharNum);
+					if (!AddFindPos(resultSet, child.second.getIndexId() - pNode->getPreCmpLen() - pNode->getLen() - 1, skipCharNum, dstFile, searchTarget, targetLen))
+					{
+						indexFile.putIndexNode(pNode);
+						return false;
+					}
 				}
 				else
 				{
