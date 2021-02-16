@@ -3062,7 +3062,6 @@ bool BuildIndex::build(bool needBuildLineIndex, char delimiter)
 	{
 		return false;
 	}
-	printf("build finish\n");
 	return true;
 }
 
