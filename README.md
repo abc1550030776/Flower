@@ -18,3 +18,6 @@
   如果需要搜索到具体到某一行和某一列则调用bool SearchContext::search(const char* searchTarget, unsigned int targetLen, ResultMap* map)
   参数:searchTarget需要搜索的字符串第一个字符的指针targetLen需要搜索的字符串长度map用来存储结果的map,key是在文件当中的位置从0开始、值是第几行第几列可以调用GetLineNum和GetColumnNum得到都是从0开始
   返回值:搜索成功返回true,失败返回false
+
+例子:
+      程序里面的main.cpp是使用例子,我在测试的时候使用上了tcmalloc，需要修改WORKSPACE文件中name为com_google_tcmalloc的local_repository把path改成tcmalloc源文件的根目录，创建一个/test文件，代码根目录运行bazel run //Flower:flower --cxxopt='-std=c++17'
