@@ -8,7 +8,7 @@
 #include "common.h"
 #include "BuildIndex.h"
 #include "sys/time.h"
-#include "SearchContext.h"
+#include "Myfile.h"
 
 int main()
 {

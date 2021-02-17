@@ -1,6 +1,7 @@
 #pragma once
 #include <set>
 #include <map>
+#include "SearchContext.h"
 class LineAndColumn
 {
 public:
