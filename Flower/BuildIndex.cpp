@@ -1,8 +1,11 @@
 #include "BuildIndex.h"
+#include <cstdlib>
 #include <memory.h>
 #include "common.h"
 #include <sys/stat.h>
 #include "sys/time.h"
+#include <cerrno>
+#include <cstring>
 
 BuildIndex::BuildIndex()
 {
@@ -58,7 +61,9 @@ bool BuildIndex::init(const char* fileName, Index* index, Index* kvIndex)
 
 	//获取文件的大小
 	struct stat statbuf;
-	stat(fileName, &statbuf);
+	if (stat(fileName, &statbuf) != 0) {
+		return false;
+	}
 	dstFileSize = statbuf.st_size;
 	return true;
 }

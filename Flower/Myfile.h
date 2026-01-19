@@ -9,6 +9,8 @@ public:
 	bool write(fpos_t pos, void* data, size_t size);
 	bool sync();
 	~Myfile();
+	Myfile(const Myfile&) = delete;
+	Myfile& operator=(const Myfile&) = delete;
 private:
 	FILE* file;
 };

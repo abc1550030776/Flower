@@ -29,7 +29,7 @@ int main()
 	struct timeval aend;
 	unsigned long diff;
 	gettimeofday(&start, nullptr);
-	if(!BuildDstIndex("/test", true))
+	if(!BuildDstIndex("test_file", true))
 	{
 		fprintf(out, "build index fail\n");
 		fclose(out);
@@ -49,7 +49,7 @@ int main()
 	const unsigned long searchStrLen = 4 * 1024;
 	char searchTarget[searchStrLen] = { 0 };
 	Myfile myfile;
-	if (!myfile.init("/test", false))
+	if (!myfile.init("test_file", false))
 	{
 		fprintf(out, "file init fail");
 		fclose(out);
@@ -65,7 +65,7 @@ int main()
 		return 1;
 	}
 	SearchContext searchContext;
-	searchContext.init("/test", 0, true);
+	searchContext.init("test_file", 0, true);
 	gettimeofday(&start, nullptr);
 	ResultMap result;
 	if(!searchContext.search(searchTarget, searchStrLen, &result))
@@ -85,7 +85,7 @@ int main()
 	out = fopen("out", "a");
 
 	//打开文件看看查找的字符串对不对。
-	FILE* file = fopen("/test", "rb");
+	FILE* file = fopen("test_file", "rb");
 	if (file == nullptr)
 	{
 		fprintf(out, "file open error");
@@ -175,7 +175,7 @@ int main()
 	Index index(USE_TYPE_BUILD);
 	Index kvIndex(USE_TYPE_BUILD);
 	BuildIndex buildInex;
-	buildInex.init("/testkv", &index, &kvIndex);
+	buildInex.init("testkv", &index, &kvIndex);
 	for (unsigned long i = 0; i < sizeof(key) / sizeof(key[0]); ++i)
 	{
 		if (!buildInex.addKV(key[i], val[i]))
@@ -192,7 +192,7 @@ int main()
 		return 1;
 	}
 	char kvIndexFile[4096];
-	if (!getKVFilePath("/testkv", kvIndexFile))
+	if (!getKVFilePath("testkv", kvIndexFile))
 	{
 		fprintf(out, "get kv indexFile name failed\n");
 		fclose(out);

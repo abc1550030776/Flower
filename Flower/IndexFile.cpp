@@ -1,4 +1,5 @@
 #include "IndexNode.h"
+#include <cstdlib>
 #include "BuildIndex.h"
 #include "UniqueGenerator.h"
 #include "common.h"
@@ -683,10 +684,12 @@ bool IndexFile::writeEveryRootIndexId()
 	{
 		return false;
 	}
-	pos.__pos = 8;
-	if (!indexFile.write(pos, &(rootIndexIds[0]), 8 * size))
-	{
-		return false;
+	if (size > 0) {
+		pos.__pos = 8;
+		if (!indexFile.write(pos, &(rootIndexIds[0]), 8 * size))
+		{
+			return false;
+		}
 	}
 	return true;
 }

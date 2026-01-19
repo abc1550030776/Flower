@@ -26,5 +26,5 @@ bazel_dep(
 bazel_dep(name = "tcmalloc")
 local_path_override(
     module_name = "tcmalloc",
-    path = "/Users/sean/Project/tcmalloc",
+    path = "/root/Source/tcmalloc",
 )

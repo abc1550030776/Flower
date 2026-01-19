@@ -1,4 +1,5 @@
 #include "SearchIndex.h"
+#include <cstdlib>
 #include "memory.h"
 #include "common.h"
 #include <sys/stat.h>
