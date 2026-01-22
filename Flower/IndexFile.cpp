@@ -85,6 +85,14 @@ IndexNode* IndexFile::getIndexNode(unsigned long long indexId, unsigned char bui
 	p++;
 	unsigned short len = *((unsigned short*)p);
 	p += 2;
+
+	if (len > MAX_SIZE_PER_INDEX_NODE - 3)
+	{
+		delete pIndexNode;
+		free(buffer);
+		return nullptr;
+	}
+
 	//把剩下的字节给读取出来
 	pos.__pos = indexId * SIZE_PER_INDEX_FILE_GRID + 3;
 	if (!indexFile.read(pos, &buffer[3], len))
@@ -175,6 +183,14 @@ IndexNode* IndexFile::getTempIndexNode(unsigned long long indexId)
 	p++;
 	unsigned short len = *((unsigned short*)p);
 	p += 2;
+
+	if (len > MAX_SIZE_PER_INDEX_NODE - 3)
+	{
+		delete pIndexNode;
+		free(buffer);
+		return nullptr;
+	}
+
 	//把剩下的字节给读取出来
 	pos.__pos = indexId * SIZE_PER_INDEX_FILE_GRID + 3;
 	if (!indexFile.read(pos, &buffer[3], len))

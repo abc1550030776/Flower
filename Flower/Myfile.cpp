@@ -61,7 +61,7 @@ bool Myfile::write(fpos_t pos, void* data, size_t size)
 		}
 
 		size_t appendSize = pos.__pos - endPos.__pos;
-		char* p = (char*)malloc(appendSize);
+		char* p = (char*)calloc(1, appendSize);
 		if (p == NULL)
 		{
 			return false;
