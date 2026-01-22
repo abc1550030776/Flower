@@ -712,8 +712,8 @@ bool SearchIndex::search()
 				unsigned int cmpLen = 0;
 				for (; cmpLen + 4 * 1024 <= leftSearchTarget; cmpLen += 4 * 1024)
 				{
-					fpos_t pos;
-					pos.__pos = filePos + skipSize + cmpLen;
+					unsigned long long pos;
+					pos = filePos + skipSize + cmpLen;
 					if (!dstFile.read(pos, buffer, 4 * 1024))
 					{
 						free(buffer);
@@ -741,8 +741,8 @@ bool SearchIndex::search()
 
 					if (lastNeedReadSize != 0)
 					{
-						fpos_t pos;
-						pos.__pos = filePos + skipSize + cmpLen;
+						unsigned long long pos;
+						pos = filePos + skipSize + cmpLen;
 						if (!dstFile.read(pos, buffer, lastNeedReadSize))
 						{
 							free(buffer);
@@ -821,8 +821,8 @@ bool SearchIndex::search()
 			unsigned int cmpLen = 0;
 			for (; cmpLen + 4 * 1024 <= remainReadSize; cmpLen += 4 * 1024)
 			{
-				fpos_t pos;
-				pos.__pos = filePos + skipSize + cmpLen;
+				unsigned long long pos;
+				pos = filePos + skipSize + cmpLen;
 				if (!dstFile.read(pos, buffer, 4 * 1024))
 				{
 					indexFile.putIndexNode(pNode);
@@ -851,8 +851,8 @@ bool SearchIndex::search()
 
 				if (lastNeedReadSize != 0)
 				{
-					fpos_t pos;
-					pos.__pos = filePos + skipSize + cmpLen;
+					unsigned long long pos;
+					pos = filePos + skipSize + cmpLen;
 					if (!dstFile.read(pos, buffer, lastNeedReadSize))
 					{
 						free(buffer);

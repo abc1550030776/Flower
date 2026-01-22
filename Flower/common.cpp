@@ -147,8 +147,8 @@ bool AddFindPos(SetWithLock* resultSet, unsigned long long pos, char skipNum, My
 		unsigned long long possiblePos = pos - absSkipNum;
 		//从文件当中读取前面还没比较的部分比较全部相等了才算是找到
 		unsigned char buffer[8];
-		fpos_t filePos;
-		filePos.__pos = possiblePos;
+		unsigned long long filePos;
+		filePos = possiblePos;
 		if (!dstFile.read(filePos, buffer, absSkipNum))
 		{
 			return false;

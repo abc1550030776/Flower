@@ -56,8 +56,8 @@ int main()
 		return 1;
 	}
 
-	fpos_t pos;
-	pos.__pos = 1024;
+	unsigned long long pos;
+	pos = 1024;
 	if (!myfile.read(pos, searchTarget, searchStrLen))
 	{
 		fprintf(out, "read fail");
@@ -97,9 +97,9 @@ int main()
 
 	for (auto& val : result)
 	{
-		fpos_t pos;
-		pos.__pos = val.first;
-		fsetpos(file, &pos);
+		unsigned long long pos;
+		pos = val.first;
+		fseeko(file, (off_t)pos, SEEK_SET);
 		if (fread(buffer, searchStrLen, 1, file) != 1)
 		{
 			fclose(file);
@@ -139,9 +139,9 @@ int main()
 
 	for (auto& val : result)
 	{
-		fpos_t pos;
-		pos.__pos = val.first;
-		fsetpos(file, &pos);
+		unsigned long long pos;
+		pos = val.first;
+		fseeko(file, (off_t)pos, SEEK_SET);
 		if (fread(buffer, searchStrLen, 1, file) != 1)
 		{
 			fclose(file);
