@@ -599,6 +599,10 @@ bool IndexFile::writeEveryCache()																	//把缓存当中的数据全�
 	{
 		return false;
 	}
+	if (!indexFile.sync())
+	{
+		return false;
+	}
 	return true;
 }
 

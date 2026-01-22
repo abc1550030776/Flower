@@ -83,6 +83,10 @@ bool Myfile::write(fpos_t pos, void* data, size_t size)
 
 bool Myfile::sync()
 {
+	if (fflush(file) != 0)
+	{
+		return false;
+	}
 	if (fdatasync(fileno(file)) == -1)
 	{
 		return false;
