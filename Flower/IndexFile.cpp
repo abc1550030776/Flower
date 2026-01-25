@@ -3,6 +3,7 @@
 #include "BuildIndex.h"
 #include "UniqueGenerator.h"
 #include "common.h"
+#include "MemoryPool.h"
 
 IndexFile::IndexFile()
 {
@@ -61,21 +62,22 @@ IndexNode* IndexFile::getIndexNode(unsigned long long indexId, unsigned char bui
 		return nullptr;
 	}
 
-	//根据不同的节点类型创建节点
+	//根据不同的节点类型创建节点（使用内存池）
+	IndexNodePoolManager& poolManager = IndexNodePoolManager::getInstance();
 	char* p = buffer;
 	switch (*((unsigned char*)p))
 	{
 	case NODE_TYPE_ONE:
-		pIndexNode = new IndexNodeTypeOne();
+		pIndexNode = poolManager.getPoolTypeOne().allocate();
 		break;
 	case NODE_TYPE_TWO:
-		pIndexNode = new IndexNodeTypeTwo();
+		pIndexNode = poolManager.getPoolTypeTwo().allocate();
 		break;
 	case NODE_TYPE_THREE:
-		pIndexNode = new IndexNodeTypeThree();
+		pIndexNode = poolManager.getPoolTypeThree().allocate();
 		break;
 	case NODE_TYPE_FOUR:
-		pIndexNode = new IndexNodeTypeFour();
+		pIndexNode = poolManager.getPoolTypeFour().allocate();
 		break;
 	default:
 		free(buffer);
@@ -88,7 +90,22 @@ IndexNode* IndexFile::getIndexNode(unsigned long long indexId, unsigned char bui
 
 	if (len > MAX_SIZE_PER_INDEX_NODE - 3)
 	{
-		delete pIndexNode;
+		// 使用内存池释放
+		switch (*((unsigned char*)buffer))
+		{
+		case NODE_TYPE_ONE:
+			poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(pIndexNode));
+			break;
+		case NODE_TYPE_TWO:
+			poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(pIndexNode));
+			break;
+		case NODE_TYPE_THREE:
+			poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(pIndexNode));
+			break;
+		case NODE_TYPE_FOUR:
+			poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(pIndexNode));
+			break;
+		}
 		free(buffer);
 		return nullptr;
 	}
@@ -97,7 +114,22 @@ IndexNode* IndexFile::getIndexNode(unsigned long long indexId, unsigned char bui
 	pos = indexId * SIZE_PER_INDEX_FILE_GRID + 3;
 	if (!indexFile.read(pos, &buffer[3], len))
 	{
-		delete pIndexNode;
+		// 使用内存池释放
+		switch (*((unsigned char*)buffer))
+		{
+		case NODE_TYPE_ONE:
+			poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(pIndexNode));
+			break;
+		case NODE_TYPE_TWO:
+			poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(pIndexNode));
+			break;
+		case NODE_TYPE_THREE:
+			poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(pIndexNode));
+			break;
+		case NODE_TYPE_FOUR:
+			poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(pIndexNode));
+			break;
+		}
 		free(buffer);
 		return nullptr;
 	}
@@ -106,7 +138,22 @@ IndexNode* IndexFile::getIndexNode(unsigned long long indexId, unsigned char bui
 	//把二进制转成节点的里面的数据
 	if (!pIndexNode->toObject(p, len, buildType))
 	{
-		delete pIndexNode;
+		// 使用内存池释放
+		switch (*((unsigned char*)buffer))
+		{
+		case NODE_TYPE_ONE:
+			poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(pIndexNode));
+			break;
+		case NODE_TYPE_TWO:
+			poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(pIndexNode));
+			break;
+		case NODE_TYPE_THREE:
+			poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(pIndexNode));
+			break;
+		case NODE_TYPE_FOUR:
+			poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(pIndexNode));
+			break;
+		}
 		free(buffer);
 		return nullptr;
 	}
@@ -117,7 +164,22 @@ IndexNode* IndexFile::getIndexNode(unsigned long long indexId, unsigned char bui
 	//加载完成了以后加入到索引节点里面
 	if (!pIndex->insert(indexId, pIndexNode))
 	{
-		delete pIndexNode;
+		// insert失败，需要释放节点内存（在非搜索模式下pIndex->insert不会自动释放）
+		switch (*((unsigned char*)buffer))
+		{
+		case NODE_TYPE_ONE:
+			poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(pIndexNode));
+			break;
+		case NODE_TYPE_TWO:
+			poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(pIndexNode));
+			break;
+		case NODE_TYPE_THREE:
+			poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(pIndexNode));
+			break;
+		case NODE_TYPE_FOUR:
+			poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(pIndexNode));
+			break;
+		}
 		return nullptr;
 	}
 	//加入到缓存里面了以后再把索引返回
@@ -160,21 +222,22 @@ IndexNode* IndexFile::getTempIndexNode(unsigned long long indexId)
 		return nullptr;
 	}
 
-	//根据不同的节点类型创建节点
+	//根据不同的节点类型创建节点（使用内存池）
+	IndexNodePoolManager& poolManager = IndexNodePoolManager::getInstance();
 	char* p = buffer;
 	switch (*((unsigned char*)p))
 	{
 	case NODE_TYPE_ONE:
-		pIndexNode = new IndexNodeTypeOne();
+		pIndexNode = poolManager.getPoolTypeOne().allocate();
 		break;
 	case NODE_TYPE_TWO:
-		pIndexNode = new IndexNodeTypeTwo();
+		pIndexNode = poolManager.getPoolTypeTwo().allocate();
 		break;
 	case NODE_TYPE_THREE:
-		pIndexNode = new IndexNodeTypeThree();
+		pIndexNode = poolManager.getPoolTypeThree().allocate();
 		break;
 	case NODE_TYPE_FOUR:
-		pIndexNode = new IndexNodeTypeFour();
+		pIndexNode = poolManager.getPoolTypeFour().allocate();
 		break;
 	default:
 		free(buffer);
@@ -186,7 +249,22 @@ IndexNode* IndexFile::getTempIndexNode(unsigned long long indexId)
 
 	if (len > MAX_SIZE_PER_INDEX_NODE - 3)
 	{
-		delete pIndexNode;
+		// 使用内存池释放
+		switch (*((unsigned char*)buffer))
+		{
+		case NODE_TYPE_ONE:
+			poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(pIndexNode));
+			break;
+		case NODE_TYPE_TWO:
+			poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(pIndexNode));
+			break;
+		case NODE_TYPE_THREE:
+			poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(pIndexNode));
+			break;
+		case NODE_TYPE_FOUR:
+			poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(pIndexNode));
+			break;
+		}
 		free(buffer);
 		return nullptr;
 	}
@@ -195,7 +273,22 @@ IndexNode* IndexFile::getTempIndexNode(unsigned long long indexId)
 	pos = indexId * SIZE_PER_INDEX_FILE_GRID + 3;
 	if (!indexFile.read(pos, &buffer[3], len))
 	{
-		delete pIndexNode;
+		// 使用内存池释放
+		switch (*((unsigned char*)buffer))
+		{
+		case NODE_TYPE_ONE:
+			poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(pIndexNode));
+			break;
+		case NODE_TYPE_TWO:
+			poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(pIndexNode));
+			break;
+		case NODE_TYPE_THREE:
+			poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(pIndexNode));
+			break;
+		case NODE_TYPE_FOUR:
+			poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(pIndexNode));
+			break;
+		}
 		free(buffer);
 		return nullptr;
 	}
@@ -204,7 +297,22 @@ IndexNode* IndexFile::getTempIndexNode(unsigned long long indexId)
 	//把二进制转成节点的里面的数据
 	if (!pIndexNode->toObject(p, len))
 	{
-		delete pIndexNode;
+		// 使用内存池释放
+		switch (*((unsigned char*)buffer))
+		{
+		case NODE_TYPE_ONE:
+			poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(pIndexNode));
+			break;
+		case NODE_TYPE_TWO:
+			poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(pIndexNode));
+			break;
+		case NODE_TYPE_THREE:
+			poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(pIndexNode));
+			break;
+		case NODE_TYPE_FOUR:
+			poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(pIndexNode));
+			break;
+		}
 		free(buffer);
 		return nullptr;
 	}
@@ -408,7 +516,23 @@ bool IndexFile::writeTempFile(unsigned long long indexId, IndexNode* pIndexNode)
 	if (!ok)
 	{
 		free(buffer);
-		delete pIndexNode;
+		// 使用内存池释放
+		IndexNodePoolManager& poolManager = IndexNodePoolManager::getInstance();
+		switch (pIndexNode->getType())
+		{
+		case NODE_TYPE_ONE:
+			poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(pIndexNode));
+			break;
+		case NODE_TYPE_TWO:
+			poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(pIndexNode));
+			break;
+		case NODE_TYPE_THREE:
+			poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(pIndexNode));
+			break;
+		case NODE_TYPE_FOUR:
+			poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(pIndexNode));
+			break;
+		}
 		return false;
 	}
 
@@ -422,13 +546,44 @@ bool IndexFile::writeTempFile(unsigned long long indexId, IndexNode* pIndexNode)
 	if (!indexFile.write(pos, buffer, len + 3))
 	{
 		free(buffer);
-		delete pIndexNode;
+		// 使用内存池释放
+		IndexNodePoolManager& poolManager = IndexNodePoolManager::getInstance();
+		switch (pIndexNode->getType())
+		{
+		case NODE_TYPE_ONE:
+			poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(pIndexNode));
+			break;
+		case NODE_TYPE_TWO:
+			poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(pIndexNode));
+			break;
+		case NODE_TYPE_THREE:
+			poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(pIndexNode));
+			break;
+		case NODE_TYPE_FOUR:
+			poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(pIndexNode));
+			break;
+		}
 		return false;
 	}
 	
-	//写入完成了以后堆内存进行释放
+	//写入完成了以后堆内存进行释放（使用内存池）
 	free(buffer);
-	delete pIndexNode;
+	IndexNodePoolManager& poolManager = IndexNodePoolManager::getInstance();
+	switch (pIndexNode->getType())
+	{
+	case NODE_TYPE_ONE:
+		poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(pIndexNode));
+		break;
+	case NODE_TYPE_TWO:
+		poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(pIndexNode));
+		break;
+	case NODE_TYPE_THREE:
+		poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(pIndexNode));
+		break;
+	case NODE_TYPE_FOUR:
+		poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(pIndexNode));
+		break;
+	}
 	return true;
 }
 

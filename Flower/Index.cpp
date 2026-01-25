@@ -2,6 +2,7 @@
 #include "UniqueGenerator.h"
 #include "IndexNode.h"
 #include "common.h"
+#include "MemoryPool.h"
 
 Index::Index()
 {
@@ -43,7 +44,23 @@ bool Index::insert(unsigned long long indexId, IndexNode*& pIndexNode)
 		//在搜索模式下面可能同时读取文件进行插入的操作这个时候其中一个已经插入了这边就直接返回就行了
 		if (useType == USE_TYPE_SEARCH)
 		{
-			delete pIndexNode;
+			// 使用内存池释放
+			IndexNodePoolManager& poolManager = IndexNodePoolManager::getInstance();
+			switch (pIndexNode->getType())
+			{
+			case NODE_TYPE_ONE:
+				poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(pIndexNode));
+				break;
+			case NODE_TYPE_TWO:
+				poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(pIndexNode));
+				break;
+			case NODE_TYPE_THREE:
+				poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(pIndexNode));
+				break;
+			case NODE_TYPE_FOUR:
+				poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(pIndexNode));
+				break;
+			}
 			pIndexNode = pair.first->second;
 			pIndexNode->increaseRef();
 			return true;
@@ -90,6 +107,7 @@ bool Index::reduceCache(unsigned long needReduceNum)
 		return false;
 	}
 
+	IndexNodePoolManager& poolManager = IndexNodePoolManager::getInstance();
 	auto it = end(IndexIdPreority);
 	--it;
 	for (unsigned int i = 0; i < needReduceNum; ++i)
@@ -101,8 +119,23 @@ bool Index::reduceCache(unsigned long needReduceNum)
 			return false;
 		}
 
-		//删除之前先把内存的数据删除
-		delete cacheIt->second;
+		//删除之前先把内存的数据删除（使用内存池）
+		IndexNode* node = cacheIt->second;
+		switch (node->getType())
+		{
+		case NODE_TYPE_ONE:
+			poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(node));
+			break;
+		case NODE_TYPE_TWO:
+			poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(node));
+			break;
+		case NODE_TYPE_THREE:
+			poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(node));
+			break;
+		case NODE_TYPE_FOUR:
+			poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(node));
+			break;
+		}
 		indexNodeCache.erase(cacheIt);
 		IndexIdPreority.erase(curIt);
 	}
@@ -118,6 +151,7 @@ bool Index::reduceCache()
 
 	UniqueLock lock(&rwLock);
 
+	IndexNodePoolManager& poolManager = IndexNodePoolManager::getInstance();
 	unsigned long needReduceNum = indexNodeCache.size() / 5;
 	auto it = end(IndexIdPreority);
 	--it;
@@ -130,10 +164,25 @@ bool Index::reduceCache()
 			return false;
 		}
 
-		//删除之前先看一下是否外面有引用这个节点
+		//删除之前先看一下是否外面有引用这个节点（使用内存池）
 		if (cacheIt->second->isZeroRef())
 		{
-			delete cacheIt->second;
+			IndexNode* node = cacheIt->second;
+			switch (node->getType())
+			{
+			case NODE_TYPE_ONE:
+				poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(node));
+				break;
+			case NODE_TYPE_TWO:
+				poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(node));
+				break;
+			case NODE_TYPE_THREE:
+				poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(node));
+				break;
+			case NODE_TYPE_FOUR:
+				poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(node));
+				break;
+			}
 		}
 		indexNodeCache.erase(cacheIt);
 		IndexIdPreority.erase(curIt);
@@ -192,21 +241,23 @@ bool Index::swapNode(unsigned long long indexId, IndexNode* newNode)
 
 IndexNode* Index::newIndexNode(unsigned char nodeType, unsigned long long preCmpLen)
 {
-	//根据类型创建新的节点
+	//根据类型创建新的节点（使用内存池）
 	IndexNode* pNode = nullptr;
+	IndexNodePoolManager& poolManager = IndexNodePoolManager::getInstance();
+	
 	switch (nodeType)
 	{
 	case NODE_TYPE_ONE:
-		pNode = new IndexNodeTypeOne();
+		pNode = poolManager.getPoolTypeOne().allocate();
 		break;
 	case NODE_TYPE_TWO:
-		pNode = new IndexNodeTypeTwo();
+		pNode = poolManager.getPoolTypeTwo().allocate();
 		break;
 	case NODE_TYPE_THREE:
-		pNode = new IndexNodeTypeThree();
+		pNode = poolManager.getPoolTypeThree().allocate();
 		break;
 	case NODE_TYPE_FOUR:
-		pNode = new IndexNodeTypeFour();
+		pNode = poolManager.getPoolTypeFour().allocate();
 		break;
 	default:
 		break;
@@ -224,7 +275,22 @@ IndexNode* Index::newIndexNode(unsigned char nodeType, unsigned long long preCmp
 	bool ok = indexNodeCache.insert({ indexId, pNode }).second;
 	if (!ok)
 	{
-		delete pNode;
+		// 使用内存池释放
+		switch (nodeType)
+		{
+		case NODE_TYPE_ONE:
+			poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(pNode));
+			break;
+		case NODE_TYPE_TWO:
+			poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(pNode));
+			break;
+		case NODE_TYPE_THREE:
+			poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(pNode));
+			break;
+		case NODE_TYPE_FOUR:
+			poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(pNode));
+			break;
+		}
 		return nullptr;
 	}
 
@@ -265,7 +331,24 @@ bool Index::deleteIndexNode(unsigned long long indexId)
 
 	generator.recycleNumber(indexId, it->second->getGridNum());
 
-	delete it->second;
+	// 使用内存池释放
+	IndexNodePoolManager& poolManager = IndexNodePoolManager::getInstance();
+	IndexNode* node = it->second;
+	switch (node->getType())
+	{
+	case NODE_TYPE_ONE:
+		poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(node));
+		break;
+	case NODE_TYPE_TWO:
+		poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(node));
+		break;
+	case NODE_TYPE_THREE:
+		poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(node));
+		break;
+	case NODE_TYPE_FOUR:
+		poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(node));
+		break;
+	}
 	indexNodeCache.erase(it);
 	IndexIdPreority.erase(ipIt);
 	return true;
@@ -273,9 +356,26 @@ bool Index::deleteIndexNode(unsigned long long indexId)
 
 void Index::clearCache()
 {
+	IndexNodePoolManager& poolManager = IndexNodePoolManager::getInstance();
 	for (auto& value : indexNodeCache)
 	{
-		delete value.second;
+		// 使用内存池释放
+		IndexNode* node = value.second;
+		switch (node->getType())
+		{
+		case NODE_TYPE_ONE:
+			poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(node));
+			break;
+		case NODE_TYPE_TWO:
+			poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(node));
+			break;
+		case NODE_TYPE_THREE:
+			poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(node));
+			break;
+		case NODE_TYPE_FOUR:
+			poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(node));
+			break;
+		}
 	}
 
 	indexNodeCache.clear();
@@ -301,7 +401,23 @@ bool Index::putIndexNode(IndexNode* indexNode)
 		auto it = indexNodeCache.find(indexNode->getIndexId());
 		if (it == end(indexNodeCache) || it->second != indexNode)
 		{
-			delete indexNode;
+			// 使用内存池释放
+			IndexNodePoolManager& poolManager = IndexNodePoolManager::getInstance();
+			switch (indexNode->getType())
+			{
+			case NODE_TYPE_ONE:
+				poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(indexNode));
+				break;
+			case NODE_TYPE_TWO:
+				poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(indexNode));
+				break;
+			case NODE_TYPE_THREE:
+				poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(indexNode));
+				break;
+			case NODE_TYPE_FOUR:
+				poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(indexNode));
+				break;
+			}
 		}
 	}
 	return true;
