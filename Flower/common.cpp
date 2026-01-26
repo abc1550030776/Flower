@@ -4,6 +4,8 @@
 #include <stdarg.h>
 #include "Myfile.h"
 #include "SetWithLock.h"
+#include "MemoryPool.h"
+#include "IndexNode.h"
 
 bool getIndexPath(const char* dstFilePath, char* indexPath)
 {
@@ -82,12 +84,65 @@ float getAvailableMemRate()
 	unsigned long total;
 	char name2[20];
 	sscanf(buff, "%s %lu %s\n", name, &total, name2);
-	unsigned long totalMem = total;
+	unsigned long totalMem = total;  // 系统总内存 (KB)
 	fgets(buff, sizeof(buff), fd);
 	fgets(buff, sizeof(buff), fd);
 	sscanf(buff, "%s %lu %s\n", name, &total, name2);
+	unsigned long availableMem = total;  // 系统可用内存 (KB)
 	fclose(fd);
-	return float(total) / float(totalMem);
+	
+	// 获取内存池的空闲和总内存
+	IndexNodePoolManager& poolManager = IndexNodePoolManager::getInstance();
+	
+	// 计算每个内存池的空闲和总内存（字节）
+	size_t poolFreeBytes = 0;
+	size_t poolTotalBytes = 0;
+	
+	// TypeOne 内存池
+	poolFreeBytes += poolManager.getPoolTypeOne().getFreeCount() * sizeof(IndexNodeTypeOne);
+	poolTotalBytes += poolManager.getPoolTypeOne().getTotalCount() * sizeof(IndexNodeTypeOne);
+	
+	// TypeTwo 内存池
+	poolFreeBytes += poolManager.getPoolTypeTwo().getFreeCount() * sizeof(IndexNodeTypeTwo);
+	poolTotalBytes += poolManager.getPoolTypeTwo().getTotalCount() * sizeof(IndexNodeTypeTwo);
+	
+	// TypeThree 内存池
+	poolFreeBytes += poolManager.getPoolTypeThree().getFreeCount() * sizeof(IndexNodeTypeThree);
+	poolTotalBytes += poolManager.getPoolTypeThree().getTotalCount() * sizeof(IndexNodeTypeThree);
+	
+	// TypeFour 内存池
+	poolFreeBytes += poolManager.getPoolTypeFour().getFreeCount() * sizeof(IndexNodeTypeFour);
+	poolTotalBytes += poolManager.getPoolTypeFour().getTotalCount() * sizeof(IndexNodeTypeFour);
+	
+	// 转换内存池内存为 KB
+	unsigned long poolFreeKB = poolFreeBytes / 1024;
+	unsigned long poolTotalKB = poolTotalBytes / 1024;
+	
+	// 计算内存池占用系统内存的比例
+	float poolMemoryRatio = float(poolTotalKB) / float(totalMem);
+	
+	// 安全策略：
+	// 1. 基础可用内存 = 系统可用内存 + 内存池空闲内存
+	// 2. 如果内存池占用系统内存过多（超过50%），需要惩罚因子来降低可用率
+	//    这样可以促使系统在内存池过大时清理缓存，避免程序崩溃
+	// 3. 惩罚因子随着内存池占用比例增加而增加
+	
+	float baseAvailableRate = float(availableMem + poolFreeKB) / float(totalMem);
+	
+	// 如果内存池占用超过50%系统内存，应用惩罚因子
+	if (poolMemoryRatio > 0.5f)
+	{
+		// 惩罚因子：内存池占用越多，可用率越低
+		// 当内存池占用50%时，惩罚系数为1.0（无惩罚）
+		// 当内存池占用70%时，惩罚系数约为0.7
+		// 当内存池占用90%时，惩罚系数约为0.3
+		float penaltyFactor = (1.0f - poolMemoryRatio) / 0.5f;
+		if (penaltyFactor < 0.1f) penaltyFactor = 0.1f; // 最小保留10%
+		
+		baseAvailableRate *= penaltyFactor;
+	}
+	
+	return baseAvailableRate;
 }
 
 bool FlwPrintf(const char* fileName, const char* format, ...)
