@@ -8,6 +8,8 @@
 const unsigned char USE_TYPE_BUILD = 0;
 const unsigned char USE_TYPE_SEARCH = 1;
 class IndexNode;
+class IndexNodePoolManager;
+
 class Index
 {
 public:
@@ -29,6 +31,7 @@ public:
 	unsigned long long acquireNumber(unsigned char numCount);								//获取连续的几个数
 	void recycleNumber(unsigned long long indexId, unsigned char numCount);					//回收indexId
 	void setInitMaxUniqueNum(unsigned long long initMaxUniqueNum);							//设置生成器的初始值
+	IndexNodePoolManager& getPoolManager();													//获取该实例的内存池管理器
 	~Index();																				//析构缓存
 private:
 	unsigned char useType;																	//使用的方式如果是用于查询的时候是多线程的
@@ -36,6 +39,7 @@ private:
 	std::multimap<unsigned long long, unsigned long long> IndexIdPreority;					//这里保存索引的优先级key是索引的前面已经比较过的大小,越小优先级越大
 	RTL_SRWLOCK  rwLock;																	//缓存在搜索模式下会被多个线程使用到加个读写锁
 	UniqueGenerator generator;																//唯一id生成器
+	IndexNodePoolManager* poolManager;														//该实例专属的内存池管理器
 };
 
 //多线程读取的时候会用到的函数getIndexNode,insert,size,reduceCache,

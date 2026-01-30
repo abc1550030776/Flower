@@ -8,12 +8,14 @@ Index::Index()
 {
 	useType = USE_TYPE_SEARCH;
 	rwLock.Ptr = 0;
+	poolManager = new IndexNodePoolManager();
 }
 
 Index::Index(unsigned char useType)
 {
 	this->useType = useType;
 	rwLock.Ptr = 0;
+	poolManager = new IndexNodePoolManager();
 }
 
 IndexNode* Index::getIndexNode(unsigned long long indexId)
@@ -44,23 +46,22 @@ bool Index::insert(unsigned long long indexId, IndexNode*& pIndexNode)
 		//在搜索模式下面可能同时读取文件进行插入的操作这个时候其中一个已经插入了这边就直接返回就行了
 		if (useType == USE_TYPE_SEARCH)
 		{
-			// 使用内存池释放
-			IndexNodePoolManager& poolManager = IndexNodePoolManager::getInstance();
-			switch (pIndexNode->getType())
-			{
-			case NODE_TYPE_ONE:
-				poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(pIndexNode));
-				break;
-			case NODE_TYPE_TWO:
-				poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(pIndexNode));
-				break;
-			case NODE_TYPE_THREE:
-				poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(pIndexNode));
-				break;
-			case NODE_TYPE_FOUR:
-				poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(pIndexNode));
-				break;
-			}
+		// 使用内存池释放
+		switch (pIndexNode->getType())
+		{
+		case NODE_TYPE_ONE:
+			poolManager->getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(pIndexNode));
+			break;
+		case NODE_TYPE_TWO:
+			poolManager->getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(pIndexNode));
+			break;
+		case NODE_TYPE_THREE:
+			poolManager->getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(pIndexNode));
+			break;
+		case NODE_TYPE_FOUR:
+			poolManager->getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(pIndexNode));
+			break;
+		}
 			pIndexNode = pair.first->second;
 			pIndexNode->increaseRef();
 			return true;
@@ -107,7 +108,6 @@ bool Index::reduceCache(unsigned long needReduceNum)
 		return false;
 	}
 
-	IndexNodePoolManager& poolManager = IndexNodePoolManager::getInstance();
 	auto it = end(IndexIdPreority);
 	--it;
 	for (unsigned int i = 0; i < needReduceNum; ++i)
@@ -124,16 +124,16 @@ bool Index::reduceCache(unsigned long needReduceNum)
 		switch (node->getType())
 		{
 		case NODE_TYPE_ONE:
-			poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(node));
+			poolManager->getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(node));
 			break;
 		case NODE_TYPE_TWO:
-			poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(node));
+			poolManager->getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(node));
 			break;
 		case NODE_TYPE_THREE:
-			poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(node));
+			poolManager->getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(node));
 			break;
 		case NODE_TYPE_FOUR:
-			poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(node));
+			poolManager->getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(node));
 			break;
 		}
 		indexNodeCache.erase(cacheIt);
@@ -144,14 +144,36 @@ bool Index::reduceCache(unsigned long needReduceNum)
 
 bool Index::reduceCache()
 {
-	if (getAvailableMemRate() >= 0.2)
+	// 使用系统内存比例判断是否需要紧急清理
+	float systemMemRate = getSystemMemRate();
+	
+	// 紧急清理：当系统内存极低时（< 10%），清空所有缓存和内存池
+	// 使用系统内存而非组合内存，对应 getAvailableMemRate 中的重度惩罚阈值
+	if (systemMemRate < 0.1)
+	{
+		UniqueLock lock(&rwLock);
+		
+		// 清空所有索引缓存
+		clearCache();
+		
+		// 清空该实例的内存池，释放内存回系统
+		poolManager->clearAllPools();
+		
+		return true;
+	}
+	
+	// 使用组合内存比例（系统 + 内存池）判断是否需要部分清理
+	float memRate = getAvailableMemRate(*poolManager);
+	
+	// 正常情况：内存充足，不需要清理
+	if (memRate >= 0.2)
 	{
 		return true;
 	}
 
+	// 部分清理：内存有点低（10% - 20%），清理1/5的缓存
 	UniqueLock lock(&rwLock);
 
-	IndexNodePoolManager& poolManager = IndexNodePoolManager::getInstance();
 	unsigned long needReduceNum = indexNodeCache.size() / 5;
 	auto it = end(IndexIdPreority);
 	--it;
@@ -171,16 +193,16 @@ bool Index::reduceCache()
 			switch (node->getType())
 			{
 			case NODE_TYPE_ONE:
-				poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(node));
+				poolManager->getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(node));
 				break;
 			case NODE_TYPE_TWO:
-				poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(node));
+				poolManager->getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(node));
 				break;
 			case NODE_TYPE_THREE:
-				poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(node));
+				poolManager->getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(node));
 				break;
 			case NODE_TYPE_FOUR:
-				poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(node));
+				poolManager->getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(node));
 				break;
 			}
 		}
@@ -243,21 +265,20 @@ IndexNode* Index::newIndexNode(unsigned char nodeType, unsigned long long preCmp
 {
 	//根据类型创建新的节点（使用内存池）
 	IndexNode* pNode = nullptr;
-	IndexNodePoolManager& poolManager = IndexNodePoolManager::getInstance();
 	
 	switch (nodeType)
 	{
 	case NODE_TYPE_ONE:
-		pNode = poolManager.getPoolTypeOne().allocate();
+		pNode = poolManager->getPoolTypeOne().allocate();
 		break;
 	case NODE_TYPE_TWO:
-		pNode = poolManager.getPoolTypeTwo().allocate();
+		pNode = poolManager->getPoolTypeTwo().allocate();
 		break;
 	case NODE_TYPE_THREE:
-		pNode = poolManager.getPoolTypeThree().allocate();
+		pNode = poolManager->getPoolTypeThree().allocate();
 		break;
 	case NODE_TYPE_FOUR:
-		pNode = poolManager.getPoolTypeFour().allocate();
+		pNode = poolManager->getPoolTypeFour().allocate();
 		break;
 	default:
 		break;
@@ -279,16 +300,16 @@ IndexNode* Index::newIndexNode(unsigned char nodeType, unsigned long long preCmp
 		switch (nodeType)
 		{
 		case NODE_TYPE_ONE:
-			poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(pNode));
+			poolManager->getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(pNode));
 			break;
 		case NODE_TYPE_TWO:
-			poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(pNode));
+			poolManager->getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(pNode));
 			break;
 		case NODE_TYPE_THREE:
-			poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(pNode));
+			poolManager->getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(pNode));
 			break;
 		case NODE_TYPE_FOUR:
-			poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(pNode));
+			poolManager->getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(pNode));
 			break;
 		}
 		return nullptr;
@@ -332,21 +353,20 @@ bool Index::deleteIndexNode(unsigned long long indexId)
 	generator.recycleNumber(indexId, it->second->getGridNum());
 
 	// 使用内存池释放
-	IndexNodePoolManager& poolManager = IndexNodePoolManager::getInstance();
 	IndexNode* node = it->second;
 	switch (node->getType())
 	{
 	case NODE_TYPE_ONE:
-		poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(node));
+		poolManager->getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(node));
 		break;
 	case NODE_TYPE_TWO:
-		poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(node));
+		poolManager->getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(node));
 		break;
 	case NODE_TYPE_THREE:
-		poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(node));
+		poolManager->getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(node));
 		break;
 	case NODE_TYPE_FOUR:
-		poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(node));
+		poolManager->getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(node));
 		break;
 	}
 	indexNodeCache.erase(it);
@@ -356,7 +376,6 @@ bool Index::deleteIndexNode(unsigned long long indexId)
 
 void Index::clearCache()
 {
-	IndexNodePoolManager& poolManager = IndexNodePoolManager::getInstance();
 	for (auto& value : indexNodeCache)
 	{
 		// 使用内存池释放
@@ -364,16 +383,16 @@ void Index::clearCache()
 		switch (node->getType())
 		{
 		case NODE_TYPE_ONE:
-			poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(node));
+			poolManager->getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(node));
 			break;
 		case NODE_TYPE_TWO:
-			poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(node));
+			poolManager->getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(node));
 			break;
 		case NODE_TYPE_THREE:
-			poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(node));
+			poolManager->getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(node));
 			break;
 		case NODE_TYPE_FOUR:
-			poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(node));
+			poolManager->getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(node));
 			break;
 		}
 	}
@@ -402,20 +421,19 @@ bool Index::putIndexNode(IndexNode* indexNode)
 		if (it == end(indexNodeCache) || it->second != indexNode)
 		{
 			// 使用内存池释放
-			IndexNodePoolManager& poolManager = IndexNodePoolManager::getInstance();
 			switch (indexNode->getType())
 			{
 			case NODE_TYPE_ONE:
-				poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(indexNode));
+				poolManager->getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(indexNode));
 				break;
 			case NODE_TYPE_TWO:
-				poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(indexNode));
+				poolManager->getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(indexNode));
 				break;
 			case NODE_TYPE_THREE:
-				poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(indexNode));
+				poolManager->getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(indexNode));
 				break;
 			case NODE_TYPE_FOUR:
-				poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(indexNode));
+				poolManager->getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(indexNode));
 				break;
 			}
 		}
@@ -433,9 +451,15 @@ void Index::recycleNumber(unsigned long long indexId, unsigned char numCount)
 	generator.recycleNumber(indexId, numCount);
 }
 
+IndexNodePoolManager& Index::getPoolManager()
+{
+	return *poolManager;
+}
+
 Index::~Index()
 {
 	clearCache();
+	delete poolManager;
 }
 
 void Index::setInitMaxUniqueNum(unsigned long long initMaxUniqueNum)

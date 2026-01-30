@@ -19,12 +19,6 @@ IndexNodePoolManager::~IndexNodePoolManager()
     delete poolTypeFour;
 }
 
-IndexNodePoolManager& IndexNodePoolManager::getInstance()
-{
-    static IndexNodePoolManager instance;
-    return instance;
-}
-
 MemoryPool<IndexNodeTypeOne>& IndexNodePoolManager::getPoolTypeOne()
 {
     return *poolTypeOne;
@@ -43,4 +37,14 @@ MemoryPool<IndexNodeTypeThree>& IndexNodePoolManager::getPoolTypeThree()
 MemoryPool<IndexNodeTypeFour>& IndexNodePoolManager::getPoolTypeFour()
 {
     return *poolTypeFour;
+}
+
+void IndexNodePoolManager::clearAllPools()
+{
+    // 清空所有内存池，释放内存回系统，并重新初始化
+    // 注意：调用此函数前必须确保所有索引缓存已清空，没有对象正在使用
+    poolTypeOne->clearAll(true);   // true 表示清空后重新初始化
+    poolTypeTwo->clearAll(true);
+    poolTypeThree->clearAll(true);
+    poolTypeFour->clearAll(true);
 }

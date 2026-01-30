@@ -63,7 +63,7 @@ IndexNode* IndexFile::getIndexNode(unsigned long long indexId, unsigned char bui
 	}
 
 	//根据不同的节点类型创建节点（使用内存池）
-	IndexNodePoolManager& poolManager = IndexNodePoolManager::getInstance();
+	IndexNodePoolManager& poolManager = pIndex->getPoolManager();
 	char* p = buffer;
 	switch (*((unsigned char*)p))
 	{
@@ -223,7 +223,7 @@ IndexNode* IndexFile::getTempIndexNode(unsigned long long indexId)
 	}
 
 	//根据不同的节点类型创建节点（使用内存池）
-	IndexNodePoolManager& poolManager = IndexNodePoolManager::getInstance();
+	IndexNodePoolManager& poolManager = pIndex->getPoolManager();
 	char* p = buffer;
 	switch (*((unsigned char*)p))
 	{
@@ -517,7 +517,7 @@ bool IndexFile::writeTempFile(unsigned long long indexId, IndexNode* pIndexNode)
 	{
 		free(buffer);
 		// 使用内存池释放
-		IndexNodePoolManager& poolManager = IndexNodePoolManager::getInstance();
+		IndexNodePoolManager& poolManager = pIndex->getPoolManager();
 		switch (pIndexNode->getType())
 		{
 		case NODE_TYPE_ONE:
@@ -547,7 +547,7 @@ bool IndexFile::writeTempFile(unsigned long long indexId, IndexNode* pIndexNode)
 	{
 		free(buffer);
 		// 使用内存池释放
-		IndexNodePoolManager& poolManager = IndexNodePoolManager::getInstance();
+		IndexNodePoolManager& poolManager = pIndex->getPoolManager();
 		switch (pIndexNode->getType())
 		{
 		case NODE_TYPE_ONE:
@@ -568,7 +568,7 @@ bool IndexFile::writeTempFile(unsigned long long indexId, IndexNode* pIndexNode)
 	
 	//写入完成了以后堆内存进行释放（使用内存池）
 	free(buffer);
-	IndexNodePoolManager& poolManager = IndexNodePoolManager::getInstance();
+	IndexNodePoolManager& poolManager = pIndex->getPoolManager();
 	switch (pIndexNode->getType())
 	{
 	case NODE_TYPE_ONE:
@@ -621,11 +621,35 @@ bool IndexFile::reduceCache()
 	}
 	else
 	{
-		if (getAvailableMemRate() >= 0.4)
+		// 使用系统内存比例判断是否需要紧急清理
+		float systemMemRate = getSystemMemRate();
+		
+		// 紧急清理：当系统内存极低时（< 10%），写盘后清空所有缓存和内存池
+		// 使用系统内存而非组合内存，对应 getAvailableMemRate 中的重度惩罚阈值
+		if (systemMemRate < 0.1)
+		{
+		// 先把所有缓存写盘
+		if (!writeEveryCache())
+		{
+			return false;
+		}
+		
+		// 清空该实例的内存池，释放内存回系统
+		pIndex->getPoolManager().clearAllPools();
+			
+			return true;
+		}
+		
+		// 使用组合内存比例（系统 + 内存池）判断是否需要部分清理
+		float memRate = getAvailableMemRate(pIndex->getPoolManager());
+		
+		// 正常情况：内存充足，不需要清理
+		if (memRate >= 0.4)
 		{
 			return true;
 		}
 
+		// 部分清理：内存有点低（10% - 40%），清理70%的缓存
 		unsigned long needReduceNum = (unsigned long)((double)pIndex->size() * 0.7);
 
 		//把优先级最低的那些节点取出来。

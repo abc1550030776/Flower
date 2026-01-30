@@ -13,7 +13,7 @@ public:
     // initialSize: 初始预分配的对象数量
     // growSize: 当内存池耗尽时每次增长的对象数量
     MemoryPool(size_t initialSize = 1024, size_t growSize = 512)
-        : growSize(growSize)
+        : initialSize(initialSize), growSize(growSize)
     {
         allocateChunk(initialSize);
     }
@@ -78,6 +78,31 @@ public:
         std::lock_guard<std::mutex> lock(mutex);
         return totalAllocated;
     }
+    
+    // 清空内存池，释放所有内存回系统
+    // 注意：调用此函数前必须确保没有对象正在使用
+    // reinit: 是否在清空后重新初始化内存池
+    void clearAll(bool reinit = true)
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        
+        // 释放所有分配的内存块
+        for (auto chunk : chunks)
+        {
+            ::operator delete(chunk);
+        }
+        
+        // 清空容器
+        chunks.clear();
+        freeList.clear();
+        totalAllocated = 0;
+        
+        // 如果需要重新初始化，分配初始大小的内存块
+        if (reinit)
+        {
+            allocateChunk(initialSize);
+        }
+    }
 
 private:
     // 禁止拷贝和赋值
@@ -104,6 +129,7 @@ private:
 
     std::vector<void*> chunks;      // 所有分配的内存块
     std::vector<void*> freeList;    // 空闲对象列表
+    size_t initialSize;             // 初始大小
     size_t growSize;                // 增长大小
     size_t totalAllocated = 0;      // 总共分配的对象数量
     mutable std::mutex mutex;       // 互斥锁，保证线程安全
@@ -117,21 +143,25 @@ class IndexNodeTypeFour;
 
 // 索引节点内存池管理器
 // 为每种类型的IndexNode提供独立的内存池
+// 注意：每个Index实例应该有自己的IndexNodePoolManager实例
 class IndexNodePoolManager
 {
 public:
-    static IndexNodePoolManager& getInstance();
+    // 构造函数和析构函数
+    IndexNodePoolManager();
+    ~IndexNodePoolManager();
 
     // 获取各个类型的内存池
     MemoryPool<IndexNodeTypeOne>& getPoolTypeOne();
     MemoryPool<IndexNodeTypeTwo>& getPoolTypeTwo();
     MemoryPool<IndexNodeTypeThree>& getPoolTypeThree();
     MemoryPool<IndexNodeTypeFour>& getPoolTypeFour();
+    
+    // 清空所有内存池，释放所有内存回系统
+    // 警告：调用此函数前必须确保所有索引缓存已清空，没有对象正在使用
+    void clearAllPools();
 
 private:
-    IndexNodePoolManager();
-    ~IndexNodePoolManager();
-
     // 禁止拷贝和赋值
     IndexNodePoolManager(const IndexNodePoolManager&) = delete;
     IndexNodePoolManager& operator=(const IndexNodePoolManager&) = delete;
