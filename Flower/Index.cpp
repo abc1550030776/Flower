@@ -149,7 +149,7 @@ bool Index::reduceCache()
 	
 	// 紧急清理：当系统内存极低时（< 10%），清空所有缓存和内存池
 	// 使用系统内存而非组合内存，对应 getAvailableMemRate 中的重度惩罚阈值
-	if (systemMemRate < 0.1)
+	if (systemMemRate < EMERGENCY_CLEANUP_THRESHOLD)
 	{
 		UniqueLock lock(&rwLock);
 		
@@ -166,7 +166,7 @@ bool Index::reduceCache()
 	float memRate = getAvailableMemRate(*poolManager);
 	
 	// 正常情况：内存充足，不需要清理
-	if (memRate >= 0.2)
+	if (memRate >= PARTIAL_CLEANUP_THRESHOLD_SEARCH)
 	{
 		return true;
 	}

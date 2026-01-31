@@ -626,7 +626,7 @@ bool IndexFile::reduceCache()
 		
 		// 紧急清理：当系统内存极低时（< 10%），写盘后清空所有缓存和内存池
 		// 使用系统内存而非组合内存，对应 getAvailableMemRate 中的重度惩罚阈值
-		if (systemMemRate < 0.1)
+		if (systemMemRate < EMERGENCY_CLEANUP_THRESHOLD)
 		{
 		// 先把所有缓存写盘
 		if (!writeEveryCache())
@@ -644,13 +644,13 @@ bool IndexFile::reduceCache()
 		float memRate = getAvailableMemRate(pIndex->getPoolManager());
 		
 		// 正常情况：内存充足，不需要清理
-		if (memRate >= 0.4)
+		if (memRate >= PARTIAL_CLEANUP_THRESHOLD_BUILD)
 		{
 			return true;
 		}
 
 		// 部分清理：内存有点低（10% - 40%），清理70%的缓存
-		unsigned long needReduceNum = (unsigned long)((double)pIndex->size() * 0.7);
+		unsigned long needReduceNum = (unsigned long)((double)pIndex->size() * PARTIAL_CLEANUP_RATIO_BUILD);
 
 		//把优先级最低的那些节点取出来。
 		std::vector<unsigned long long> indexIdVec;

@@ -151,25 +151,29 @@ float getAvailableMemRate(IndexNodePoolManager& poolManager)
 	// - 系统剩余 10-20%: 中度惩罚
 	// - 系统剩余 < 10%: 重度惩罚
 	
-	if (systemAvailableRate < 0.3f)
+	if (systemAvailableRate < PENALTY_THRESHOLD_LIGHT)
 	{
 		// 系统剩余内存不足30%时，需要应用惩罚因子
 		float penaltyFactor;
 		
-		if (systemAvailableRate >= 0.2f)
+		if (systemAvailableRate >= PENALTY_THRESHOLD_MEDIUM)
 		{
 			// 20-30%: 线性惩罚从1.0降到0.5
-			penaltyFactor = 0.5f + (systemAvailableRate - 0.2f) / 0.1f * 0.5f;
+			float range = PENALTY_THRESHOLD_LIGHT - PENALTY_THRESHOLD_MEDIUM;  // 0.1
+			float factorRange = PENALTY_FACTOR_LIGHT_MAX - PENALTY_FACTOR_LIGHT_MIN;  // 0.5
+			penaltyFactor = PENALTY_FACTOR_LIGHT_MIN + (systemAvailableRate - PENALTY_THRESHOLD_MEDIUM) / range * factorRange;
 		}
-		else if (systemAvailableRate >= 0.1f)
+		else if (systemAvailableRate >= PENALTY_THRESHOLD_HEAVY)
 		{
 			// 10-20%: 线性惩罚从0.5降到0.2
-			penaltyFactor = 0.2f + (systemAvailableRate - 0.1f) / 0.1f * 0.3f;
+			float range = PENALTY_THRESHOLD_MEDIUM - PENALTY_THRESHOLD_HEAVY;  // 0.1
+			float factorRange = PENALTY_FACTOR_MEDIUM_MAX - PENALTY_FACTOR_MEDIUM_MIN;  // 0.3
+			penaltyFactor = PENALTY_FACTOR_MEDIUM_MIN + (systemAvailableRate - PENALTY_THRESHOLD_HEAVY) / range * factorRange;
 		}
 		else
 		{
 			// < 10%: 强惩罚，固定为0.1
-			penaltyFactor = 0.1f;
+			penaltyFactor = PENALTY_FACTOR_HEAVY;
 		}
 		
 		baseAvailableRate *= penaltyFactor;
