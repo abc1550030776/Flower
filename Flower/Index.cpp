@@ -103,10 +103,17 @@ bool Index::getLastNodes(unsigned long num, std::vector<unsigned long long>& ind
 
 bool Index::reduceCache(unsigned long needReduceNum)
 {
+	// 获取锁，确保线程安全
+	UniqueLock lock(&rwLock);
+
 	if (indexNodeCache.size() < needReduceNum)
 	{
 		return false;
 	}
+
+	// 收集需要删除的节点，避免在遍历过程中修改容器
+	std::vector<IndexNode*> nodesToDelete;
+	std::vector<std::multimap<unsigned long long, unsigned long long>::iterator> priorityIterators;
 
 	auto it = end(IndexIdPreority);
 	--it;
@@ -119,8 +126,36 @@ bool Index::reduceCache(unsigned long needReduceNum)
 			return false;
 		}
 
-		//删除之前先把内存的数据删除（使用内存池）
-		IndexNode* node = cacheIt->second;
+		// 只释放引用计数为0的节点
+		if (cacheIt->second->isZeroRef())
+		{
+			nodesToDelete.push_back(cacheIt->second);
+			priorityIterators.push_back(curIt);
+		}
+	}
+
+	// 从缓存中删除（使用索引而不是迭代器，避免迭代器失效）
+	for (IndexNode* node : nodesToDelete)
+	{
+		for (auto cit = indexNodeCache.begin(); cit != indexNodeCache.end(); ++cit)
+		{
+			if (cit->second == node)
+			{
+				indexNodeCache.erase(cit);
+				break;
+			}
+		}
+	}
+
+	// 从优先级容器中删除
+	for (auto priorityIt = priorityIterators.begin(); priorityIt != priorityIterators.end(); ++priorityIt)
+	{
+		IndexIdPreority.erase(*priorityIt);
+	}
+
+	// 释放节点内存（在锁保护下进行，避免竞争）
+	for (IndexNode* node : nodesToDelete)
+	{
 		switch (node->getType())
 		{
 		case NODE_TYPE_ONE:
@@ -136,9 +171,8 @@ bool Index::reduceCache(unsigned long needReduceNum)
 			poolManager->getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(node));
 			break;
 		}
-		indexNodeCache.erase(cacheIt);
-		IndexIdPreority.erase(curIt);
 	}
+
 	return true;
 }
 
@@ -146,25 +180,26 @@ bool Index::reduceCache()
 {
 	// 使用系统内存比例判断是否需要紧急清理
 	float systemMemRate = getSystemMemRate();
-	
+
 	// 紧急清理：当系统内存极低时（< 10%），清空所有缓存和内存池
 	// 使用系统内存而非组合内存，对应 getAvailableMemRate 中的重度惩罚阈值
 	if (systemMemRate < EMERGENCY_CLEANUP_THRESHOLD)
 	{
 		UniqueLock lock(&rwLock);
-		
-		// 清空所有索引缓存
+
+		// 紧急清理时，调用 clearCache 来正确释放节点（包括调用析构函数）
+		// 然后调用 clearAllPools 来释放所有内存块
 		clearCache();
-		
+
 		// 清空该实例的内存池，释放内存回系统
 		poolManager->clearAllPools();
-		
+
 		return true;
 	}
-	
+
 	// 使用组合内存比例（系统 + 内存池）判断是否需要部分清理
 	float memRate = getAvailableMemRate(*poolManager);
-	
+
 	// 正常情况：内存充足，不需要清理
 	if (memRate >= PARTIAL_CLEANUP_THRESHOLD_SEARCH)
 	{
@@ -175,6 +210,16 @@ bool Index::reduceCache()
 	UniqueLock lock(&rwLock);
 
 	unsigned long needReduceNum = indexNodeCache.size() / 5;
+	if (needReduceNum == 0)
+	{
+		return true;
+	}
+
+	// 收集需要删除的节点，避免在遍历过程中修改容器
+	std::vector<IndexNode*> nodesToDelete;
+	std::vector<std::multimap<unsigned long long, unsigned long long>::iterator> priorityIterators;
+	std::vector<unsigned long long> indexIdsToRemove;
+
 	auto it = end(IndexIdPreority);
 	--it;
 	for (unsigned int i = 0; i < needReduceNum; ++i)
@@ -183,32 +228,56 @@ bool Index::reduceCache()
 		auto cacheIt = indexNodeCache.find(curIt->second);
 		if (cacheIt == end(indexNodeCache))
 		{
-			return false;
+			continue;
 		}
 
 		//删除之前先看一下是否外面有引用这个节点（使用内存池）
+		// 在持有锁的情况下检查引用计数，这是安全的
 		if (cacheIt->second->isZeroRef())
 		{
-			IndexNode* node = cacheIt->second;
-			switch (node->getType())
-			{
-			case NODE_TYPE_ONE:
-				poolManager->getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(node));
-				break;
-			case NODE_TYPE_TWO:
-				poolManager->getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(node));
-				break;
-			case NODE_TYPE_THREE:
-				poolManager->getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(node));
-				break;
-			case NODE_TYPE_FOUR:
-				poolManager->getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(node));
-				break;
-			}
+			// 收集需要删除的节点（只有引用计数为 0 的节点才能被删除）
+			nodesToDelete.push_back(cacheIt->second);
+			priorityIterators.push_back(curIt);
+			indexIdsToRemove.push_back(curIt->second);
 		}
-		indexNodeCache.erase(cacheIt);
-		IndexIdPreority.erase(curIt);
+		// 注意：如果节点还有引用，我们不删除它，也不从缓存中移除
+		// 这样可以避免重复释放的问题
 	}
+
+	// 从缓存中删除（在锁保护下）
+	for (unsigned long long indexId : indexIdsToRemove)
+	{
+		auto cacheIt = indexNodeCache.find(indexId);
+		if (cacheIt != end(indexNodeCache))
+		{
+			indexNodeCache.erase(cacheIt);
+		}
+	}
+	for (auto pit = priorityIterators.begin(); pit != priorityIterators.end(); ++pit)
+	{
+		IndexIdPreority.erase(*pit);
+	}
+
+	// 释放节点内存（仍然在锁保护下，确保没有其他线程能访问这些节点）
+	for (IndexNode* node : nodesToDelete)
+	{
+		switch (node->getType())
+		{
+		case NODE_TYPE_ONE:
+			poolManager->getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(node));
+			break;
+		case NODE_TYPE_TWO:
+			poolManager->getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(node));
+			break;
+		case NODE_TYPE_THREE:
+			poolManager->getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(node));
+			break;
+		case NODE_TYPE_FOUR:
+			poolManager->getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(node));
+			break;
+		}
+	}
+
 	return true;
 }
 
@@ -376,10 +445,22 @@ bool Index::deleteIndexNode(unsigned long long indexId)
 
 void Index::clearCache()
 {
+	// 收集需要删除的节点，避免在遍历过程中修改容器
+	std::vector<IndexNode*> nodesToDelete;
+	nodesToDelete.reserve(indexNodeCache.size());
+
 	for (auto& value : indexNodeCache)
 	{
-		// 使用内存池释放
-		IndexNode* node = value.second;
+		nodesToDelete.push_back(value.second);
+	}
+
+	// 清空容器
+	indexNodeCache.clear();
+	IndexIdPreority.clear();
+
+	// 使用内存池释放（在锁保护下进行）
+	for (IndexNode* node : nodesToDelete)
+	{
 		switch (node->getType())
 		{
 		case NODE_TYPE_ONE:
@@ -396,9 +477,6 @@ void Index::clearCache()
 			break;
 		}
 	}
-
-	indexNodeCache.clear();
-	IndexIdPreority.clear();
 }
 
 unsigned char Index::getUseType()

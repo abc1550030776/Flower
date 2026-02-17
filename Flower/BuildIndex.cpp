@@ -6,6 +6,7 @@
 #include "sys/time.h"
 #include <cerrno>
 #include <cstring>
+#include "MemoryPool.h"
 
 BuildIndex::BuildIndex()
 {
@@ -2825,7 +2826,18 @@ IndexNode* BuildIndex::changeNodeType(unsigned long long indexId, IndexNode* ind
 	}
 
 	//直接调用节点的函数改变节点的类型
-	IndexNode* newNode = indexNode->changeType(this, buildType);
+	// 获取内存池管理器，用于分配新节点
+	IndexNodePoolManager* poolManager = nullptr;
+	if (buildType == BUILD_TYPE_FILE)
+	{
+		poolManager = &indexFile.getIndex()->getPoolManager();
+	}
+	else
+	{
+		poolManager = &kvIndexFile.getIndex()->getPoolManager();
+	}
+
+	IndexNode* newNode = indexNode->changeType(this, buildType, poolManager);
 	if (newNode == nullptr)
 	{
 		return nullptr;
@@ -2836,7 +2848,28 @@ IndexNode* BuildIndex::changeNodeType(unsigned long long indexId, IndexNode* ind
 		//创建了已经减小了的节点和原来的节点交换
 		if (!indexFile.swapNode(indexId, newNode))
 		{
-			delete newNode;
+			if (poolManager != nullptr)
+			{
+				switch (newNode->getType())
+				{
+				case NODE_TYPE_ONE:
+					poolManager->getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(newNode));
+					break;
+				case NODE_TYPE_TWO:
+					poolManager->getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(newNode));
+					break;
+				case NODE_TYPE_THREE:
+					poolManager->getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(newNode));
+					break;
+				case NODE_TYPE_FOUR:
+					poolManager->getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(newNode));
+					break;
+				}
+			}
+			else
+			{
+				delete newNode;
+			}
 			return nullptr;
 		}
 	}
@@ -2844,13 +2877,55 @@ IndexNode* BuildIndex::changeNodeType(unsigned long long indexId, IndexNode* ind
 	{
 		if (!kvIndexFile.swapNode(indexId, newNode))
 		{
-			delete newNode;
+			if (poolManager != nullptr)
+			{
+				switch (newNode->getType())
+				{
+				case NODE_TYPE_ONE:
+					poolManager->getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(newNode));
+					break;
+				case NODE_TYPE_TWO:
+					poolManager->getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(newNode));
+					break;
+				case NODE_TYPE_THREE:
+					poolManager->getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(newNode));
+					break;
+				case NODE_TYPE_FOUR:
+					poolManager->getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(newNode));
+					break;
+				}
+			}
+			else
+			{
+				delete newNode;
+			}
 			return nullptr;
 		}
 	}
 
-	//成功交换了节点了以后交换出来的节点要被删掉
-	delete indexNode;
+		//成功交换了节点了以后交换出来的节点要被删掉
+		if (poolManager != nullptr)
+		{
+			switch (indexNode->getType())
+			{
+			case NODE_TYPE_ONE:
+				poolManager->getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(indexNode));
+				break;
+			case NODE_TYPE_TWO:
+				poolManager->getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(indexNode));
+				break;
+			case NODE_TYPE_THREE:
+				poolManager->getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(indexNode));
+				break;
+			case NODE_TYPE_FOUR:
+				poolManager->getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(indexNode));
+				break;
+			}
+		}
+		else
+		{
+			delete indexNode;
+		}
 	return newNode;
 }
 

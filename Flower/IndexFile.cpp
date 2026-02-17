@@ -811,6 +811,11 @@ bool IndexFile::putIndexNode(IndexNode* indexNode)
 	return pIndex->putIndexNode(indexNode);
 }
 
+Index* IndexFile::getIndex()
+{
+	return pIndex;
+}
+
 size_t IndexFile::size()
 {
 	return pIndex->size();
