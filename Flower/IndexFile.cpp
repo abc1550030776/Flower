@@ -621,6 +621,14 @@ bool IndexFile::reduceCache()
 	}
 	else
 	{
+		// BUILD模式：使用简单判断，如果内存充足直接返回
+		// 这与backup分支保持一致，避免不必要的复杂计算和写盘操作
+		if (getAvailableMemRate(pIndex->getPoolManager()) >= PARTIAL_CLEANUP_THRESHOLD_BUILD)
+		{
+			return true;
+		}
+
+		// BUILD模式：内存不足时，清理70%的缓存
 		// 使用系统内存比例判断是否需要紧急清理
 		float systemMemRate = getSystemMemRate();
 		

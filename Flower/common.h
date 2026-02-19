@@ -33,6 +33,10 @@ const float PENALTY_FACTOR_MEDIUM_MAX = 0.5f; // 中度惩罚因子最大值
 const float PENALTY_FACTOR_LIGHT_MIN = 0.5f;  // 轻度惩罚因子最小值
 const float PENALTY_FACTOR_LIGHT_MAX = 1.0f;  // 轻度惩罚因子最大值
 
+// 内存信息缓存刷新间隔（秒）
+// 避免频繁读取 /proc/meminfo 文件，减少 I/O 开销
+const float MEM_INFO_CACHE_INTERVAL = 0.5f;  // 0.5秒
+
 bool getIndexPath(const char* dstFilePath, char* indexPath);
 
 bool compareTwoType(const unsigned char leftType, const unsigned char rightType);

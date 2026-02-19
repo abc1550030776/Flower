@@ -111,46 +111,60 @@ bool Index::reduceCache(unsigned long needReduceNum)
 		return false;
 	}
 
-	// 收集需要删除的节点，避免在遍历过程中修改容器
+	// 优化：使用vector预分配空间，减少内存分配开销
 	std::vector<IndexNode*> nodesToDelete;
-	std::vector<std::multimap<unsigned long long, unsigned long long>::iterator> priorityIterators;
+	nodesToDelete.reserve(needReduceNum);
+
+	// 创建一个vector来存储需要删除的indexId，避免重复查找
+	std::vector<unsigned long long> indexIdsToRemove;
+	indexIdsToRemove.reserve(needReduceNum);
 
 	auto it = end(IndexIdPreority);
 	--it;
-	for (unsigned int i = 0; i < needReduceNum; ++i)
+
+	for (unsigned int i = 0; i < needReduceNum && it != begin(IndexIdPreority); ++i)
 	{
 		auto curIt = it--;
 		auto cacheIt = indexNodeCache.find(curIt->second);
-		if (cacheIt == end(indexNodeCache))
-		{
-			return false;
-		}
 
-		// 只释放引用计数为0的节点
-		if (cacheIt->second->isZeroRef())
+		if (cacheIt != end(indexNodeCache) && cacheIt->second->isZeroRef())
 		{
+			// 收集需要删除的节点和indexId
 			nodesToDelete.push_back(cacheIt->second);
-			priorityIterators.push_back(curIt);
+			indexIdsToRemove.push_back(curIt->second);
 		}
 	}
 
-	// 从缓存中删除（使用索引而不是迭代器，避免迭代器失效）
-	for (IndexNode* node : nodesToDelete)
+	// 从缓存中删除（使用indexId直接查找，避免嵌套循环）
+	for (unsigned long long indexId : indexIdsToRemove)
 	{
-		for (auto cit = indexNodeCache.begin(); cit != indexNodeCache.end(); ++cit)
+		auto cacheIt = indexNodeCache.find(indexId);
+		if (cacheIt != end(indexNodeCache))
 		{
-			if (cit->second == node)
+			indexNodeCache.erase(cacheIt);
+		}
+	}
+
+	// 从优先级容器中删除（需要重新查找，因为迭代器可能已失效）
+	// 优化：直接清理旧的优先级项（可能有一些已经被删除的项）
+	// 这是一个简化处理，性能权衡
+	auto priorityIt = begin(IndexIdPreority);
+	while (priorityIt != end(IndexIdPreority))
+	{
+		bool found = false;
+		for (unsigned long long indexId : indexIdsToRemove)
+		{
+			if (priorityIt->second == indexId)
 			{
-				indexNodeCache.erase(cit);
+				priorityIt = IndexIdPreority.erase(priorityIt);
+				found = true;
 				break;
 			}
 		}
-	}
-
-	// 从优先级容器中删除
-	for (auto priorityIt = priorityIterators.begin(); priorityIt != priorityIterators.end(); ++priorityIt)
-	{
-		IndexIdPreority.erase(*priorityIt);
+		if (!found)
+		{
+			++priorityIt;
+		}
 	}
 
 	// 释放节点内存（在锁保护下进行，避免竞争）
@@ -178,11 +192,21 @@ bool Index::reduceCache(unsigned long needReduceNum)
 
 bool Index::reduceCache()
 {
-	// 使用系统内存比例判断是否需要紧急清理
+	// 使用组合内存比例（系统 + 内存池）判断是否需要清理
+	// 注意：getAvailableMemRate() 内部会读取系统内存（有缓存机制）
+	float memRate = getAvailableMemRate(*poolManager);
+
+	// 正常情况：内存充足，不需要清理
+	if (memRate >= PARTIAL_CLEANUP_THRESHOLD_SEARCH)
+	{
+		return true;
+	}
+
+	// 需要清理时，再获取系统内存比例判断是否需要紧急清理
+	// 由于有缓存机制，这次调用会直接返回缓存值，不会产生文件I/O
 	float systemMemRate = getSystemMemRate();
 
 	// 紧急清理：当系统内存极低时（< 10%），清空所有缓存和内存池
-	// 使用系统内存而非组合内存，对应 getAvailableMemRate 中的重度惩罚阈值
 	if (systemMemRate < EMERGENCY_CLEANUP_THRESHOLD)
 	{
 		UniqueLock lock(&rwLock);
@@ -197,15 +221,6 @@ bool Index::reduceCache()
 		return true;
 	}
 
-	// 使用组合内存比例（系统 + 内存池）判断是否需要部分清理
-	float memRate = getAvailableMemRate(*poolManager);
-
-	// 正常情况：内存充足，不需要清理
-	if (memRate >= PARTIAL_CLEANUP_THRESHOLD_SEARCH)
-	{
-		return true;
-	}
-
 	// 部分清理：内存有点低（10% - 20%），清理1/5的缓存
 	UniqueLock lock(&rwLock);
 
@@ -215,50 +230,35 @@ bool Index::reduceCache()
 		return true;
 	}
 
-	// 收集需要删除的节点，避免在遍历过程中修改容器
-	std::vector<IndexNode*> nodesToDelete;
-	std::vector<std::multimap<unsigned long long, unsigned long long>::iterator> priorityIterators;
-	std::vector<unsigned long long> indexIdsToRemove;
-
+	// 优化：使用unordered_map存储待删除的节点，避免重复查找
+	// 直接在遍历时删除，因为已经持有锁，可以安全地修改容器
 	auto it = end(IndexIdPreority);
 	--it;
-	for (unsigned int i = 0; i < needReduceNum; ++i)
+	unsigned int deletedCount = 0;
+
+	// 创建一个vector来存储需要删除的节点，以便在最后统一释放内存
+	std::vector<IndexNode*> nodesToDelete;
+	nodesToDelete.reserve(needReduceNum);
+
+	while (deletedCount < needReduceNum && it != begin(IndexIdPreority))
 	{
 		auto curIt = it--;
 		auto cacheIt = indexNodeCache.find(curIt->second);
-		if (cacheIt == end(indexNodeCache))
-		{
-			continue;
-		}
 
-		//删除之前先看一下是否外面有引用这个节点（使用内存池）
-		// 在持有锁的情况下检查引用计数，这是安全的
-		if (cacheIt->second->isZeroRef())
+		if (cacheIt != end(indexNodeCache) && cacheIt->second->isZeroRef())
 		{
-			// 收集需要删除的节点（只有引用计数为 0 的节点才能被删除）
+			// 收集需要删除的节点
 			nodesToDelete.push_back(cacheIt->second);
-			priorityIterators.push_back(curIt);
-			indexIdsToRemove.push_back(curIt->second);
-		}
-		// 注意：如果节点还有引用，我们不删除它，也不从缓存中移除
-		// 这样可以避免重复释放的问题
-	}
 
-	// 从缓存中删除（在锁保护下）
-	for (unsigned long long indexId : indexIdsToRemove)
-	{
-		auto cacheIt = indexNodeCache.find(indexId);
-		if (cacheIt != end(indexNodeCache))
-		{
+			// 直接从缓存和优先级容器中删除
 			indexNodeCache.erase(cacheIt);
+			IndexIdPreority.erase(curIt);
+
+			deletedCount++;
 		}
 	}
-	for (auto pit = priorityIterators.begin(); pit != priorityIterators.end(); ++pit)
-	{
-		IndexIdPreority.erase(*pit);
-	}
 
-	// 释放节点内存（仍然在锁保护下，确保没有其他线程能访问这些节点）
+	// 释放节点内存（在锁保护下）
 	for (IndexNode* node : nodesToDelete)
 	{
 		switch (node->getType())

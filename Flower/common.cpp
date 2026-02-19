@@ -7,6 +7,13 @@
 #include "MemoryPool.h"
 #include "IndexNode.h"
 
+#ifdef __APPLE__
+#include <sys/sysctl.h>
+#include <mach/mach.h>
+#include <mach/mach_host.h>
+#include <mach/vm_statistics.h>
+#endif
+
 bool getIndexPath(const char* dstFilePath, char* indexPath)
 {
 	//判断路劲长度加上后缀了以后是否会超过最长长度
@@ -70,92 +77,162 @@ unsigned long long swiftBigLittleEnd(unsigned long long value)
 	return lowValue + (highValue << 32);
 }
 
-float getSystemMemRate()
+// 跨平台获取系统内存信息的辅助函数
+static bool getSystemMemoryInfo(unsigned long& totalMemKB, unsigned long& availableMemKB)
 {
-	FILE* fd;
-	fd = fopen("/proc/meminfo", "r");
+#ifdef __APPLE__
+	// macOS 使用 sysctl 获取内存信息
+	int mib[2];
+	int64_t physicalMemory;
+	size_t length;
+
+	// 获取总内存
+	mib[0] = CTL_HW;
+	mib[1] = HW_MEMSIZE;
+	length = sizeof(int64_t);
+	if (sysctl(mib, 2, &physicalMemory, &length, NULL, 0) != 0)
+	{
+		return false;
+	}
+	totalMemKB = physicalMemory / 1024;  // 转换为 KB
+
+	// 获取可用内存
+	vm_statistics64_data_t vmStats;
+	mach_msg_type_number_t count = sizeof(vmStats) / sizeof(natural_t);
+	if (host_statistics64(mach_host_self(), HOST_VM_INFO64, (host_info64_t)&vmStats, &count) != KERN_SUCCESS)
+	{
+		return false;
+	}
+
+	// 计算可用内存：free + inactive + speculative
+	int64_t freeBytes = (int64_t)vmStats.free_count * (int64_t)vm_page_size;
+	int64_t inactiveBytes = (int64_t)vmStats.inactive_count * (int64_t)vm_page_size;
+	int64_t speculativeBytes = (int64_t)vmStats.speculative_count * (int64_t)vm_page_size;
+
+	availableMemKB = (freeBytes + inactiveBytes + speculativeBytes) / 1024;  // 转换为 KB
+
+#else
+	// Linux 读取 /proc/meminfo 文件
+	FILE* fd = fopen("/proc/meminfo", "r");
 	if (fd == NULL)
 	{
-		return 0;
+		return false;
 	}
+
 	char buff[256];
-	fgets(buff, sizeof(buff), fd);
 	char name[20];
 	unsigned long total;
 	char name2[20];
+
+	// 读取总内存
+	fgets(buff, sizeof(buff), fd);
 	sscanf(buff, "%s %lu %s\n", name, &total, name2);
-	unsigned long totalMem = total;  // 系统总内存 (KB)
+	totalMemKB = total;
+
+	// 跳过第二行，读取第三行的可用内存
 	fgets(buff, sizeof(buff), fd);
 	fgets(buff, sizeof(buff), fd);
 	sscanf(buff, "%s %lu %s\n", name, &total, name2);
-	unsigned long availableMem = total;  // 系统可用内存 (KB)
+	availableMemKB = total;
+
 	fclose(fd);
-	
-	// 返回系统可用内存比例（不包括内存池）
-	return float(availableMem) / float(totalMem);
+#endif
+
+	return true;
+}
+
+float getSystemMemRate()
+{
+	// 使用静态缓存，避免频繁读取内存信息
+	static float cachedRate = 1.0f;
+	static time_t lastUpdateTime = 0;
+
+	time_t now;
+	time(&now);
+
+	// 检查是否需要更新缓存（使用双精度比较避免浮点误差）
+	if (cachedRate > 0 && difftime(now, lastUpdateTime) < MEM_INFO_CACHE_INTERVAL)
+	{
+		return cachedRate;
+	}
+
+	unsigned long totalMemKB, availableMemKB;
+	if (!getSystemMemoryInfo(totalMemKB, availableMemKB))
+	{
+		return 0;
+	}
+
+	// 更新缓存
+	cachedRate = float(availableMemKB) / float(totalMemKB);
+	lastUpdateTime = now;
+
+	return cachedRate;
 }
 
 float getAvailableMemRate(IndexNodePoolManager& poolManager)
 {
-	FILE* fd;
-	fd = fopen("/proc/meminfo", "r");
-	if (fd == NULL)
+	// 使用静态缓存系统内存信息，避免频繁读取内存信息
+	static unsigned long cachedTotalMem = 0;
+	static unsigned long cachedAvailableMem = 0;
+	static time_t lastUpdateTime = 0;
+
+	time_t now;
+	time(&now);
+
+	// 检查是否需要更新缓存
+	if (cachedTotalMem > 0 && difftime(now, lastUpdateTime) < MEM_INFO_CACHE_INTERVAL)
 	{
-		return 0;
+		// 使用缓存的系统内存信息
 	}
-	char buff[256];
-	fgets(buff, sizeof(buff), fd);
-	char name[20];
-	unsigned long total;
-	char name2[20];
-	sscanf(buff, "%s %lu %s\n", name, &total, name2);
-	unsigned long totalMem = total;  // 系统总内存 (KB)
-	fgets(buff, sizeof(buff), fd);
-	fgets(buff, sizeof(buff), fd);
-	sscanf(buff, "%s %lu %s\n", name, &total, name2);
-	unsigned long availableMem = total;  // 系统可用内存 (KB)
-	fclose(fd);
-	
+	else
+	{
+		// 使用跨平台函数获取系统内存信息
+		if (!getSystemMemoryInfo(cachedTotalMem, cachedAvailableMem))
+		{
+			return 0;
+		}
+		lastUpdateTime = now;
+	}
+
 	// 计算该实例内存池的空闲内存（使用传入的poolManager参数）
-	
-	// 计算每个内存池的空闲内存（字节）
+	// 注意：这里仍然需要调用 getFreeCount()，但它只是返回 freeList.size()，开销很小
 	size_t poolFreeBytes = 0;
-	
+
 	// TypeOne 内存池
 	poolFreeBytes += poolManager.getPoolTypeOne().getFreeCount() * sizeof(IndexNodeTypeOne);
-	
+
 	// TypeTwo 内存池
 	poolFreeBytes += poolManager.getPoolTypeTwo().getFreeCount() * sizeof(IndexNodeTypeTwo);
-	
+
 	// TypeThree 内存池
 	poolFreeBytes += poolManager.getPoolTypeThree().getFreeCount() * sizeof(IndexNodeTypeThree);
-	
+
 	// TypeFour 内存池
 	poolFreeBytes += poolManager.getPoolTypeFour().getFreeCount() * sizeof(IndexNodeTypeFour);
-	
+
 	// 转换内存池内存为 KB
 	unsigned long poolFreeKB = poolFreeBytes / 1024;
-	
+
 	// 计算基础可用内存比例
-	float baseAvailableRate = float(availableMem + poolFreeKB) / float(totalMem);
-	
+	float baseAvailableRate = float(cachedAvailableMem + poolFreeKB) / float(cachedTotalMem);
+
 	// 计算系统剩余内存比例（不包括内存池空闲部分）
-	float systemAvailableRate = float(availableMem) / float(totalMem);
-	
+	float systemAvailableRate = float(cachedAvailableMem) / float(cachedTotalMem);
+
 	// 安全策略：如果系统剩余内存过低，应用惩罚因子
 	// 这样可以避免内存池占用过多导致系统内存不足而崩溃
-	// 
+	//
 	// 惩罚阈值和因子：
 	// - 系统剩余 > 30%: 无惩罚，正常使用内存池空闲内存
 	// - 系统剩余 20-30%: 轻度惩罚
 	// - 系统剩余 10-20%: 中度惩罚
 	// - 系统剩余 < 10%: 重度惩罚
-	
+
 	if (systemAvailableRate < PENALTY_THRESHOLD_LIGHT)
 	{
 		// 系统剩余内存不足30%时，需要应用惩罚因子
 		float penaltyFactor;
-		
+
 		if (systemAvailableRate >= PENALTY_THRESHOLD_MEDIUM)
 		{
 			// 20-30%: 线性惩罚从1.0降到0.5
@@ -175,10 +252,10 @@ float getAvailableMemRate(IndexNodePoolManager& poolManager)
 			// < 10%: 强惩罚，固定为0.1
 			penaltyFactor = PENALTY_FACTOR_HEAVY;
 		}
-		
+
 		baseAvailableRate *= penaltyFactor;
 	}
-	
+
 	return baseAvailableRate;
 }
 
