@@ -1,5 +1,6 @@
 cc_binary(
     name = "flower",
     srcs = glob(["*.cpp", "*.h"]),
-    malloc = "@com_google_tcmalloc//tcmalloc",
+    data = ["//:test_file"],
+    malloc = "@tcmalloc//tcmalloc",
 )

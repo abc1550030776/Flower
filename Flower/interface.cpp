@@ -18,11 +18,16 @@ bool BuildDstIndex(const char* fileName, bool needBuildLineIndex, char delimiter
 		if (rl.rlim_cur < kStackSize)
 		{
 			rl.rlim_cur = kStackSize;
+			if (rl.rlim_cur > rl.rlim_max)
+			{
+				rl.rlim_cur = rl.rlim_max;
+			}
 			result = setrlimit(RLIMIT_STACK, &rl);
 			if (result != 0)
 			{
 				fprintf(stderr, "setrlimit returned result = %d\n", result);
-				return false;
+				// Don't fail if we can't increase stack, just warn
+				// return false; 
 			}
 		}
 	}

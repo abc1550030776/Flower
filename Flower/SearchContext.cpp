@@ -51,8 +51,8 @@ bool SearchContext::init(const char* fileName, unsigned long threadNum, bool sea
 		return false;
 	}
 
-	fpos_t pos;
-	pos.__pos = 0;
+	unsigned long long pos;
+	pos = 0;
 	if (!indexFile.read(pos, &rootIndexNum, 8))
 	{
 		return false;

@@ -1,8 +1,12 @@
 #include "BuildIndex.h"
+#include <cstdlib>
 #include <memory.h>
 #include "common.h"
 #include <sys/stat.h>
 #include "sys/time.h"
+#include <cerrno>
+#include <cstring>
+#include "MemoryPool.h"
 
 BuildIndex::BuildIndex()
 {
@@ -58,7 +62,9 @@ bool BuildIndex::init(const char* fileName, Index* index, Index* kvIndex)
 
 	//获取文件的大小
 	struct stat statbuf;
-	stat(fileName, &statbuf);
+	if (stat(fileName, &statbuf) != 0) {
+		return false;
+	}
 	dstFileSize = statbuf.st_size;
 	return true;
 }
@@ -151,14 +157,14 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			//从文件当中两个位置当中进行读取剩下字节的数据
 			unsigned char leftData[8];
 			unsigned char rightData[8];
-			fpos_t leftPos;
-			leftPos.__pos = leftFilePos;
+			unsigned long long leftPos;
+			leftPos = leftFilePos;
 			if (!dstFile.read(leftPos, leftData, needChartoEight))
 			{
 				return false;
 			}
-			fpos_t rightPos;
-			rightPos.__pos = rightFilePos;
+			unsigned long long rightPos;
+			rightPos = rightFilePos;
 			if (!dstFile.read(rightPos, rightData, needChartoEight))
 			{
 				return false;
@@ -326,16 +332,16 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		while (cmpLen + 4 * 1024 <= remainReadSize)
 		{
 			//从两个文件当中把相应的部分读取出来
-			fpos_t leftPos;
-			leftPos.__pos = leftFilePos + cmpLen;
+			unsigned long long leftPos;
+			leftPos = leftFilePos + cmpLen;
 			if (!dstFile.read(leftPos, leftBuffer, 4 * 1024))
 			{
 				free(leftBuffer);
 				free(rightBuffer);
 				return false;
 			}
-			fpos_t rightPos;
-			rightPos.__pos = rightFilePos + cmpLen;
+			unsigned long long rightPos;
+			rightPos = rightFilePos + cmpLen;
 			if (!dstFile.read(rightPos, rightBuffer, 4 * 1024))
 			{
 				free(leftBuffer);
@@ -439,16 +445,16 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		//后面的比较长度不够4k
 		unsigned long long lastNeedReadSize = remainReadSize - cmpLen;
 
-		fpos_t leftPos;
-		leftPos.__pos = leftFilePos + cmpLen;
+		unsigned long long leftPos;
+		leftPos = leftFilePos + cmpLen;
 		if (!dstFile.read(leftPos, leftBuffer, lastNeedReadSize))
 		{
 			free(leftBuffer);
 			free(rightBuffer);
 			return false;
 		}
-		fpos_t rightPos;
-		rightPos.__pos = rightFilePos + cmpLen;
+		unsigned long long rightPos;
+		rightPos = rightFilePos + cmpLen;
 		if (!dstFile.read(rightPos, rightBuffer, lastNeedReadSize))
 		{
 			free(leftBuffer);
@@ -577,8 +583,8 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		}
 
 		//读取完整的key值
-		fpos_t pos;
-		pos.__pos = chooseFilePos + remainReadSize;
+		unsigned long long pos;
+		pos = chooseFilePos + remainReadSize;
 		if (!dstFile.read(pos, &chooseBuffer[lastNeedReadSize], subCmpLen + 8 - lastNeedReadSize))
 		{
 			free(leftBuffer);
@@ -655,14 +661,14 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			unsigned char rightData[8];
 			if (needChartoEight != 0)
 			{
-				fpos_t leftPos;
-				leftPos.__pos = leftFilePos;
+				unsigned long long leftPos;
+				leftPos = leftFilePos;
 				if (!dstFile.read(leftPos, leftData, needChartoEight))
 				{
 					return false;
 				}
-				fpos_t rightPos;
-				rightPos.__pos = rightFilePos;
+				unsigned long long rightPos;
+				rightPos = rightFilePos;
 				if (!dstFile.read(rightPos, rightData, needChartoEight))
 				{
 					return false;
@@ -948,8 +954,8 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				unsigned long long key;
 				//从文件当中读取key
-				fpos_t pos;
-				pos.__pos = longNodeStart + cmpLen;
+				unsigned long long pos;
+				pos = longNodeStart + cmpLen;
 				if (!dstFile.read(pos, &key, 8))
 				{
 					return false;
@@ -983,8 +989,8 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				unsigned int key;
 				//从文件当中读取key
-				fpos_t pos;
-				pos.__pos = longNodeStart + cmpLen;
+				unsigned long long pos;
+				pos = longNodeStart + cmpLen;
 				if (!dstFile.read(pos, &key, 4))
 				{
 					return false;
@@ -1018,8 +1024,8 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				unsigned short key;
 				//从文件当中读取key
-				fpos_t pos;
-				pos.__pos = longNodeStart + cmpLen;
+				unsigned long long pos;
+				pos = longNodeStart + cmpLen;
 				if (!dstFile.read(pos, &key, 2))
 				{
 					return false;
@@ -1053,8 +1059,8 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				unsigned char key;
 				//从文件当中读取key
-				fpos_t pos;
-				pos.__pos = longNodeStart + cmpLen;
+				unsigned long long pos;
+				pos = longNodeStart + cmpLen;
 				if (!dstFile.read(pos, &key, 1))
 				{
 					return false;
@@ -1120,16 +1126,16 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		while (cmpLen + 4 * 1024 <= remainReadSize)
 		{
 			//从两个文件当中把相应的部分读取出来
-			fpos_t leftPos;
-			leftPos.__pos = leftFilePos + cmpLen;
+			unsigned long long leftPos;
+			leftPos = leftFilePos + cmpLen;
 			if (!dstFile.read(leftPos, leftBuffer, 4 * 1024))
 			{
 				free(leftBuffer);
 				free(rightBuffer);
 				return false;
 			}
-			fpos_t rightPos;
-			rightPos.__pos = rightFilePos + cmpLen;
+			unsigned long long rightPos;
+			rightPos = rightFilePos + cmpLen;
 			if (!dstFile.read(rightPos, rightBuffer, 4 * 1024))
 			{
 				free(leftBuffer);
@@ -1241,16 +1247,16 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		unsigned long long lastNeedReadSize = remainReadSize - cmpLen;
 		if (lastNeedReadSize != 0)
 		{
-			fpos_t leftPos;
-			leftPos.__pos = leftFilePos + cmpLen;
+			unsigned long long leftPos;
+			leftPos = leftFilePos + cmpLen;
 			if (!dstFile.read(leftPos, leftBuffer, lastNeedReadSize))
 			{
 				free(leftBuffer);
 				free(rightBuffer);
 				return false;
 			}
-			fpos_t rightPos;
-			rightPos.__pos = rightFilePos + cmpLen;
+			unsigned long long rightPos;
+			rightPos = rightFilePos + cmpLen;
 			if (!dstFile.read(rightPos, rightBuffer, lastNeedReadSize))
 			{
 				free(leftBuffer);
@@ -1435,8 +1441,8 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		{
 			unsigned long long key;
 			//从文件当中读取key
-			fpos_t pos;
-			pos.__pos = longNodeStart + cmpLen;
+			unsigned long long pos;
+			pos = longNodeStart + cmpLen;
 			if (!dstFile.read(pos, &key, 8))
 			{
 				free(leftBuffer);
@@ -1476,8 +1482,8 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		{
 			unsigned int key;
 			//从文件当中读取key
-			fpos_t pos;
-			pos.__pos = longNodeStart + cmpLen;
+			unsigned long long pos;
+			pos = longNodeStart + cmpLen;
 			if (!dstFile.read(pos, &key, 4))
 			{
 				free(leftBuffer);
@@ -1518,8 +1524,8 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		{
 			unsigned short key;
 			//从文件当中读取key
-			fpos_t pos;
-			pos.__pos = longNodeStart + cmpLen;
+			unsigned long long pos;
+			pos = longNodeStart + cmpLen;
 			if (!dstFile.read(pos, &key, 2))
 			{
 				free(leftBuffer);
@@ -1559,8 +1565,8 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		{
 			unsigned char key;
 			//从文件当中读取key
-			fpos_t pos;
-			pos.__pos = longNodeStart + cmpLen;
+			unsigned long long pos;
+			pos = longNodeStart + cmpLen;
 			if (!dstFile.read(pos, &key, 1))
 			{
 				free(leftBuffer);
@@ -1650,14 +1656,14 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			unsigned char nodeData[8];
 			if (needChartoEight != 0)
 			{
-				fpos_t leafPos;
-				leafPos.__pos = leafFilePos;
+				unsigned long long leafPos;
+				leafPos = leafFilePos;
 				if (!dstFile.read(leafPos, leafData, needChartoEight))
 				{
 					return false;
 				}
-				fpos_t nodePos;
-				nodePos.__pos = nodeFilePos;
+				unsigned long long nodePos;
+				nodePos = nodeFilePos;
 				if (!dstFile.read(nodePos, nodeData, needChartoEight))
 				{
 					return false;
@@ -1862,8 +1868,8 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				unsigned long long key;
 				//从文件当中读取key
-				fpos_t pos;
-				pos.__pos = leafFilePos + cmpLen;
+				unsigned long long pos;
+				pos = leafFilePos + cmpLen;
 				if (!dstFile.read(pos, &key, 8))
 				{
 					return false;
@@ -1884,8 +1890,8 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				unsigned int key;
 				//从文件当中读取key
-				fpos_t pos;
-				pos.__pos = leafFilePos + cmpLen;
+				unsigned long long pos;
+				pos = leafFilePos + cmpLen;
 				if (!dstFile.read(pos, &key, 4))
 				{
 					return false;
@@ -1906,8 +1912,8 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				unsigned short key;
 				//从文件当中读取key
-				fpos_t pos;
-				pos.__pos = leafFilePos + cmpLen;
+				unsigned long long pos;
+				pos = leafFilePos + cmpLen;
 				if (!dstFile.read(pos, &key, 2))
 				{
 					return false;
@@ -1928,8 +1934,8 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				unsigned char key;
 				//从文件当中读取key
-				fpos_t pos;
-				pos.__pos = leafFilePos + cmpLen;
+				unsigned long long pos;
+				pos = leafFilePos + cmpLen;
 				if (!dstFile.read(pos, &key, 1))
 				{
 					return false;
@@ -1981,16 +1987,16 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		while (cmpLen + 4 * 1024 <= remainReadSize)
 		{
 			//从两个文件当中把相应的部分读取出来
-			fpos_t leafPos;
-			leafPos.__pos = leafFilePos + cmpLen;
+			unsigned long long leafPos;
+			leafPos = leafFilePos + cmpLen;
 			if (!dstFile.read(leafPos, leafBuffer, 4 * 1024))
 			{
 				free(leafBuffer);
 				free(nodeBuffer);
 				return false;
 			}
-			fpos_t nodePos;
-			nodePos.__pos = nodeFilePos + cmpLen;
+			unsigned long long nodePos;
+			nodePos = nodeFilePos + cmpLen;
 			if (!dstFile.read(nodePos, nodeBuffer, 4 * 1024))
 			{
 				free(leafBuffer);
@@ -2083,8 +2089,8 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		unsigned long long lastNeedReadSize = remainReadSize - cmpLen;
 		if (lastNeedReadSize != 0)
 		{
-			fpos_t leafPos;
-			leafPos.__pos = leafFilePos + cmpLen;
+			unsigned long long leafPos;
+			leafPos = leafFilePos + cmpLen;
 			if (!dstFile.read(leafPos, leafBuffer, lastNeedReadSize))
 			{
 				free(leafBuffer);
@@ -2092,8 +2098,8 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				return false;
 			}
 
-			fpos_t nodePos;
-			nodePos.__pos = nodeFilePos + cmpLen;
+			unsigned long long nodePos;
+			nodePos = nodeFilePos + cmpLen;
 			if (!dstFile.read(nodePos, nodeBuffer, lastNeedReadSize))
 			{
 				free(leafBuffer);
@@ -2216,8 +2222,8 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				unsigned long long key;
 				//从文件当中读取key
-				fpos_t pos;
-				pos.__pos = leafFilePos + cmpLen + subCmpLen + suppleSize;
+				unsigned long long pos;
+				pos = leafFilePos + cmpLen + subCmpLen + suppleSize;
 				if (!dstFile.read(pos, &key, 8))
 				{
 					free(leafBuffer);
@@ -2242,8 +2248,8 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				unsigned int key;
 				//从文件当中读取key
-				fpos_t pos;
-				pos.__pos = leafFilePos + cmpLen + subCmpLen + suppleSize;
+				unsigned long long pos;
+				pos = leafFilePos + cmpLen + subCmpLen + suppleSize;
 				if (!dstFile.read(pos, &key, 4))
 				{
 					free(leafBuffer);
@@ -2267,8 +2273,8 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			case NODE_TYPE_THREE:
 			{
 				unsigned short key;
-				fpos_t pos;
-				pos.__pos = leafFilePos + cmpLen + subCmpLen + suppleSize;
+				unsigned long long pos;
+				pos = leafFilePos + cmpLen + subCmpLen + suppleSize;
 				if (!dstFile.read(pos, &key, 2))
 				{
 					free(leafBuffer);
@@ -2292,8 +2298,8 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			case NODE_TYPE_FOUR:
 			{
 				unsigned char key;
-				fpos_t pos;
-				pos.__pos = leafFilePos + cmpLen + subCmpLen + suppleSize;
+				unsigned long long pos;
+				pos = leafFilePos + cmpLen + subCmpLen + suppleSize;
 				if (!dstFile.read(pos, &key, 1))
 				{
 					free(leafBuffer);
@@ -2345,8 +2351,8 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		}
 
 		//读取完整的key值
-		fpos_t pos;
-		pos.__pos = nodeFilePos + remainReadSize;
+		unsigned long long pos;
+		pos = nodeFilePos + remainReadSize;
 		if (!dstFile.read(pos, &nodeBuffer[lastNeedReadSize], subCmpLen + 8 - lastNeedReadSize))
 		{
 			free(leafBuffer);
@@ -2820,7 +2826,18 @@ IndexNode* BuildIndex::changeNodeType(unsigned long long indexId, IndexNode* ind
 	}
 
 	//直接调用节点的函数改变节点的类型
-	IndexNode* newNode = indexNode->changeType(this, buildType);
+	// 获取内存池管理器，用于分配新节点
+	IndexNodePoolManager* poolManager = nullptr;
+	if (buildType == BUILD_TYPE_FILE)
+	{
+		poolManager = &indexFile.getIndex()->getPoolManager();
+	}
+	else
+	{
+		poolManager = &kvIndexFile.getIndex()->getPoolManager();
+	}
+
+	IndexNode* newNode = indexNode->changeType(this, buildType, poolManager);
 	if (newNode == nullptr)
 	{
 		return nullptr;
@@ -2831,7 +2848,28 @@ IndexNode* BuildIndex::changeNodeType(unsigned long long indexId, IndexNode* ind
 		//创建了已经减小了的节点和原来的节点交换
 		if (!indexFile.swapNode(indexId, newNode))
 		{
-			delete newNode;
+			if (poolManager != nullptr)
+			{
+				switch (newNode->getType())
+				{
+				case NODE_TYPE_ONE:
+					poolManager->getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(newNode));
+					break;
+				case NODE_TYPE_TWO:
+					poolManager->getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(newNode));
+					break;
+				case NODE_TYPE_THREE:
+					poolManager->getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(newNode));
+					break;
+				case NODE_TYPE_FOUR:
+					poolManager->getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(newNode));
+					break;
+				}
+			}
+			else
+			{
+				delete newNode;
+			}
 			return nullptr;
 		}
 	}
@@ -2839,13 +2877,55 @@ IndexNode* BuildIndex::changeNodeType(unsigned long long indexId, IndexNode* ind
 	{
 		if (!kvIndexFile.swapNode(indexId, newNode))
 		{
-			delete newNode;
+			if (poolManager != nullptr)
+			{
+				switch (newNode->getType())
+				{
+				case NODE_TYPE_ONE:
+					poolManager->getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(newNode));
+					break;
+				case NODE_TYPE_TWO:
+					poolManager->getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(newNode));
+					break;
+				case NODE_TYPE_THREE:
+					poolManager->getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(newNode));
+					break;
+				case NODE_TYPE_FOUR:
+					poolManager->getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(newNode));
+					break;
+				}
+			}
+			else
+			{
+				delete newNode;
+			}
 			return nullptr;
 		}
 	}
 
-	//成功交换了节点了以后交换出来的节点要被删掉
-	delete indexNode;
+		//成功交换了节点了以后交换出来的节点要被删掉
+		if (poolManager != nullptr)
+		{
+			switch (indexNode->getType())
+			{
+			case NODE_TYPE_ONE:
+				poolManager->getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(indexNode));
+				break;
+			case NODE_TYPE_TWO:
+				poolManager->getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(indexNode));
+				break;
+			case NODE_TYPE_THREE:
+				poolManager->getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(indexNode));
+				break;
+			case NODE_TYPE_FOUR:
+				poolManager->getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(indexNode));
+				break;
+			}
+		}
+		else
+		{
+			delete indexNode;
+		}
 	return newNode;
 }
 
@@ -2940,8 +3020,8 @@ bool BuildIndex::build(bool needBuildLineIndex, char delimiter)
 			unsigned char buffer[8];
 			if (filePos + 8 < dstFileSize)
 			{
-				fpos_t pos;
-				pos.__pos = filePos;
+				unsigned long long pos;
+				pos = filePos;
 				if (!dstFile.read(pos, buffer, 8))
 				{
 					return false;
@@ -2961,8 +3041,8 @@ bool BuildIndex::build(bool needBuildLineIndex, char delimiter)
 			}
 			else
 			{
-				fpos_t pos;
-				pos.__pos = filePos;
+				unsigned long long pos;
+				pos = filePos;
 				if (!dstFile.read(pos, buffer, dstFileSize - filePos))
 				{
 					return false;

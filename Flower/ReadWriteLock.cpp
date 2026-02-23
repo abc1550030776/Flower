@@ -1,5 +1,5 @@
 #include <assert.h>
-#include <pthread.h>
+#include <sched.h>
 #include <string.h>
 #include <stdio.h>
 #include "ReadWriteLock.h"
@@ -152,7 +152,7 @@ static inline PLINUX_SRWLOCK_WAITBLOCK acquireWaitBlockLockImpl(PRTL_SRWLOCK SRW
 			break;
 		}
 
-		pthread_yield();
+		sched_yield();
 	}
 
 	return WaitBlock;
@@ -172,14 +172,14 @@ static inline void acquireSRWLockExclusiveWaitImpl(PRTL_SRWLOCK SRWLock, PLINUX_
 			}
 		}
 
-		pthread_yield();
+		sched_yield();
 	}
 }
 
 static inline void acquireSRWLockSharedWaitImpl(PRTL_SRWLOCK SRWLock, PLINUX_SRWLOCK_WAITBLOCK FirstWait, PLINUX_SRWLOCK_SHARED_WAKE WakeChain)
 {
 	while (WakeChain->Wake == 0) {
-		pthread_yield();
+		sched_yield();
 	}
 }
 
@@ -352,7 +352,7 @@ void acquireSRWLockShared(PRTL_SRWLOCK SRWLock)
 			}
 		}
 
-		pthread_yield();
+		sched_yield();
 	}
 }
 
@@ -404,7 +404,7 @@ void releaseSRWLockShared(PRTL_SRWLOCK SRWLock)
 			assert(false);
 		}
 
-		pthread_yield();
+		sched_yield();
 	}
 }
 
@@ -510,7 +510,7 @@ void acquireSRWLockExclusive(PRTL_SRWLOCK SRWLock)
 				}
 			}
 
-			pthread_yield();
+			sched_yield();
 		}
 	}
 }
@@ -561,7 +561,7 @@ void releaseSRWLockExclusive(PRTL_SRWLOCK SRWLock)
 			assert(false);
 		}
 
-		pthread_yield();
+		sched_yield();
 	}
 }
 

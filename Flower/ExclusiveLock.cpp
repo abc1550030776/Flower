@@ -1,5 +1,5 @@
 #include "ExclusiveLock.h"
-#include <pthread.h>
+#include <sched.h>
 
 #define LINUX_EXCLOCK_LOCK_BIT 0
 
@@ -17,7 +17,7 @@ void acquireExclusive(PEXCLOCK EXCLock)
 			break;
 		}
 
-		pthread_yield();
+		sched_yield();
 	}
 }
 

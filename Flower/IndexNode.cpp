@@ -1,6 +1,7 @@
 #include "IndexNode.h"
 #include "string.h"
 #include "BuildIndex.h"
+#include "MemoryPool.h"
 
 IndexNode::IndexNode()
 {
@@ -552,10 +553,19 @@ size_t IndexNodeTypeOne::getChildrenNum()
 	return children.size();
 }
 
-IndexNode* IndexNodeTypeOne::changeType(BuildIndex* buildIndex, unsigned char buildType)
+IndexNode* IndexNodeTypeOne::changeType(BuildIndex* buildIndex, unsigned char buildType, IndexNodePoolManager* poolManager)
 {
-	//首先创建下一个类型的节点
-	IndexNodeTypeTwo* ret = new IndexNodeTypeTwo();
+	//首先创建下一个类型的节点（使用内存池或new）
+	IndexNodeTypeTwo* ret;
+	if (poolManager != nullptr)
+	{
+		ret = poolManager->getPoolTypeTwo().allocate();
+	}
+	else
+	{
+		ret = new IndexNodeTypeTwo();
+	}
+
 	//把当前节点当前全部的父类的数据拷贝过去
 	ret->setStart(getStart());
 	ret->setLen(getLen());
@@ -571,7 +581,14 @@ IndexNode* IndexNodeTypeOne::changeType(BuildIndex* buildIndex, unsigned char bu
 		//把每个孩子节点重新添加到新的节点当中
 		if (!ret->insertChildNode(buildIndex, value.first, value.second, buildType))
 		{
-			delete ret;
+			if (poolManager != nullptr)
+			{
+				poolManager->getPoolTypeTwo().deallocate(ret);
+			}
+			else
+			{
+				delete ret;
+			}
 			return NULL;
 		}
 	}
@@ -977,10 +994,19 @@ size_t IndexNodeTypeTwo::getChildrenNum()
 	return children.size();
 }
 
-IndexNode* IndexNodeTypeTwo::changeType(BuildIndex* buildIndex, unsigned char buildType)
+IndexNode* IndexNodeTypeTwo::changeType(BuildIndex* buildIndex, unsigned char buildType, IndexNodePoolManager* poolManager)
 {
-	//首先创建下一个类型的节点
-	IndexNodeTypeThree* ret = new IndexNodeTypeThree();
+	//首先创建下一个类型的节点（使用内存池或new）
+	IndexNodeTypeThree* ret;
+	if (poolManager != nullptr)
+	{
+		ret = poolManager->getPoolTypeThree().allocate();
+	}
+	else
+	{
+		ret = new IndexNodeTypeThree();
+	}
+
 	//把当前节点当前全部的父类的数据拷贝过去
 	ret->setStart(getStart());
 	ret->setLen(getLen());
@@ -995,7 +1021,14 @@ IndexNode* IndexNodeTypeTwo::changeType(BuildIndex* buildIndex, unsigned char bu
 		//把每个孩子节点重新添加到新的节点当中
 		if (!ret->insertChildNode(buildIndex, value.first, value.second, buildType))
 		{
-			delete ret;
+			if (poolManager != nullptr)
+			{
+				poolManager->getPoolTypeThree().deallocate(ret);
+			}
+			else
+			{
+				delete ret;
+			}
 			return NULL;
 		}
 	}
@@ -1509,10 +1542,19 @@ size_t IndexNodeTypeThree::getChildrenNum()
 	return children.size();
 }
 
-IndexNode* IndexNodeTypeThree::changeType(BuildIndex* buildIndex, unsigned char buildType)
+IndexNode* IndexNodeTypeThree::changeType(BuildIndex* buildIndex, unsigned char buildType, IndexNodePoolManager* poolManager)
 {
-	//首先创建下一个类型的节点
-	IndexNodeTypeFour* ret = new IndexNodeTypeFour();
+	//首先创建下一个类型的节点（使用内存池或new）
+	IndexNodeTypeFour* ret;
+	if (poolManager != nullptr)
+	{
+		ret = poolManager->getPoolTypeFour().allocate();
+	}
+	else
+	{
+		ret = new IndexNodeTypeFour();
+	}
+
 	//把当前节点当前全部的父类的数据拷贝过去
 	ret->setStart(getStart());
 	ret->setLen(getLen());
@@ -1527,7 +1569,14 @@ IndexNode* IndexNodeTypeThree::changeType(BuildIndex* buildIndex, unsigned char 
 		//把每个孩子节点重新添加到新的节点当中
 		if (!ret->insertChildNode(buildIndex, value.first, value.second, buildType))
 		{
-			delete ret;
+			if (poolManager != nullptr)
+			{
+				poolManager->getPoolTypeFour().deallocate(ret);
+			}
+			else
+			{
+				delete ret;
+			}
 			return NULL;
 		}
 	}
@@ -2043,7 +2092,7 @@ size_t IndexNodeTypeFour::getChildrenNum()
 	return children.size();
 }
 
-IndexNode* IndexNodeTypeFour::changeType(BuildIndex* buildIndex, unsigned char buildType)
+IndexNode* IndexNodeTypeFour::changeType(BuildIndex* buildIndex, unsigned char buildType, IndexNodePoolManager* poolManager)
 {
 	return nullptr;
 }
