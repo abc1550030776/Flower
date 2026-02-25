@@ -10,8 +10,133 @@
 #include "sys/time.h"
 #include "Myfile.h"
 
+bool testMultiThread()
+{
+	//创建一个刚好超过8MB的测试文件（2个段，最少化测试时间）
+	const unsigned long long testFileSize = 8 * 1024 * 1024 + 8 * 1024; // 8MB + 8KB = 2个段
+	const char* testFileName = "test_file_mt";
+
+	//快速生成测试文件：用大块写入
+	FILE* genFile = fopen(testFileName, "wb");
+	if (genFile == nullptr)
+	{
+		printf("failed to create test file\n");
+		return false;
+	}
+	//使用伪随机数据，避免短周期导致mergeNode陷入超长比较
+	const size_t blockSize = 4096;
+	unsigned char block[blockSize];
+	unsigned long long written = 0;
+	unsigned int seed = 12345;
+	while (written < testFileSize)
+	{
+		for (size_t i = 0; i < blockSize; ++i)
+		{
+			seed = seed * 1103515245 + 12345;
+			block[i] = (unsigned char)((seed >> 16) & 0xFF);
+		}
+		size_t toWrite = blockSize;
+		if (written + toWrite > testFileSize) toWrite = (size_t)(testFileSize - written);
+		fwrite(block, 1, toWrite, genFile);
+		written += toWrite;
+	}
+	fclose(genFile);
+	struct timeval start, aend;
+	gettimeofday(&start, nullptr);
+
+	//构建索引（多线程路径：>8MB，应该产生2个段，不构建行索引以加快测试速度）
+	if (!BuildDstIndex(testFileName, false))
+	{
+		printf("multi-thread build index fail\n");
+		return false;
+	}
+
+	gettimeofday(&aend, nullptr);
+	unsigned long diff = 1000000 * (aend.tv_sec - start.tv_sec) + aend.tv_usec - start.tv_usec;
+	printf("multi-thread build use time %ld us\n", diff);
+
+	//搜索测试：从文件中读取一段数据作为搜索目标
+	const unsigned long searchStrLen = 64;
+	char searchTarget[searchStrLen];
+	Myfile myfile;
+	if (!myfile.init(testFileName, false))
+	{
+		printf("file init fail\n");
+		return false;
+	}
+	//从多个不同段读取搜索目标进行测试
+	unsigned long long testPositions[] = { 1024, 1024 * 1024, 9 * 1024 * 1024 }; // 段0, 段1, 段1
+	for (int t = 0; t < 3; ++t)
+	{
+		unsigned long long pos = testPositions[t];
+		if (pos + searchStrLen > testFileSize) continue;
+		if (!myfile.read(pos, searchTarget, searchStrLen))
+		{
+			printf("read fail at pos %llu\n", pos);
+			return false;
+		}
+
+		SearchContext searchContext;
+		searchContext.init(testFileName, 0, false);
+
+		std::set<unsigned long long> result;
+		if (!searchContext.search(searchTarget, searchStrLen, &result))
+		{
+			printf("search fail for pos %llu\n", pos);
+			return false;
+		}
+		printf("search from pos %llu: found %lu results\n", pos, result.size());
+
+		//验证搜索结果正确性
+		FILE* verifyFile = fopen(testFileName, "rb");
+		if (verifyFile == nullptr)
+		{
+			printf("failed to open file for verify\n");
+			return false;
+		}
+		char buffer[searchStrLen];
+		for (auto val : result)
+		{
+			fseeko(verifyFile, (off_t)val, SEEK_SET);
+			if (fread(buffer, searchStrLen, 1, verifyFile) != 1)
+			{
+				printf("read file error filepos %llu\n", val);
+				fclose(verifyFile);
+				return false;
+			}
+			if (memcmp(buffer, searchTarget, searchStrLen))
+			{
+				printf("search result mismatch at pos %llu\n", val);
+				fclose(verifyFile);
+				return false;
+			}
+		}
+		fclose(verifyFile);
+		printf("  all results verified correct\n");
+	}
+
+	//清理临时文件
+	remove(testFileName);
+	char idxFile[4096] = {0};
+	char kvFile[4096] = {0};
+	getIndexPath(testFileName, idxFile);
+	getKVFilePath(testFileName, kvFile);
+	remove(idxFile);
+	remove(kvFile);
+
+	printf("multi-thread test PASSED\n");
+	return true;
+}
+
 int main()
 {
+	//printf("=== Multi-thread build test ===\n");
+	//if (!testMultiThread())
+	//{
+	//	printf("MULTI-THREAD TEST FAILED\n");
+	//	return 1;
+	//}
+
 	FILE* out = fopen("out", "w");
 	if (out == nullptr)
 	{

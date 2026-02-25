@@ -15,6 +15,7 @@ class Index
 public:
 	Index();
 	Index(unsigned char useType);
+	Index(unsigned char useType, UniqueGenerator* externalGenerator);
 	IndexNode* getIndexNode(unsigned long long indexId);
 	bool insert(unsigned long long indexId, IndexNode*& pIndexNode);
 	unsigned long size();
@@ -39,6 +40,7 @@ private:
 	std::multimap<unsigned long long, unsigned long long> IndexIdPreority;					//这里保存索引的优先级key是索引的前面已经比较过的大小,越小优先级越大
 	RTL_SRWLOCK  rwLock;																	//缓存在搜索模式下会被多个线程使用到加个读写锁
 	UniqueGenerator generator;																//唯一id生成器
+	UniqueGenerator* externalGenerator;														//外部共享的唯一id生成器（多线程构建时使用）
 	IndexNodePoolManager* poolManager;														//该实例专属的内存池管理器
 };
 

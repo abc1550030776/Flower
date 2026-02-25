@@ -7,11 +7,13 @@ UniqueGenerator::UniqueGenerator()
 
 void UniqueGenerator::setInitMaxUniqueNum(unsigned long long initMaxUniqueNum)
 {
+	std::lock_guard<std::mutex> lock(mutex_);
 	maxUniqueNum = initMaxUniqueNum;
 }
 
 unsigned long long UniqueGenerator::acquireNumber(unsigned char numberCount)
 {
+	std::lock_guard<std::mutex> lock(mutex_);
 	//首先从已经回收了的数字里面获取数字
 	for (unsigned char i = (unsigned char)(numberCount - 1); i < MAX_SIZE_PER_INDEX_NODE / SIZE_PER_INDEX_FILE_GRID; ++i)
 	{
@@ -35,6 +37,7 @@ unsigned long long UniqueGenerator::acquireNumber(unsigned char numberCount)
 
 void UniqueGenerator::recycleNumber(unsigned long long number, unsigned char numberCount)
 {
+	std::lock_guard<std::mutex> lock(mutex_);
 	if (numberCount > MAX_SIZE_PER_INDEX_NODE / SIZE_PER_INDEX_FILE_GRID)
 	{
 		return;

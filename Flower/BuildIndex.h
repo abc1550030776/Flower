@@ -1,4 +1,5 @@
 #pragma once
+#include <vector>
 #include "Myfile.h"
 #include "IndexNode.h"
 #include "IndexFile.h"
@@ -19,6 +20,10 @@ public:
 	IndexNode* newKvNode(unsigned char nodeType, unsigned long long preCmpLen);
 	bool addKV(unsigned long long key, unsigned long long value);
 	bool build(bool needBuildLineIndex = false, char delimiter = '\n');	//构建文件索引
+	bool initForSegment(const char* fileName, const char* indexFileName, Index* index);	//多线程段构建时的初始化
+	bool buildSegment(unsigned long long startPos, unsigned long long endPos,
+		std::vector<unsigned long long>& outRootIds);				//构建指定范围的段
+	bool buildKvIndex(char delimiter = '\n');						//单独构建KV行索引
 	bool writeKvEveryCache();									//把所有的kv的缓存写入硬盘中
 private:
 	Myfile dstFile;									//需要构建索引的目标文件

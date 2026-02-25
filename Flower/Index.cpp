@@ -7,6 +7,7 @@
 Index::Index()
 {
 	useType = USE_TYPE_SEARCH;
+	externalGenerator = nullptr;
 	rwLock.Ptr = 0;
 	poolManager = new IndexNodePoolManager();
 }
@@ -14,6 +15,15 @@ Index::Index()
 Index::Index(unsigned char useType)
 {
 	this->useType = useType;
+	externalGenerator = nullptr;
+	rwLock.Ptr = 0;
+	poolManager = new IndexNodePoolManager();
+}
+
+Index::Index(unsigned char useType, UniqueGenerator* externalGenerator)
+{
+	this->useType = useType;
+	this->externalGenerator = externalGenerator;
 	rwLock.Ptr = 0;
 	poolManager = new IndexNodePoolManager();
 }
@@ -358,8 +368,8 @@ IndexNode* Index::newIndexNode(unsigned char nodeType, unsigned long long preCmp
 		return nullptr;
 	}
 
-	//获取新创建的节点的id
-	unsigned long long indexId = generator.acquireNumber(1);
+	//获取新创建的节点的id（通过wrapper方法支持外部共享generator）
+	unsigned long long indexId = acquireNumber(1);
 
 	//将新创建的节点插入到缓存当中
 	bool ok = indexNodeCache.insert({ indexId, pNode }).second;
@@ -419,7 +429,7 @@ bool Index::deleteIndexNode(unsigned long long indexId)
 		return false;
 	}
 
-	generator.recycleNumber(indexId, it->second->getGridNum());
+	recycleNumber(indexId, it->second->getGridNum());
 
 	// 使用内存池释放
 	IndexNode* node = it->second;
@@ -521,12 +531,17 @@ bool Index::putIndexNode(IndexNode* indexNode)
 
 unsigned long long Index::acquireNumber(unsigned char numCount)
 {
+	if (externalGenerator != nullptr)
+		return externalGenerator->acquireNumber(numCount);
 	return generator.acquireNumber(numCount);
 }
 
 void Index::recycleNumber(unsigned long long indexId, unsigned char numCount)
 {
-	generator.recycleNumber(indexId, numCount);
+	if (externalGenerator != nullptr)
+		externalGenerator->recycleNumber(indexId, numCount);
+	else
+		generator.recycleNumber(indexId, numCount);
 }
 
 IndexNodePoolManager& Index::getPoolManager()
@@ -542,5 +557,8 @@ Index::~Index()
 
 void Index::setInitMaxUniqueNum(unsigned long long initMaxUniqueNum)
 {
-	generator.setInitMaxUniqueNum(initMaxUniqueNum);
+	if (externalGenerator != nullptr)
+		externalGenerator->setInitMaxUniqueNum(initMaxUniqueNum);
+	else
+		generator.setInitMaxUniqueNum(initMaxUniqueNum);
 }

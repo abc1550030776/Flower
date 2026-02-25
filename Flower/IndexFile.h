@@ -31,6 +31,7 @@ public:
 	bool writeEveryCache();																	//把缓存当中的数据全部写盘
 	unsigned long long getRootIndexIdByOrder(unsigned long rootOrder);						//根据根节点次序获取根节点id
 	Index* getIndex();																		//获取 Index 对象
+	const std::vector<unsigned long long>& getRootIndexIds() const;						//获取所有根节点id列表
 private:
 	IndexNode* getTempIndexNode(unsigned long long indexId);
 	bool writeFile(unsigned long long indexId, IndexNode* pIndexNode, char writeFileType = WRITE_FILE_CHECK_EVERY_ROOT);

@@ -3149,3 +3149,173 @@ bool BuildIndex::writeKvEveryCache()
 {
 	return kvIndexFile.writeEveryCache();
 }
+
+bool BuildIndex::initForSegment(const char* fileName, const char* indexFileName, Index* index)
+{
+	if (index == nullptr || fileName == nullptr || indexFileName == nullptr)
+	{
+		return false;
+	}
+
+	//打开目标文件（只读）
+	if (!dstFile.init(fileName, false))
+	{
+		return false;
+	}
+
+	//打开索引文件（多个线程各自打开同一个文件的独立文件描述符）
+	if (!indexFile.init(indexFileName, index))
+	{
+		return false;
+	}
+
+	//获取文件的大小
+	struct stat statbuf;
+	if (stat(fileName, &statbuf) != 0)
+	{
+		return false;
+	}
+	dstFileSize = statbuf.st_size;
+	return true;
+}
+
+bool BuildIndex::buildSegment(unsigned long long startPos, unsigned long long endPos,
+	std::vector<unsigned long long>& outRootIds)
+{
+	bool needNewleftNode = true;
+	IndexNodeChild leftNode(CHILD_TYPE_LEAF, 0);
+
+	for (unsigned long long filePos = startPos; filePos < endPos; filePos += 8)
+	{
+		if (needNewleftNode)
+		{
+			leftNode.setChildType(CHILD_TYPE_LEAF);
+			leftNode.setIndexId(filePos);
+			needNewleftNode = false;
+			continue;
+		}
+		IndexNodeChild indexNodeChild(CHILD_TYPE_LEAF, filePos);
+
+		if (!mergeNode(0, 0, leftNode, indexNodeChild))
+		{
+			printf("mergeNode fail filePos %llu\n", filePos);
+			return false;
+		}
+
+		if (filePos != startPos && filePos % DST_SIZE_PER_ROOT == 0)
+		{
+			needNewleftNode = true;
+			indexFile.pushRootIndexId(leftNode.getIndexId());
+			if (!indexFile.writeCacheWithoutRootIndex())
+			{
+				return false;
+			}
+		}
+	}
+
+	//处理最后一个段
+	if (!needNewleftNode)
+	{
+		if (leftNode.getType() == CHILD_TYPE_LEAF)
+		{
+			//叶子节点就做成一个节点放进根节点当中
+			IndexNode* pNode = indexFile.newIndexNode(NODE_TYPE_ONE, 0);
+
+			if (pNode == nullptr)
+			{
+				return false;
+			}
+
+			pNode->setStart(leftNode.getIndexId());
+			pNode->setLen(dstFileSize - leftNode.getIndexId() - dstFileSize % 8);
+			pNode->setParentID(0);
+
+			pNode->insertLeafSet(leftNode.getIndexId());
+			indexFile.pushRootIndexId(pNode->getIndexId());
+			if (!indexFile.writeCacheWithoutRootIndex())
+			{
+				return false;
+			}
+		}
+		else
+		{
+			indexFile.pushRootIndexId(leftNode.getIndexId());
+			if (!indexFile.writeCacheWithoutRootIndex())
+			{
+				return false;
+			}
+		}
+	}
+
+	//把构建好的根节点id列表返回
+	outRootIds = indexFile.getRootIndexIds();
+	return true;
+}
+
+bool BuildIndex::buildKvIndex(char delimiter)
+{
+	unsigned long long lineNum = 0;
+	//一开始就是第一行所以添加第一行
+	if (!addKV(0, lineNum))
+	{
+		return false;
+	}
+	++lineNum;
+
+	for (unsigned long long filePos = 0; filePos < dstFileSize; filePos += 8)
+	{
+		unsigned char buffer[8];
+		if (filePos + 8 < dstFileSize)
+		{
+			unsigned long long pos;
+			pos = filePos;
+			if (!dstFile.read(pos, buffer, 8))
+			{
+				return false;
+			}
+
+			for (int i = 0; i < 8; ++i)
+			{
+				if (buffer[i] == delimiter)
+				{
+					if (!addKV(filePos + i + 1, lineNum))
+					{
+						return false;
+					}
+					++lineNum;
+				}
+			}
+		}
+		else
+		{
+			unsigned long long pos;
+			pos = filePos;
+			if (!dstFile.read(pos, buffer, dstFileSize - filePos))
+			{
+				return false;
+			}
+
+			for (unsigned long long i = 0; i < (dstFileSize - filePos); ++i)
+			{
+				if (buffer[i] == delimiter)
+				{
+					if ((filePos + i + 1) < dstFileSize)
+					{
+						if (!addKV(filePos + i + 1, lineNum))
+						{
+							return false;
+						}
+						++lineNum;
+					}
+				}
+			}
+		}
+	}
+
+	//把所有的行数据写进硬盘
+	if (!kvIndexFile.writeEveryCache())
+	{
+		return false;
+	}
+	return true;
+}

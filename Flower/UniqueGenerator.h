@@ -1,11 +1,13 @@
 #pragma once
 #include <stack>
+#include <mutex>
 #include "common.h"
 
 class UniqueGenerator {
 
 	unsigned long long maxUniqueNum;
 	std::stack<unsigned long long> everyRecycleNumber[MAX_SIZE_PER_INDEX_NODE / SIZE_PER_INDEX_FILE_GRID];
+	mutable std::mutex mutex_;
 
 public:
 	UniqueGenerator();

@@ -906,6 +906,11 @@ bool IndexFile::writeEveryRootIndexId()
 	return true;
 }
 
+const std::vector<unsigned long long>& IndexFile::getRootIndexIds() const
+{
+	return rootIndexIds;
+}
+
 unsigned long long IndexFile::getRootIndexIdByOrder(unsigned long rootOrder)
 {
 	unsigned long long rootIndexId = 0;
