@@ -459,8 +459,13 @@ bool IndexFile::writeFile(unsigned long long indexId, IndexNode* pIndexNode, cha
 		//父节点还有所有的孩子节点的父节点id都改变了以后这个节点就是用新节点id了。
 		//创建了新的节点的id所以旧的节点的id就无效了放回去
 		pIndex->recycleNumber(indexId, pIndexNode->getGridNum());
+
+		//更新缓存中的键：旧id -> 新id
+		pIndex->rekeyNode(indexId, newIndexId);
+
 		indexId = newIndexId;
 		pIndexNode->setIndexId(indexId);
+		pIndexNode->setGridNum((unsigned char)((len + 2 + SIZE_PER_INDEX_FILE_GRID) / SIZE_PER_INDEX_FILE_GRID));
 	}
 	else
 	{

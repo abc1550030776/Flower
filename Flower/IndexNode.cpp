@@ -226,6 +226,11 @@ bool IndexNode::addLeafPosToResult(unsigned long long leastEndPos, unsigned char
 	return true;
 }
 
+size_t IndexNode::getLeafSetSize()
+{
+	return leafSet.size();
+}
+
 unsigned long long IndexNode::getPartOfKey()
 {
 	return partOfKey;
@@ -318,7 +323,7 @@ bool IndexNodeTypeOne::toBinary(char* buffer, int len)
 		p += 2;
 		totalSize += 2;
 		leftSize -= 2;
-		char leafBuffer[(MAX_SIZE_PER_INDEX_NODE - 4 * 1024) / 16 * 16];
+		std::vector<char> leafBuffer(children.size() * 16);
 		unsigned short leafNum = 0;
 		for (auto& value : children)
 		{
@@ -338,8 +343,8 @@ bool IndexNodeTypeOne::toBinary(char* buffer, int len)
 			}
 			else if (value.second.childType == CHILD_TYPE_LEAF || value.second.childType == CHILD_TYPE_VALUE)
 			{
-				*((unsigned long long*)(leafBuffer + 16 * leafNum)) = value.first;
-				*((unsigned long long*)(leafBuffer + 16 * leafNum + 8)) = value.second.indexId;
+				*((unsigned long long*)(leafBuffer.data() + 16 * leafNum)) = value.first;
+				*((unsigned long long*)(leafBuffer.data() + 16 * leafNum + 8)) = value.second.indexId;
 				leafNum++;
 			}
 		}
@@ -350,7 +355,7 @@ bool IndexNodeTypeOne::toBinary(char* buffer, int len)
 		}
 		*(unsigned short*)p = leafNum;
 		p += 2;
-		memcpy(p, leafBuffer, leafNum * 16);
+		memcpy(p, leafBuffer.data(), leafNum * 16);
 		p += leafNum * 16;
 		totalSize += (2 + leafNum * 16);
 		leftSize -= (2 + leafNum * 16);
@@ -371,15 +376,15 @@ bool IndexNodeTypeOne::toBinary(char* buffer, int len)
 	//有些比较到这个中途就到文件末尾了这时这个分支记录在叶子节点集里面
 	if (!leafSet.empty())
 	{
-		if (leftSize < 1)
+		if (leftSize < 4)
 		{
 			return false;
 		}
-		char* leafNum = p;
+		unsigned int* leafNum = (unsigned int*)p;
 		*leafNum = 0;
-		p += 1;
-		totalSize++;
-		leftSize--;
+		p += 4;
+		totalSize += 4;
+		leftSize -= 4;
 		for (auto& value : leafSet)
 		{
 			if (leftSize < 8)
@@ -396,12 +401,12 @@ bool IndexNodeTypeOne::toBinary(char* buffer, int len)
 	else
 	{
 		//空的话写零表示这部分是0
-		if (leftSize < 1)
+		if (leftSize < 4)
 		{
 			return false;
 		}
-		*p = 0;
-		totalSize += 1;
+		*((unsigned int*)p) = 0;
+		totalSize += 4;
 	}
 	//最后把总体大小写入最前面
 	*((short*)buffer) = totalSize;
@@ -493,19 +498,19 @@ bool IndexNodeTypeOne::toObject(char* buffer, int len, unsigned char buildType)
 
 
 	//添加比较到中途就到文件结尾的叶子节点
-	if (leftSize < 1)
+	if (leftSize < 4)
 	{
 		return false;
 	}
-	unsigned char endLeafNum = *p;
-	p += 1;
-	leftSize -= 1;
+	unsigned int endLeafNum = *((unsigned int*)p);
+	p += 4;
+	leftSize -= 4;
 	if (leftSize < endLeafNum * 8)
 	{
 		return false;
 	}
 
-	for (unsigned char i = 0; i < endLeafNum; ++i)
+	for (unsigned int i = 0; i < endLeafNum; ++i)
 	{
 		bool ok = leafSet.insert(*((unsigned long long*)p)).second;
 		if (!ok)
@@ -760,7 +765,7 @@ bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 		p += 2;
 		totalSize += 2;
 		leftSize -= 2;
-		char leafBuffer[(MAX_SIZE_PER_INDEX_NODE - 4 * 1024) / 12 * 12];
+		std::vector<char> leafBuffer(children.size() * 12);
 		unsigned short leafNum = 0;
 		for (auto& value : children)
 		{
@@ -780,8 +785,8 @@ bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 			}
 			else if (value.second.childType == CHILD_TYPE_LEAF || value.second.childType == CHILD_TYPE_VALUE)
 			{
-				*((unsigned int*)(leafBuffer + 12 * leafNum)) = value.first;
-				*((unsigned long long*)(leafBuffer + 12 * leafNum + 4)) = value.second.indexId;
+				*((unsigned int*)(leafBuffer.data() + 12 * leafNum)) = value.first;
+				*((unsigned long long*)(leafBuffer.data() + 12 * leafNum + 4)) = value.second.indexId;
 				leafNum++;
 			}
 		}
@@ -792,7 +797,7 @@ bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 		}
 		*(unsigned short*)p = leafNum;
 		p += 2;
-		memcpy(p, leafBuffer, leafNum * 12);
+		memcpy(p, leafBuffer.data(), leafNum * 12);
 		p += leafNum * 12;
 		totalSize += (2 + leafNum * 12);
 		leftSize -= (2 + leafNum * 12);
@@ -813,15 +818,15 @@ bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 	//有些比较到这个中途就到文件末尾了这时这个分支记录在叶子节点集里面
 	if (!leafSet.empty())
 	{
-		if (leftSize < 1)
+		if (leftSize < 4)
 		{
 			return false;
 		}
-		char* leafNum = p;
+		unsigned int* leafNum = (unsigned int*)p;
 		*leafNum = 0;
-		p += 1;
-		totalSize++;
-		leftSize--;
+		p += 4;
+		totalSize += 4;
+		leftSize -= 4;
 		for (auto& value : leafSet)
 		{
 			if (leftSize < 8)
@@ -838,12 +843,12 @@ bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 	else
 	{
 		//空的话写零表示这部分是0
-		if (leftSize < 1)
+		if (leftSize < 4)
 		{
 			return false;
 		}
-		*p = 0;
-		totalSize += 1;
+		*((unsigned int*)p) = 0;
+		totalSize += 4;
 	}
 	//最后把总体大小写入最前面
 	*((short*)buffer) = totalSize;
@@ -934,19 +939,19 @@ bool IndexNodeTypeTwo::toObject(char* buffer, int len, unsigned char buildType)
 
 
 	//添加比较到中途就到文件结尾的叶子节点
-	if (leftSize < 1)
+	if (leftSize < 4)
 	{
 		return false;
 	}
-	unsigned char endLeafNum = *p;
-	p += 1;
-	leftSize -= 1;
+	unsigned int endLeafNum = *((unsigned int*)p);
+	p += 4;
+	leftSize -= 4;
 	if (leftSize < endLeafNum * 8)
 	{
 		return false;
 	}
 
-	for (unsigned char i = 0; i < endLeafNum; ++i)
+	for (unsigned int i = 0; i < endLeafNum; ++i)
 	{
 		bool ok = leafSet.insert(*((unsigned long long*)p)).second;
 		if (!ok)
@@ -1309,7 +1314,7 @@ bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 		p += 2;
 		totalSize += 2;
 		leftSize -= 2;
-		char leafBuffer[(MAX_SIZE_PER_INDEX_NODE - 4 * 1024) / 10 * 10];
+		std::vector<char> leafBuffer(children.size() * 10);
 		unsigned short leafNum = 0;
 		for (auto& value : children)
 		{
@@ -1329,8 +1334,8 @@ bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 			}
 			else if (value.second.childType == CHILD_TYPE_LEAF || value.second.childType == CHILD_TYPE_VALUE)
 			{
-				*((unsigned short*)(leafBuffer + 10 * leafNum)) = value.first;
-				*((unsigned long long*)(leafBuffer + 10 * leafNum + 2)) = value.second.indexId;
+				*((unsigned short*)(leafBuffer.data() + 10 * leafNum)) = value.first;
+				*((unsigned long long*)(leafBuffer.data() + 10 * leafNum + 2)) = value.second.indexId;
 				leafNum++;
 			}
 		}
@@ -1341,7 +1346,7 @@ bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 		}
 		*(unsigned short*)p = leafNum;
 		p += 2;
-		memcpy(p, leafBuffer, leafNum * 10);
+		memcpy(p, leafBuffer.data(), leafNum * 10);
 		p += leafNum * 10;
 		totalSize += (2 + leafNum * 10);
 		leftSize -= (2 + leafNum * 10);
@@ -1362,15 +1367,15 @@ bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 	//有些比较到这个中途就到文件末尾了这时这个分支记录在叶子节点集里面
 	if (!leafSet.empty())
 	{
-		if (leftSize < 1)
+		if (leftSize < 4)
 		{
 			return false;
 		}
-		char* leafNum = p;
+		unsigned int* leafNum = (unsigned int*)p;
 		*leafNum = 0;
-		p += 1;
-		totalSize++;
-		leftSize--;
+		p += 4;
+		totalSize += 4;
+		leftSize -= 4;
 		for (auto& value : leafSet)
 		{
 			if (leftSize < 8)
@@ -1387,12 +1392,12 @@ bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 	else
 	{
 		//空的话写零表示这部分是0
-		if (leftSize < 1)
+		if (leftSize < 4)
 		{
 			return false;
 		}
-		*p = 0;
-		totalSize += 1;
+		*((unsigned int*)p) = 0;
+		totalSize += 4;
 	}
 	//最后把总体大小写入最前面
 	*((short*)buffer) = totalSize;
@@ -1482,19 +1487,19 @@ bool IndexNodeTypeThree::toObject(char* buffer, int len, unsigned char buildType
 
 
 	//添加比较到中途就到文件结尾的叶子节点
-	if (leftSize < 1)
+	if (leftSize < 4)
 	{
 		return false;
 	}
-	unsigned char endLeafNum = *p;
-	p += 1;
-	leftSize -= 1;
+	unsigned int endLeafNum = *((unsigned int*)p);
+	p += 4;
+	leftSize -= 4;
 	if (leftSize < endLeafNum * 8)
 	{
 		return false;
 	}
 
-	for (unsigned char i = 0; i < endLeafNum; ++i)
+	for (unsigned int i = 0; i < endLeafNum; ++i)
 	{
 		bool ok = leafSet.insert(*((unsigned long long*)p)).second;
 		if (!ok)
@@ -1911,15 +1916,15 @@ bool IndexNodeTypeFour::toBinary(char* buffer, int len)
 	//有些比较到这个中途就到文件末尾了这时这个分支记录在叶子节点集里面
 	if (!leafSet.empty())
 	{
-		if (leftSize < 1)
+		if (leftSize < 4)
 		{
 			return false;
 		}
-		char* leafNum = p;
+		unsigned int* leafNum = (unsigned int*)p;
 		*leafNum = 0;
-		p += 1;
-		totalSize++;
-		leftSize--;
+		p += 4;
+		totalSize += 4;
+		leftSize -= 4;
 		for (auto& value : leafSet)
 		{
 			if (leftSize < 8)
@@ -1936,12 +1941,12 @@ bool IndexNodeTypeFour::toBinary(char* buffer, int len)
 	else
 	{
 		//空的话写零表示这部分是0
-		if (leftSize < 1)
+		if (leftSize < 4)
 		{
 			return false;
 		}
-		*p = 0;
-		totalSize += 1;
+		*((unsigned int*)p) = 0;
+		totalSize += 4;
 	}
 	//最后把总体大小写入最前面
 	*((short*)buffer) = totalSize;
@@ -2032,19 +2037,19 @@ bool IndexNodeTypeFour::toObject(char* buffer, int len, unsigned char buildType)
 
 
 	//添加比较到中途就到文件结尾的叶子节点
-	if (leftSize < 1)
+	if (leftSize < 4)
 	{
 		return false;
 	}
-	unsigned char endLeafNum = *p;
-	p += 1;
-	leftSize -= 1;
+	unsigned int endLeafNum = *((unsigned int*)p);
+	p += 4;
+	leftSize -= 4;
 	if (leftSize < endLeafNum * 8)
 	{
 		return false;
 	}
 
-	for (unsigned char i = 0; i < endLeafNum; ++i)
+	for (unsigned int i = 0; i < endLeafNum; ++i)
 	{
 		bool ok = leafSet.insert(*((unsigned long long*)p)).second;
 		if (!ok)

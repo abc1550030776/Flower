@@ -130,18 +130,18 @@ bool Index::reduceCache(unsigned long needReduceNum)
 	indexIdsToRemove.reserve(needReduceNum);
 
 	auto it = end(IndexIdPreority);
-	--it;
 
-	for (unsigned int i = 0; i < needReduceNum && it != begin(IndexIdPreority); ++i)
+	for (unsigned int i = 0; i < needReduceNum; ++i)
 	{
-		auto curIt = it--;
-		auto cacheIt = indexNodeCache.find(curIt->second);
+		if (it == begin(IndexIdPreority)) break;
+		--it;
+		auto cacheIt = indexNodeCache.find(it->second);
 
 		if (cacheIt != end(indexNodeCache) && cacheIt->second->isZeroRef())
 		{
 			// 收集需要删除的节点和indexId
 			nodesToDelete.push_back(cacheIt->second);
-			indexIdsToRemove.push_back(curIt->second);
+			indexIdsToRemove.push_back(it->second);
 		}
 	}
 
@@ -450,6 +450,44 @@ bool Index::deleteIndexNode(unsigned long long indexId)
 	}
 	indexNodeCache.erase(it);
 	IndexIdPreority.erase(ipIt);
+	return true;
+}
+
+bool Index::rekeyNode(unsigned long long oldIndexId, unsigned long long newIndexId)
+{
+	auto it = indexNodeCache.find(oldIndexId);
+	if (it == end(indexNodeCache))
+	{
+		return false;
+	}
+
+	IndexNode* node = it->second;
+
+	//从旧的缓存键中移除
+	indexNodeCache.erase(it);
+
+	//插入到新的缓存键
+	auto pair = indexNodeCache.insert({ newIndexId, node });
+	if (!pair.second)
+	{
+		//新id已存在，恢复旧entry
+		indexNodeCache.insert({ oldIndexId, node });
+		return false;
+	}
+
+	//更新IndexIdPreority
+	unsigned long long preCmpLen = node->getPreCmpLen();
+	auto range = IndexIdPreority.equal_range(preCmpLen);
+	for (auto ipIt = range.first; ipIt != range.second; ++ipIt)
+	{
+		if (ipIt->second == oldIndexId)
+		{
+			IndexIdPreority.erase(ipIt);
+			IndexIdPreority.insert({ preCmpLen, newIndexId });
+			break;
+		}
+	}
+
 	return true;
 }
 

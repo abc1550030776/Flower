@@ -56,6 +56,7 @@ public:
 	bool decreaseAndTestZero();											//减少索引并判断是否是0
 	bool  getFirstLeafSet(unsigned long long* firstLeaf);	//获得最长的叶子节点
 	bool addLeafPosToResult(unsigned long long leastEndPos, unsigned char skipCharNum, unsigned long long fileSize, SetWithLock& result, Myfile& dstFile, const char* searchTarget, unsigned int targetLen);
+	size_t getLeafSetSize();											//获取leafSet的数量
 	unsigned long long getPartOfKey();
 	void setPartOfKey(unsigned long long partOfKey);
 	void swiftPartOfKey(unsigned long long byte);

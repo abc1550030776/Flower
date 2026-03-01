@@ -75,49 +75,182 @@ bool BuildIndex::cutNodeSize(unsigned long long indexId, IndexNode*& indexNode, 
 	{
 		return false;
 	}
-	//首先先判断节点的大小是否比预计的还要大,除开孩子结点的数据还有其他数据这里预留4k大小用于保存其他数据
+
+	//计算每种节点类型的单个子节点二进制大小和key宽度
+	size_t perChildSize = 0;
+	unsigned char keyWidth = 0;
 	switch (indexNode->getType())
 	{
 	case NODE_TYPE_ONE:
-		if (indexNode->getChildrenNum() <= ((MAX_SIZE_PER_INDEX_NODE - 4 * 1024) / 16))
-		{
-			return true;
-		}
+		perChildSize = 16;
+		keyWidth = 8;
 		break;
 	case NODE_TYPE_TWO:
-		if (indexNode->getChildrenNum() <= ((MAX_SIZE_PER_INDEX_NODE - 4 * 1024) / 12))
-		{
-			return true;
-		}
+		perChildSize = 12;
+		keyWidth = 4;
 		break;
 	case NODE_TYPE_THREE:
-		if (indexNode->getChildrenNum() <= ((MAX_SIZE_PER_INDEX_NODE - 4 * 1024) / 10))
-		{
-			return true;
-		}
+		perChildSize = 10;
+		keyWidth = 2;
 		break;
 	case NODE_TYPE_FOUR:
-		return true;
+		perChildSize = 9;
+		keyWidth = 1;
 		break;
 	default:
 		return false;
+	}
+
+	//计算当前节点的预估二进制大小
+	//头部: 42字节, 子节点部分: 4 + childrenNum * perChildSize
+	//leafSet部分: 4 + leafSetSize * 8
+	size_t childrenNum = indexNode->getChildrenNum();
+	size_t leafSetSize = indexNode->getLeafSetSize();
+	size_t estimatedSize = 42 + (4 + childrenNum * perChildSize) + (4 + leafSetSize * 8);
+
+	if (estimatedSize <= MAX_SIZE_PER_INDEX_NODE)
+	{
+		return true;
+	}
+
+	//先处理子节点过多的情况：改变节点类型让键更小
+	size_t minSizeWithChildren = 42 + (4 + childrenNum * perChildSize) + 4;
+	if (minSizeWithChildren > MAX_SIZE_PER_INDEX_NODE && indexNode->getType() != NODE_TYPE_FOUR)
+	{
+		IndexNode* newNode = changeNodeType(indexId, indexNode, buildType);
+		if (newNode == nullptr)
+		{
+			return false;
+		}
+
+		indexNode = newNode->cutNodeSize(this, indexId, buildType);
+		if (indexNode == nullptr)
+		{
+			return false;
+		}
+
+		//重新检查是否还需要处理leafSet
+		switch (indexNode->getType())
+		{
+		case NODE_TYPE_ONE: perChildSize = 16; keyWidth = 8; break;
+		case NODE_TYPE_TWO: perChildSize = 12; keyWidth = 4; break;
+		case NODE_TYPE_THREE: perChildSize = 10; keyWidth = 2; break;
+		case NODE_TYPE_FOUR: perChildSize = 9; keyWidth = 1; break;
+		default: return false;
+		}
+		childrenNum = indexNode->getChildrenNum();
+		leafSetSize = indexNode->getLeafSetSize();
+		estimatedSize = 42 + (4 + childrenNum * perChildSize) + (4 + leafSetSize * 8);
+		if (estimatedSize <= MAX_SIZE_PER_INDEX_NODE)
+		{
+			return true;
+		}
+	}
+
+	//KV构建时leafSet含义不同，不适用拆分逻辑
+	if (buildType == BUILD_TYPE_KV)
+	{
+		return true;
+	}
+
+	//到这里说明leafSet太大导致节点超标
+	//方案：缩短当前节点的len为一半，创建一个新的父节点
+	//新父节点拥有原来的indexId，当前节点获得新的indexId
+	//原节点中"剩余数据长度不够"的leafSet条目转移到父节点
+	unsigned long long orgLen = indexNode->getLen();
+	unsigned long long parentLen = orgLen / 2;
+	if (orgLen - parentLen <= (unsigned long long)keyWidth)
+	{
+		//len太短无法继续拆分：剩余部分不够放key和子节点的len
+		return true;
+	}
+
+	unsigned long long childLen = orgLen - parentLen - keyWidth;
+
+	//从文件中读取key值（位于start + parentLen处的keyWidth个字节）
+	unsigned long long keyPos = indexNode->getStart() + parentLen;
+	unsigned long long key = 0;
+	if (!dstFile.read(keyPos, (char*)&key, keyWidth))
+	{
+		return false;
+	}
+
+	//创建新的父节点（和原节点相同类型）
+	unsigned char nodeType = indexNode->getType();
+	unsigned long long orgPreCmpLen = indexNode->getPreCmpLen();
+
+	IndexFile& idxFile = (buildType == BUILD_TYPE_FILE) ? indexFile : kvIndexFile;
+	IndexNode* parentNode = idxFile.newIndexNode(nodeType, orgPreCmpLen);
+	if (parentNode == nullptr)
+	{
+		return false;
+	}
+
+	//设置父节点属性
+	parentNode->setStart(indexNode->getStart());
+	parentNode->setLen(parentLen);
+	parentNode->setParentID(indexNode->getParentId());
+	parentNode->setIsModified(true);
+
+	//修改原节点属性
+	unsigned long long newChildIndexId = parentNode->getIndexId();
+	//把父节点放到原来的indexId位置，原节点移到新的indexId位置
+	//先交换：让parentNode占据indexId，原节点占据newChildIndexId
+	if (!idxFile.swapNode(indexId, parentNode))
+	{
+		return false;
+	}
+	if (!idxFile.swapNode(newChildIndexId, indexNode))
+	{
+		return false;
+	}
+
+	//更新节点的id记录
+	parentNode->setIndexId(indexId);
+	indexNode->setIndexId(newChildIndexId);
+
+	//修改原节点的start、len、preCmpLen、parentID
+	indexNode->setStart(indexNode->getStart() + parentLen + keyWidth);
+	indexNode->setLen(childLen);
+	indexNode->setPreCmpLen(orgPreCmpLen + parentLen + keyWidth);
+	indexNode->setParentID(indexId);
+	indexNode->setIsModified(true);
+
+	//更新缓存中的preCmpLen优先级
+	changePreCmpLen(newChildIndexId, orgPreCmpLen, orgPreCmpLen + parentLen + keyWidth, buildType);
+
+	//把原节点中"剩余数据不够"的leafSet条目转移到父节点
+	//条件：fileSize - start - parentNode.preCmpLen < parentLen + keyWidth
+	//即这些位置的数据不够长到进入子节点
+	parentNode->appendLeafSet(indexNode, parentLen + keyWidth, dstFileSize);
+
+	//把原节点作为父节点的孩子
+	IndexNodeChild childRef(CHILD_TYPE_NODE, newChildIndexId);
+	switch (nodeType)
+	{
+	case NODE_TYPE_ONE:
+		((IndexNodeTypeOne*)parentNode)->insertChildNode(this, key, childRef, buildType);
+		break;
+	case NODE_TYPE_TWO:
+		((IndexNodeTypeTwo*)parentNode)->insertChildNode(this, (unsigned int)key, childRef, buildType);
+		break;
+	case NODE_TYPE_THREE:
+		((IndexNodeTypeThree*)parentNode)->insertChildNode(this, (unsigned short)key, childRef, buildType);
+		break;
+	case NODE_TYPE_FOUR:
+		((IndexNodeTypeFour*)parentNode)->insertChildNode(this, (unsigned char)key, childRef, buildType);
 		break;
 	}
 
-	//改变节点类型让节点的孩子结点的键小点这样孩子节点会少点
-	IndexNode* newNode = changeNodeType(indexId, indexNode, buildType);
+	//更新indexNode引用为父节点，因为调用者期望得到这个indexId对应的节点
+	indexNode = parentNode;
 
-	if (newNode == nullptr)
+	//递归检查：父节点的leafSet可能仍然很大，继续处理
+	if (!cutNodeSize(indexId, indexNode, buildType))
 	{
 		return false;
 	}
 
-	//改变了节点类型但是还是无法排除当前节点可能比256要大和产生的新的孩子节点比256要大所以调用节点的函数改变节点
-	indexNode = newNode->cutNodeSize(this, indexId, buildType);
-	if (indexNode == nullptr)
-	{
-		return false;
-	}
 	return true;
 }
 
