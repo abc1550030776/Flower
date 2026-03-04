@@ -113,9 +113,8 @@ bool BuildIndex::cutNodeSize(unsigned long long indexId, IndexNode*& indexNode, 
 		return true;
 	}
 
-	//先处理子节点过多的情况：改变节点类型让键更小
-	size_t minSizeWithChildren = 42 + (4 + childrenNum * perChildSize) + 4;
-	if (minSizeWithChildren > MAX_SIZE_PER_INDEX_NODE && indexNode->getType() != NODE_TYPE_FOUR)
+	//先尝试改变节点类型让键更小
+	if (indexNode->getType() != NODE_TYPE_FOUR)
 	{
 		IndexNode* newNode = changeNodeType(indexId, indexNode, buildType);
 		if (newNode == nullptr)
