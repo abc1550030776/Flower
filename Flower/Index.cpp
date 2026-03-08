@@ -90,114 +90,21 @@ unsigned long Index::size()
 	return indexNodeCache.size();
 }
 
-bool Index::getLastNodes(unsigned long num, std::vector<unsigned long long>& indexIdVec, std::vector<IndexNode*>& indexNodeVec)
+bool Index::getLastNodeIdAndNode(unsigned long long& indexId, IndexNode*& pIndexNode)
 {
-	if (indexNodeCache.size() < num)
+	if (IndexIdPreority.empty())
 	{
 		return false;
 	}
-	auto it = end(IndexIdPreority);
-	for (unsigned int i = 0; i < num; ++i)
-	{
-		--it;
-		auto cacheIt = indexNodeCache.find(it->second);
-		if (cacheIt == end(indexNodeCache))
-		{
-			return false;
-		}
-		indexIdVec.push_back(it->second);
-		indexNodeVec.push_back(cacheIt->second);
-	}
-	return true;
-}
-
-bool Index::reduceCache(unsigned long needReduceNum)
-{
-	// 获取锁，确保线程安全
-	UniqueLock lock(&rwLock);
-
-	if (indexNodeCache.size() < needReduceNum)
+	auto it = IndexIdPreority.end();
+	--it;
+	indexId = it->second;
+	auto cacheIt = indexNodeCache.find(indexId);
+	if (cacheIt == end(indexNodeCache))
 	{
 		return false;
 	}
-
-	// 优化：使用vector预分配空间，减少内存分配开销
-	std::vector<IndexNode*> nodesToDelete;
-	nodesToDelete.reserve(needReduceNum);
-
-	// 创建一个vector来存储需要删除的indexId，避免重复查找
-	std::vector<unsigned long long> indexIdsToRemove;
-	indexIdsToRemove.reserve(needReduceNum);
-
-	auto it = end(IndexIdPreority);
-
-	for (unsigned int i = 0; i < needReduceNum; ++i)
-	{
-		if (it == begin(IndexIdPreority)) break;
-		--it;
-		auto cacheIt = indexNodeCache.find(it->second);
-
-		if (cacheIt != end(indexNodeCache) && cacheIt->second->isZeroRef())
-		{
-			// 收集需要删除的节点和indexId
-			nodesToDelete.push_back(cacheIt->second);
-			indexIdsToRemove.push_back(it->second);
-		}
-	}
-
-	// 从缓存中删除（使用indexId直接查找，避免嵌套循环）
-	for (unsigned long long indexId : indexIdsToRemove)
-	{
-		auto cacheIt = indexNodeCache.find(indexId);
-		if (cacheIt != end(indexNodeCache))
-		{
-			if (cacheIt->first == 1604) printf("1604 is evicted by reduceCache!\n");
-			indexNodeCache.erase(cacheIt);
-		}
-	}
-
-	// 从优先级容器中删除（需要重新查找，因为迭代器可能已失效）
-	// 优化：直接清理旧的优先级项（可能有一些已经被删除的项）
-	// 这是一个简化处理，性能权衡
-	auto priorityIt = begin(IndexIdPreority);
-	while (priorityIt != end(IndexIdPreority))
-	{
-		bool found = false;
-		for (unsigned long long indexId : indexIdsToRemove)
-		{
-			if (priorityIt->second == indexId)
-			{
-				priorityIt = IndexIdPreority.erase(priorityIt);
-				found = true;
-				break;
-			}
-		}
-		if (!found)
-		{
-			++priorityIt;
-		}
-	}
-
-	// 释放节点内存（在锁保护下进行，避免竞争）
-	for (IndexNode* node : nodesToDelete)
-	{
-		switch (node->getType())
-		{
-		case NODE_TYPE_ONE:
-			poolManager->getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(node));
-			break;
-		case NODE_TYPE_TWO:
-			poolManager->getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(node));
-			break;
-		case NODE_TYPE_THREE:
-			poolManager->getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(node));
-			break;
-		case NODE_TYPE_FOUR:
-			poolManager->getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(node));
-			break;
-		}
-	}
-
+	pIndexNode = cacheIt->second;
 	return true;
 }
 
@@ -650,19 +557,17 @@ void Index::setInitMaxUniqueNum(unsigned long long initMaxUniqueNum)
 		generator.setInitMaxUniqueNum(initMaxUniqueNum);
 }
 
-bool Index::getFirstNodeIdAndNode(unsigned long long& indexId, IndexNode*& pIndexNode)
+bool Index::getFirstModifiedNodeIdAndNode(unsigned long long& indexId, IndexNode*& pIndexNode, unsigned long long startPreCmpLen)
 {
-	if (IndexIdPreority.empty())
+	for (auto it = IndexIdPreority.lower_bound(startPreCmpLen); it != IndexIdPreority.end(); ++it)
 	{
-		return false;
+		auto cacheIt = indexNodeCache.find(it->second);
+		if (cacheIt != end(indexNodeCache) && cacheIt->second->getIsModified())
+		{
+			indexId = it->second;
+			pIndexNode = cacheIt->second;
+			return true;
+		}
 	}
-	auto it = IndexIdPreority.begin();
-	indexId = it->second;
-	auto cacheIt = indexNodeCache.find(indexId);
-	if (cacheIt == end(indexNodeCache))
-	{
-		return false;
-	}
-	pIndexNode = cacheIt->second;
-	return true;
+	return false;
 }

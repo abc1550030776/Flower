@@ -339,7 +339,7 @@ IndexNode* IndexFile::getTempIndexNode(unsigned long long indexId)
 }
 
 //把某个节点写入到文件当中
-bool IndexFile::writeFile(unsigned long long indexId, IndexNode* pIndexNode, char writeFileType)
+bool IndexFile::writeFile(unsigned long long& indexId, IndexNode* pIndexNode, char writeFileType)
 {
 	if (indexId == 4 || indexId == 1604) {
 		printf("writeFile called for indexId=%llu\n", indexId);
@@ -627,7 +627,8 @@ bool IndexFile::writeEveryLaterWriteNodes()
 {
 	for (auto& value : laterWriteNodes)
 	{
-		if (!writeFile(value->getIndexId(), value))
+		unsigned long long laterWriteId = value->getIndexId();
+		if (!writeFile(laterWriteId, value))
 		{
 			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
@@ -696,36 +697,27 @@ bool IndexFile::reduceCache()
 		// 部分清理：内存有点低（10% - 40%），清理70%的缓存
 		unsigned long needReduceNum = (unsigned long)((double)pIndex->size() * PARTIAL_CLEANUP_RATIO_BUILD);
 
-		//把优先级最低的那些节点取出来。
-		std::vector<unsigned long long> indexIdVec;
-		std::vector<IndexNode*> indexNodeVec;
-		indexIdVec.reserve(needReduceNum);
-		indexNodeVec.reserve(needReduceNum);
-
-		if (!pIndex->getLastNodes(needReduceNum, indexIdVec, indexNodeVec))
+		//逐个从末尾取最低优先级节点，写盘后驱逐，每次迭代基于当前缓存状态
+		unsigned long long indexId;
+		IndexNode* pIndexNode;
+		unsigned long count = 0;
+		while (count < needReduceNum && pIndex->getLastNodeIdAndNode(indexId, pIndexNode))
 		{
-			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-		}
+			if (pIndexNode->getIsModified())
+			{
+				if (!writeFile(indexId, pIndexNode))
+				{
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				}
+			}
 
-		//把所有需要减少的节点全部写盘
-		for (unsigned int i = 0; i < needReduceNum; ++i)
-		{
-			if (!writeFile(indexIdVec[i], indexNodeVec[i]))
+			pIndex->evictIndexNode(indexId);
+
+			if (!writeEveryLaterWriteNodes())
 			{
 				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
-		}
-
-		//前面写入文件后有些修改了id的改变了其他的也要写盘的节点这些后来还要继续写盘才能删除
-		if (!writeEveryLaterWriteNodes())
-		{
-			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-		}
-
-		//减少索引里面的相应数量的数据
-		if (!pIndex->reduceCache(needReduceNum))
-		{
-			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+			++count;
 		}
 	}
 	return true;
@@ -809,20 +801,28 @@ bool IndexFile::writeEveryCache()																	//把缓存当中的数据全�
 
 	unsigned long long indexId;
 	IndexNode* pIndexNode;
-	while (pIndex->getFirstNodeIdAndNode(indexId, pIndexNode))
+	unsigned long long cursor = 0;
+	while (pIndex->getFirstModifiedNodeIdAndNode(indexId, pIndexNode, cursor))
 	{
-		if (pIndexNode->getIsModified())
+		cursor = pIndexNode->getPreCmpLen();
+		if (!writeFile(indexId, pIndexNode))
 		{
-			if (!writeFile(indexId, pIndexNode))
-			{
-				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-			}
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 
-		//writeFile内部cutNodeSize可能swapNode/rekeyNode改变了节点，pIndexNode可能已被释放
-		//使用原始indexId删除：如果被rekey了，rekeyNode已移除旧条目，evictIndexNode会失败
-		//此时rekeyed后的节点会在后续迭代中被getFirstNodeIdAndNode取出并驱逐
-		pIndex->evictIndexNode(indexId);
+		if (!writeEveryLaterWriteNodes())
+		{
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+		}
+	}
+
+	//最终扫描：捕获游标后方被重新标记为modified的节点
+	while (pIndex->getFirstModifiedNodeIdAndNode(indexId, pIndexNode))
+	{
+		if (!writeFile(indexId, pIndexNode))
+		{
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+		}
 
 		if (!writeEveryLaterWriteNodes())
 		{
@@ -890,20 +890,28 @@ bool IndexFile::writeCacheWithoutRootIndex()
 
 	unsigned long long indexId;
 	IndexNode* pIndexNode;
-	while (pIndex->getFirstNodeIdAndNode(indexId, pIndexNode))
+	unsigned long long cursor = 0;
+	while (pIndex->getFirstModifiedNodeIdAndNode(indexId, pIndexNode, cursor))
 	{
-		if (pIndexNode->getIsModified())
+		cursor = pIndexNode->getPreCmpLen();
+		if (!writeFile(indexId, pIndexNode, WRITE_FILE_CHECK_NEW_ROOT))
 		{
-			if (!writeFile(indexId, pIndexNode, WRITE_FILE_CHECK_NEW_ROOT))
-			{
-				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-			}
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 
-		//writeFile内部cutNodeSize可能swapNode/rekeyNode改变了节点，pIndexNode可能已被释放
-		//使用原始indexId删除：如果被rekey了，rekeyNode已移除旧条目，evictIndexNode会失败
-		//此时rekeyed后的节点会在后续迭代中被getFirstNodeIdAndNode取出并驱逐
-		pIndex->evictIndexNode(indexId);
+		if (!writeEveryLaterWriteNodes())
+		{
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+		}
+	}
+
+	//最终扫描：捕获游标后方被重新标记为modified的节点
+	while (pIndex->getFirstModifiedNodeIdAndNode(indexId, pIndexNode))
+	{
+		if (!writeFile(indexId, pIndexNode, WRITE_FILE_CHECK_NEW_ROOT))
+		{
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+		}
 
 		if (!writeEveryLaterWriteNodes())
 		{

@@ -19,9 +19,8 @@ public:
 	IndexNode* getIndexNode(unsigned long long indexId);
 	bool insert(unsigned long long indexId, IndexNode*& pIndexNode);
 	unsigned long size();
-	bool getLastNodes(unsigned long num, std::vector<unsigned long long>& indexIdVec, std::vector<IndexNode*>& indexNodeVec);
-	bool reduceCache(unsigned long needReduceNum);
 	bool reduceCache();
+	bool getLastNodeIdAndNode(unsigned long long& indexId, IndexNode*& pIndexNode);		//获取优先级最低的节点
 	bool changePreCmpLen(unsigned long long indexId, unsigned long long orgPreCmpLen, unsigned long long newPreCmpLen);
 	bool swapNode(unsigned long long indexId, IndexNode* newNode);
 	IndexNode* newIndexNode(unsigned char nodeType, unsigned long long preCmpLen);			//创建新的节点
@@ -29,7 +28,7 @@ public:
 	bool evictIndexNode(unsigned long long indexId);										//从缓存驱逐节点，不回收ID
 	bool rekeyNode(unsigned long long oldIndexId, unsigned long long newIndexId);			//节点id变更后更新缓存中的键
 	void clearCache();
-	bool getFirstNodeIdAndNode(unsigned long long& indexId, IndexNode*& pIndexNode);																		//清除缓存
+	bool getFirstModifiedNodeIdAndNode(unsigned long long& indexId, IndexNode*& pIndexNode, unsigned long long startPreCmpLen = 0);	//获取指定preCmpLen起的第一个已修改节点
 	unsigned char getUseType();																//获取使用方式
 	bool putIndexNode(IndexNode* indexNode);												//外部使用完了告诉说外部已经不再引用
 	unsigned long long acquireNumber(unsigned char numCount);								//获取连续的几个数
