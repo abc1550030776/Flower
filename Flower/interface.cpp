@@ -54,7 +54,7 @@ static bool increaseStackSize()
 	int result = getrlimit(RLIMIT_STACK, &rl);
 	if (result != 0)
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	if (rl.rlim_cur < kStackSize)
@@ -78,14 +78,14 @@ bool BuildDstIndex(const char* fileName, bool needBuildLineIndex, char delimiter
 {
 	if (!increaseStackSize())
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	//获取文件大小
 	struct stat statbuf;
 	if (stat(fileName, &statbuf) != 0)
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 	unsigned long long dstFileSize = statbuf.st_size;
 
@@ -108,14 +108,14 @@ bool BuildDstIndex(const char* fileName, bool needBuildLineIndex, char delimiter
 		{
 			if (!buildIndex.init(fileName, &index, &kvIndex))
 			{
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 		}
 		else
 		{
 			if (!buildIndex.init(fileName, &index))
 			{
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 		}
 		return buildIndex.build(needBuildLineIndex, delimiter);
@@ -127,7 +127,7 @@ bool BuildDstIndex(const char* fileName, bool needBuildLineIndex, char delimiter
 	char indexFileName[4096] = { 0 };
 	if (!getIndexPath(fileName, indexFileName))
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	//如果需要构建行索引，先顺序构建KV索引（行号必须顺序计算）
@@ -138,11 +138,11 @@ bool BuildDstIndex(const char* fileName, bool needBuildLineIndex, char delimiter
 		BuildIndex kvBuilder;
 		if (!kvBuilder.init(fileName, &dummyIndex, &kvIndex))
 		{
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 		if (!kvBuilder.buildKvIndex(delimiter))
 		{
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 	}
 
@@ -160,7 +160,7 @@ bool BuildDstIndex(const char* fileName, bool needBuildLineIndex, char delimiter
 		Myfile indexFileCreator;
 		if (!indexFileCreator.init(indexFileName, true))
 		{
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 	}
 
@@ -195,7 +195,7 @@ bool BuildDstIndex(const char* fileName, bool needBuildLineIndex, char delimiter
 			{
 				pthread_join(pids[j], NULL);
 			}
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 	}
 
@@ -212,7 +212,7 @@ bool BuildDstIndex(const char* fileName, bool needBuildLineIndex, char delimiter
 
 	if (!allSuccess)
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	//按顺序收集所有根节点id
@@ -229,26 +229,26 @@ bool BuildDstIndex(const char* fileName, bool needBuildLineIndex, char delimiter
 	Myfile indexFileForHeader;
 	if (!indexFileForHeader.init(indexFileName, false))
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	unsigned long long rootCount = allRootIds.size();
 	unsigned long long pos = 0;
 	if (!indexFileForHeader.write(pos, &rootCount, 8))
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 	if (rootCount > 0)
 	{
 		pos = 8;
 		if (!indexFileForHeader.write(pos, &allRootIds[0], 8 * rootCount))
 		{
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 	}
 	if (!indexFileForHeader.sync())
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	return true;
@@ -285,17 +285,17 @@ bool SearchFile(const char* fileName, const char* searchTarget, unsigned int tar
 {
 	if (fileName == nullptr)
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	if (searchTarget == nullptr)
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	if (set == nullptr)
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 	//这里使用多线程搜索
 	SetWithLock* resultSet = new SetWithLock(set);
@@ -314,7 +314,7 @@ bool SearchFile(const char* fileName, const char* searchTarget, unsigned int tar
 			}
 
 			delete resultSet;
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 	}
 

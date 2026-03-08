@@ -26,8 +26,10 @@ public:
 	bool swapNode(unsigned long long indexId, IndexNode* newNode);
 	IndexNode* newIndexNode(unsigned char nodeType, unsigned long long preCmpLen);			//创建新的节点
 	bool deleteIndexNode(unsigned long long indexId);										//删除节点
+	bool evictIndexNode(unsigned long long indexId);										//从缓存驱逐节点，不回收ID
 	bool rekeyNode(unsigned long long oldIndexId, unsigned long long newIndexId);			//节点id变更后更新缓存中的键
-	void clearCache();																		//清除缓存
+	void clearCache();
+	bool getFirstNodeIdAndNode(unsigned long long& indexId, IndexNode*& pIndexNode);																		//清除缓存
 	unsigned char getUseType();																//获取使用方式
 	bool putIndexNode(IndexNode* indexNode);												//外部使用完了告诉说外部已经不再引用
 	unsigned long long acquireNumber(unsigned char numCount);								//获取连续的几个数

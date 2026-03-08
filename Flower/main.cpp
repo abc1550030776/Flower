@@ -21,7 +21,7 @@ bool testMultiThread()
 	if (genFile == nullptr)
 	{
 		printf("failed to create test file\n");
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 	//使用伪随机数据，避免短周期导致mergeNode陷入超长比较
 	const size_t blockSize = 4096;
@@ -48,7 +48,7 @@ bool testMultiThread()
 	if (!BuildDstIndex(testFileName, false))
 	{
 		printf("multi-thread build index fail\n");
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	gettimeofday(&aend, nullptr);
@@ -62,7 +62,7 @@ bool testMultiThread()
 	if (!myfile.init(testFileName, false))
 	{
 		printf("file init fail\n");
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 	//从多个不同段读取搜索目标进行测试
 	unsigned long long testPositions[] = { 1024, 1024 * 1024, 9 * 1024 * 1024 }; // 段0, 段1, 段1
@@ -73,7 +73,7 @@ bool testMultiThread()
 		if (!myfile.read(pos, searchTarget, searchStrLen))
 		{
 			printf("read fail at pos %llu\n", pos);
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 
 		SearchContext searchContext;
@@ -83,7 +83,7 @@ bool testMultiThread()
 		if (!searchContext.search(searchTarget, searchStrLen, &result))
 		{
 			printf("search fail for pos %llu\n", pos);
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 		printf("search from pos %llu: found %lu results\n", pos, result.size());
 
@@ -92,7 +92,7 @@ bool testMultiThread()
 		if (verifyFile == nullptr)
 		{
 			printf("failed to open file for verify\n");
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 		char buffer[searchStrLen];
 		for (auto val : result)
@@ -102,13 +102,13 @@ bool testMultiThread()
 			{
 				printf("read file error filepos %llu\n", val);
 				fclose(verifyFile);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 			if (memcmp(buffer, searchTarget, searchStrLen))
 			{
 				printf("search result mismatch at pos %llu\n", val);
 				fclose(verifyFile);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 		}
 		fclose(verifyFile);
@@ -134,14 +134,14 @@ int main()
 	//if (!testMultiThread())
 	//{
 	//	printf("MULTI-THREAD TEST FAILED\n");
-	//	return 1;
+	//	return 11;
 	//}
 
 	FILE* out = fopen("out", "w");
 	if (out == nullptr)
 	{
 		printf("file open error");
-		return 1;
+		return 12;
 	}
 	char pPath[256] = { 0 };
 
@@ -158,7 +158,7 @@ int main()
 	{
 		fprintf(out, "build index fail\n");
 		fclose(out);
-		return 1;
+		return 13;
 	}
 
 	fprintf(out, "build success\n");
@@ -178,7 +178,7 @@ int main()
 	{
 		fprintf(out, "file init fail");
 		fclose(out);
-		return 1;
+		return 14;
 	}
 
 	unsigned long long pos;
@@ -187,7 +187,7 @@ int main()
 	{
 		fprintf(out, "read fail");
 		fclose(out);
-		return 1;
+		return 15;
 	}
 	SearchContext searchContext;
 	searchContext.init("test_file", 0, true);
@@ -197,7 +197,7 @@ int main()
 	{
 		fprintf(out, "search fail \n");
 		fclose(out);
-		return 1;
+		return 16;
 	}
 
 	fprintf(out, "search File success\n");
@@ -215,7 +215,7 @@ int main()
 	{
 		fprintf(out, "file open error");
 		fclose(out);
-		return 1;
+		return 17;
 	}
 
 	char buffer[searchStrLen];
@@ -230,7 +230,7 @@ int main()
 			fclose(file);
 			fprintf(out, "read file error filepos %llu", val.first);
 			fclose(out);
-			return 1;
+			return 18;
 		}
 
 		//buffer[10] = '\0';
@@ -240,7 +240,7 @@ int main()
 			fclose(file);
 			fprintf(out, "search word pos not correct resultPos %llu result word %s", val.first, buffer);
 			fclose(out);
-			return 1;
+			return 19;
 		}
 
 		//打印搜索到的位置和行
@@ -253,7 +253,7 @@ int main()
 	{
 		fprintf(out, "search fail \n");
 		fclose(out);
-		return 1;
+		return 20;
 	}
 
 	gettimeofday(&aend, nullptr);
@@ -272,7 +272,7 @@ int main()
 			fclose(file);
 			fprintf(out, "read file error filepos %llu", val.first);
 			fclose(out);
-			return 1;
+			return 21;
 		}
 
 		//buffer[10] = '\0';
@@ -282,7 +282,7 @@ int main()
 			fclose(file);
 			fprintf(out, "search word pos not correct resultPos %llu result word %s", val.first, buffer);
 			fclose(out);
-			return 1;
+			return 22;
 		}
 	}
 
@@ -297,31 +297,31 @@ int main()
 		map.insert({ key[i], val[i] });
 	}
 
-	Index index(USE_TYPE_BUILD);
+	printf("Before KV index\n"); fflush(stdout); Index index(USE_TYPE_BUILD);
 	Index kvIndex(USE_TYPE_BUILD);
 	BuildIndex buildInex;
 	buildInex.init("testkv", &index, &kvIndex);
 	for (unsigned long i = 0; i < sizeof(key) / sizeof(key[0]); ++i)
 	{
-		if (!buildInex.addKV(key[i], val[i]))
+		printf("Adding KV %d\n", i); fflush(stdout); if (!buildInex.addKV(key[i], val[i]))
 		{
 			fprintf(out, "add kv failed\n");
 			fclose(out);
-			return 1;
+			return 23;
 		}
 	}
-	if (!buildInex.writeKvEveryCache())
+	printf("Before writeKvEveryCache\n"); fflush(stdout); if (!buildInex.writeKvEveryCache())
 	{
 		fprintf(out, "write cache failed\n");
 		fclose(out);
-		return 1;
+		return 24;
 	}
 	char kvIndexFile[4096];
 	if (!getKVFilePath("testkv", kvIndexFile))
 	{
 		fprintf(out, "get kv indexFile name failed\n");
 		fclose(out);
-		return 1;
+		return 25;
 	}
 	KVContent kvContent;
 	Index kvContentIndex;
@@ -347,15 +347,15 @@ int main()
 		unsigned long long kvUpperBoundKey = 0;
 		if (!kvContent.get(test[i], kvLowerBoundKey, kvUpperBoundKey, kvLowerBoundValue))
 		{
-			fprintf(out, "search kv failed search key %llu\n", test[i]);
+			fprintf(out, "search kv failed search key %llu\n", test[i]); printf("KV SEARCH FAIL 1\n");
 			fclose(out);
-			return 1;
+			return 26;
 		}
 		if (mapLowerBoundKey != kvLowerBoundKey || mapUpperBoundKey != kvUpperBoundKey || mapLowerBoundValue != kvLowerBoundValue)
 		{
-			fprintf(out, "search value not right right lowerKey %llu, upperKey %llu, value %llu, find lowerKey %llu, upperKey %llu, value %llu", mapLowerBoundKey, mapUpperBoundKey, mapLowerBoundValue, kvLowerBoundKey, kvUpperBoundKey, kvLowerBoundValue);
+			printf("KV SEARCH FAIL 2\n"); fprintf(out, "search value not right right lowerKey %llu, upperKey %llu, value %llu, find lowerKey %llu, upperKey %llu, value %llu", mapLowerBoundKey, mapUpperBoundKey, mapLowerBoundValue, kvLowerBoundKey, kvUpperBoundKey, kvLowerBoundValue);
 			fclose(out);
-			return 1;
+			return 27;
 		}
 	}
 	fclose(out);

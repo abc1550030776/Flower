@@ -151,6 +151,7 @@ bool Index::reduceCache(unsigned long needReduceNum)
 		auto cacheIt = indexNodeCache.find(indexId);
 		if (cacheIt != end(indexNodeCache))
 		{
+			if (cacheIt->first == 1604) printf("1604 is evicted by reduceCache!\n");
 			indexNodeCache.erase(cacheIt);
 		}
 	}
@@ -261,6 +262,7 @@ bool Index::reduceCache()
 			nodesToDelete.push_back(cacheIt->second);
 
 			// 直接从缓存和优先级容器中删除
+			if (cacheIt->first == 1604) printf("1604 is evicted by reduceCache!\n");
 			indexNodeCache.erase(cacheIt);
 			IndexIdPreority.erase(curIt);
 
@@ -448,6 +450,52 @@ bool Index::deleteIndexNode(unsigned long long indexId)
 		poolManager->getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(node));
 		break;
 	}
+	if (indexId == 1604) printf("1604 is deleted in deleteIndexNode!\n");
+	indexNodeCache.erase(it);
+	IndexIdPreority.erase(ipIt);
+	return true;
+}
+
+bool Index::evictIndexNode(unsigned long long indexId)
+{
+	auto it = indexNodeCache.find(indexId);
+	if (it == end(indexNodeCache))
+	{
+		return false;
+	}
+
+	auto range = IndexIdPreority.equal_range(it->second->getPreCmpLen());
+	auto ipIt = range.first;
+	for (; ipIt != range.second; ++ipIt)
+	{
+		if (ipIt->second == indexId)
+		{
+			break;
+		}
+	}
+
+	if (ipIt == range.second)
+	{
+		return false;
+	}
+
+	// 使用内存池释放（不回收ID）
+	IndexNode* node = it->second;
+	switch (node->getType())
+	{
+	case NODE_TYPE_ONE:
+		poolManager->getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(node));
+		break;
+	case NODE_TYPE_TWO:
+		poolManager->getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(node));
+		break;
+	case NODE_TYPE_THREE:
+		poolManager->getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(node));
+		break;
+	case NODE_TYPE_FOUR:
+		poolManager->getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(node));
+		break;
+	}
 	indexNodeCache.erase(it);
 	IndexIdPreority.erase(ipIt);
 	return true;
@@ -464,6 +512,7 @@ bool Index::rekeyNode(unsigned long long oldIndexId, unsigned long long newIndex
 	IndexNode* node = it->second;
 
 	//从旧的缓存键中移除
+	if (oldIndexId == 1604) printf("1604 is rekeyed to %llu!\n", newIndexId);
 	indexNodeCache.erase(it);
 
 	//插入到新的缓存键
@@ -599,4 +648,21 @@ void Index::setInitMaxUniqueNum(unsigned long long initMaxUniqueNum)
 		externalGenerator->setInitMaxUniqueNum(initMaxUniqueNum);
 	else
 		generator.setInitMaxUniqueNum(initMaxUniqueNum);
+}
+
+bool Index::getFirstNodeIdAndNode(unsigned long long& indexId, IndexNode*& pIndexNode)
+{
+	if (IndexIdPreority.empty())
+	{
+		return false;
+	}
+	auto it = IndexIdPreority.begin();
+	indexId = it->second;
+	auto cacheIt = indexNodeCache.find(indexId);
+	if (cacheIt == end(indexNodeCache))
+	{
+		return false;
+	}
+	pIndexNode = cacheIt->second;
+	return true;
 }

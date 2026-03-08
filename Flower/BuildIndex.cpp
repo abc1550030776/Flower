@@ -17,12 +17,12 @@ bool BuildIndex::init(const char* fileName, Index* index, Index* kvIndex)
 {
 	if (index == nullptr)
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	if (fileName == nullptr)
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	char indexFileName[4096];
@@ -30,7 +30,7 @@ bool BuildIndex::init(const char* fileName, Index* index, Index* kvIndex)
 	//获取索引文件的名字
 	if (!getIndexPath(fileName, indexFileName))
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	char kVFileName[4096] = { 0 };
@@ -38,32 +38,34 @@ bool BuildIndex::init(const char* fileName, Index* index, Index* kvIndex)
 	//获取kv索引文件的名字
 	if (!getKVFilePath(fileName, kVFileName))
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	//对目标文件进行初始化
 	if (!dstFile.init(fileName))
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	if (!indexFile.init(indexFileName, index))
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
+	indexFile.setBuildIndex(this, BUILD_TYPE_FILE);
 
 	if (kvIndex != nullptr)
 	{
 		if (!kvIndexFile.init(kVFileName, kvIndex))
 		{
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
+		kvIndexFile.setBuildIndex(this, BUILD_TYPE_KV);
 	}
 
 	//获取文件的大小
 	struct stat statbuf;
 	if (stat(fileName, &statbuf) != 0) {
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 	dstFileSize = statbuf.st_size;
 	return true;
@@ -73,7 +75,7 @@ bool BuildIndex::cutNodeSize(unsigned long long indexId, IndexNode*& indexNode, 
 {
 	if (indexNode == nullptr)
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	//计算每种节点类型的单个子节点二进制大小和key宽度
@@ -98,7 +100,7 @@ bool BuildIndex::cutNodeSize(unsigned long long indexId, IndexNode*& indexNode, 
 		keyWidth = 1;
 		break;
 	default:
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	//计算当前节点的预估二进制大小
@@ -119,13 +121,13 @@ bool BuildIndex::cutNodeSize(unsigned long long indexId, IndexNode*& indexNode, 
 		IndexNode* newNode = changeNodeType(indexId, indexNode, buildType);
 		if (newNode == nullptr)
 		{
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 
 		indexNode = newNode->cutNodeSize(this, indexId, buildType);
 		if (indexNode == nullptr)
 		{
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 
 		//重新检查是否还需要处理leafSet
@@ -135,7 +137,7 @@ bool BuildIndex::cutNodeSize(unsigned long long indexId, IndexNode*& indexNode, 
 		case NODE_TYPE_TWO: perChildSize = 12; keyWidth = 4; break;
 		case NODE_TYPE_THREE: perChildSize = 10; keyWidth = 2; break;
 		case NODE_TYPE_FOUR: perChildSize = 9; keyWidth = 1; break;
-		default: return false;
+		default: printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 		childrenNum = indexNode->getChildrenNum();
 		leafSetSize = indexNode->getLeafSetSize();
@@ -171,7 +173,7 @@ bool BuildIndex::cutNodeSize(unsigned long long indexId, IndexNode*& indexNode, 
 	unsigned long long key = 0;
 	if (!dstFile.read(keyPos, (char*)&key, keyWidth))
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	//创建新的父节点（和原节点相同类型）
@@ -182,7 +184,7 @@ bool BuildIndex::cutNodeSize(unsigned long long indexId, IndexNode*& indexNode, 
 	IndexNode* parentNode = idxFile.newIndexNode(nodeType, orgPreCmpLen);
 	if (parentNode == nullptr)
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	//设置父节点属性
@@ -197,11 +199,11 @@ bool BuildIndex::cutNodeSize(unsigned long long indexId, IndexNode*& indexNode, 
 	//先交换：让parentNode占据indexId，原节点占据newChildIndexId
 	if (!idxFile.swapNode(indexId, parentNode))
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 	if (!idxFile.swapNode(newChildIndexId, indexNode))
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	//更新节点的id记录
@@ -214,6 +216,19 @@ bool BuildIndex::cutNodeSize(unsigned long long indexId, IndexNode*& indexNode, 
 	indexNode->setPreCmpLen(orgPreCmpLen + parentLen + keyWidth);
 	indexNode->setParentID(indexId);
 	indexNode->setIsModified(true);
+
+	//indexNode已从indexId移到newChildIndexId，更新所有子节点的parentId
+	std::vector<unsigned long long> childNodeIds;
+	indexNode->getAllChildNodeId(childNodeIds);
+	for (auto& childId : childNodeIds)
+	{
+		IndexNode* childNode = getIndexNode(childId, buildType);
+		if (childNode != nullptr)
+		{
+			childNode->setParentID(newChildIndexId);
+			childNode->setIsModified(true);
+		}
+	}
 
 	//更新缓存中的preCmpLen优先级
 	changePreCmpLen(newChildIndexId, orgPreCmpLen, orgPreCmpLen + parentLen + keyWidth, buildType);
@@ -247,7 +262,7 @@ bool BuildIndex::cutNodeSize(unsigned long long indexId, IndexNode*& indexNode, 
 	//递归检查：父节点的leafSet可能仍然很大，继续处理
 	if (!cutNodeSize(indexId, indexNode, buildType))
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	return true;
@@ -293,13 +308,13 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			leftPos = leftFilePos;
 			if (!dstFile.read(leftPos, leftData, needChartoEight))
 			{
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 			unsigned long long rightPos;
 			rightPos = rightFilePos;
 			if (!dstFile.read(rightPos, rightData, needChartoEight))
 			{
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 			int curCmpLen = 0;
 			while (cmpLen != needChartoEight)
@@ -364,7 +379,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 				if (pNode == nullptr)
 				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				//设置这个新设置的节点的各个参数
@@ -380,12 +395,12 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 					if (!tmpNode->insertChildNode(this, *(unsigned int*)(&leftData[cmpLen]), indexNodeChild))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 					IndexNodeChild rIndexNodeChild(CHILD_TYPE_LEAF, rightFilePos + cmpLen + 4);
 					if (!tmpNode->insertChildNode(this, *(unsigned int*)(&rightData[cmpLen]), rIndexNodeChild))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 				}
 				break;
@@ -395,13 +410,13 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 					IndexNodeChild indexNodeChild(CHILD_TYPE_LEAF, leftFilePos + cmpLen + 2);
 					if (!tmpNode->insertChildNode(this, *(unsigned short*)(&leftData[cmpLen]), indexNodeChild))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 					
 					IndexNodeChild rIndexNodeChild(CHILD_TYPE_LEAF, rightFilePos + cmpLen + 2);
 					if (!tmpNode->insertChildNode(this, *(unsigned short*)(&rightData[cmpLen]), rIndexNodeChild))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 				}
 				break;
@@ -411,13 +426,13 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 					IndexNodeChild indexNodeChild(CHILD_TYPE_LEAF, leftFilePos + cmpLen + 1);
 					if (!tmpNode->insertChildNode(this, *(unsigned char*)(&leftData[cmpLen]), indexNodeChild))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 
 					IndexNodeChild rIndexNodeChild(CHILD_TYPE_LEAF, rightFilePos + cmpLen + 1);
 					if (!tmpNode->insertChildNode(this, *(unsigned char*)(&rightData[cmpLen]), rIndexNodeChild))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 				}
 				break;
@@ -441,7 +456,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		unsigned char* leftBuffer = (unsigned char*)malloc(4 * 1024);
 		if (leftBuffer == nullptr)
 		{
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 
 		unsigned char* rightBuffer = (unsigned char*)malloc(4 * 1024);
@@ -449,7 +464,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		if (rightBuffer == nullptr)
 		{
 			free(leftBuffer);
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 
 		//接下来需要比较的最多字节数
@@ -470,7 +485,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leftBuffer);
 				free(rightBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 			unsigned long long rightPos;
 			rightPos = rightFilePos + cmpLen;
@@ -478,7 +493,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leftBuffer);
 				free(rightBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			unsigned long long subCmpLen = 0;
@@ -498,7 +513,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				{
 					free(leftBuffer);
 					free(rightBuffer);
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				pNode->setStart(leftFilePos);
@@ -512,7 +527,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				{
 					free(leftBuffer);
 					free(rightBuffer);
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				IndexNodeChild rIndexNodeChild(CHILD_TYPE_LEAF, rightFilePos + cmpLen + subCmpLen + 8);
@@ -521,7 +536,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				{
 					free(leftBuffer);
 					free(rightBuffer);
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				pNode->setIsModified(true);
@@ -545,7 +560,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leftBuffer);
 				free(rightBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			unsigned long long startPos = leftFilePos;
@@ -583,7 +598,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		{
 			free(leftBuffer);
 			free(rightBuffer);
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 		unsigned long long rightPos;
 		rightPos = rightFilePos + cmpLen;
@@ -591,7 +606,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		{
 			free(leftBuffer);
 			free(rightBuffer);
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 
 		unsigned long long subCmpLen = 0;
@@ -611,7 +626,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leftBuffer);
 				free(rightBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			pNode->setStart(leftFilePos);
@@ -625,7 +640,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leftBuffer);
 				free(rightBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			IndexNodeChild rIndexNodeChild(CHILD_TYPE_LEAF, rightFilePos + cmpLen + subCmpLen + 8);
@@ -634,7 +649,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leftBuffer);
 				free(rightBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			pNode->setIsModified(true);
@@ -666,7 +681,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leftBuffer);
 				free(rightBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			unsigned long long startPos = leftFilePos;
@@ -701,7 +716,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		{
 			free(leftBuffer);
 			free(rightBuffer);
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 
 		unsigned long long chooseFilePos = leftFilePos;
@@ -721,7 +736,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		{
 			free(leftBuffer);
 			free(rightBuffer);
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 
 		pNode->setStart(leftFilePos);
@@ -735,7 +750,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		{
 			free(leftBuffer);
 			free(rightBuffer);
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 
 		pNode->insertLeafSet(anotherFilePos - preCmpLen);
@@ -755,13 +770,13 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		IndexNode* leftNode = indexFile.getIndexNode(leftChildNode.getIndexId());
 		if (leftNode == nullptr)
 		{
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 
 		IndexNode* rightNode = indexFile.getIndexNode(rightChildNode.getIndexId());
 		if (rightNode == nullptr)
 		{
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 
 		unsigned long long leftFilePos = leftNode->getStart();
@@ -797,13 +812,13 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				leftPos = leftFilePos;
 				if (!dstFile.read(leftPos, leftData, needChartoEight))
 				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 				unsigned long long rightPos;
 				rightPos = rightFilePos;
 				if (!dstFile.read(rightPos, rightData, needChartoEight))
 				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 			}
 
@@ -870,7 +885,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 				if (pNode == nullptr)
 				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				//设置这个新设置的节点的各个参数
@@ -890,7 +905,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 					//要修改preCmpLen也要修改优先级
 					if (!indexFile.changePreCmpLen(leftNode->getIndexId(), leftNode->getPreCmpLen(), leftNode->getPreCmpLen() + cmpLen + 4))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 					leftNode->setParentID(pNode->getIndexId());
 					leftNode->setIsModified(true);
@@ -899,7 +914,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 					if (!tmpNode->insertChildNode(this, *(unsigned int*)(&leftData[cmpLen]), indexNodeChild))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 
 					//右边节点修改相应节点的长度
@@ -908,7 +923,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 					//要修改preCmpLen也要修改优先级
 					if (!indexFile.changePreCmpLen(rightNode->getIndexId(), rightNode->getPreCmpLen(), rightNode->getPreCmpLen() + cmpLen + 4))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 					rightNode->setParentID(pNode->getIndexId());
 					rightNode->setIsModified(true);
@@ -916,7 +931,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 					IndexNodeChild rIndexNodeChild(CHILD_TYPE_NODE, rightNode->getIndexId());
 					if (!tmpNode->insertChildNode(this, *(unsigned int*)(&rightData[cmpLen]), rIndexNodeChild))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 				}
 					break;
@@ -931,7 +946,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 					//要修改preCmpLen也要修改优先级
 					if (!indexFile.changePreCmpLen(leftNode->getIndexId(), leftNode->getPreCmpLen(), leftNode->getPreCmpLen() + cmpLen + 2))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 					leftNode->setParentID(pNode->getIndexId());
 					leftNode->setIsModified(true);
@@ -940,7 +955,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 					if (!tmpNode->insertChildNode(this, *(unsigned short*)(&leftData[cmpLen]), indexNodeChild))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 
 					//右边节点修改相应节点的长度
@@ -949,7 +964,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 					//要修改preCmpLen也要修改优先级
 					if (!indexFile.changePreCmpLen(rightNode->getIndexId(), rightNode->getPreCmpLen(), rightNode->getPreCmpLen() + cmpLen + 2))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 
 					rightNode->setParentID(pNode->getIndexId());
@@ -958,7 +973,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 					IndexNodeChild rIndexNodeChild(CHILD_TYPE_NODE, rightNode->getIndexId());
 					if (!tmpNode->insertChildNode(this, *(unsigned short*)(&rightData[cmpLen]), rIndexNodeChild))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 				}
 					break;
@@ -973,7 +988,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 					//要修改preCmpLen也要修改优先级
 					if (!indexFile.changePreCmpLen(leftNode->getIndexId(), leftNode->getPreCmpLen(), leftNode->getPreCmpLen() + cmpLen + 1))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 					leftNode->setParentID(pNode->getIndexId());
 					leftNode->setIsModified(true);
@@ -982,7 +997,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 					if (!tmpNode->insertChildNode(this, *(unsigned char*)(&leftData[cmpLen]), indexNodeChild))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 
 					//右边节点修改相应节点的长度
@@ -991,7 +1006,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 					//要修改preCmpLen也要修改优先级
 					if (!indexFile.changePreCmpLen(rightNode->getIndexId(), rightNode->getPreCmpLen(), rightNode->getPreCmpLen() + cmpLen + 1))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 
 					rightNode->setParentID(pNode->getIndexId());
@@ -1000,7 +1015,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 					IndexNodeChild rIndexNodeChild(CHILD_TYPE_NODE, rightNode->getIndexId());
 					if (!tmpNode->insertChildNode(this, *(unsigned char*)(&rightData[cmpLen]), rIndexNodeChild))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 				}
 					break;
@@ -1031,7 +1046,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 						rightNode = changeNodeType(rightNode->getIndexId(), rightNode);
 						if (rightNode == nullptr)
 						{
-							return false;
+							printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 						}
 					}
 					else
@@ -1039,7 +1054,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 						leftNode = changeNodeType(leftNode->getIndexId(), leftNode);
 						if (leftNode == nullptr)
 						{
-							return false;
+							printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 						}
 					}
 				}
@@ -1047,13 +1062,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				//把两个长度相同类型相同的节点合并
 				if (!leftNode->mergeSameLenNode(this, rightNode))
 				{
-					return false;
-				}
-
-				//合并完成了以后左边的节点可能比较大要缩小一下节点
-				if (!cutNodeSize(leftNode->getIndexId(), leftNode))
-				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				leftNode->setIsModified(true);
@@ -1090,7 +1099,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				pos = longNodeStart + cmpLen;
 				if (!dstFile.read(pos, &key, 8))
 				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				anotherNode->setParentID(parentId);
@@ -1101,7 +1110,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 				if (!indexFile.changePreCmpLen(longNode->getIndexId(), longNode->getPreCmpLen(), longNode->getPreCmpLen() + cmpLen + 8))
 				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				longNode->setParentID(anotherNode->getIndexId());
@@ -1113,7 +1122,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 				if (!tmpNode->insertChildNode(this, key, indexNodeChild))
 				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 			}
 				break;
@@ -1125,7 +1134,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				pos = longNodeStart + cmpLen;
 				if (!dstFile.read(pos, &key, 4))
 				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				anotherNode->setParentID(parentId);
@@ -1136,7 +1145,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 				if (!indexFile.changePreCmpLen(longNode->getIndexId(), longNode->getPreCmpLen(), longNode->getPreCmpLen() + cmpLen + 4))
 				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				longNode->setParentID(anotherNode->getIndexId());
@@ -1148,7 +1157,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 				if (!tmpNode->insertChildNode(this, key, indexNodeChild))
 				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 			}
 				break;
@@ -1160,7 +1169,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				pos = longNodeStart + cmpLen;
 				if (!dstFile.read(pos, &key, 2))
 				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				anotherNode->setParentID(parentId);
@@ -1171,7 +1180,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 				if (!indexFile.changePreCmpLen(longNode->getIndexId(), longNode->getPreCmpLen(), longNode->getPreCmpLen() + cmpLen + 2))
 				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				longNode->setParentID(anotherNode->getIndexId());
@@ -1183,7 +1192,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 				if (!tmpNode->insertChildNode(this, key, indexNodeChild))
 				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 			}
 				break;
@@ -1195,7 +1204,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				pos = longNodeStart + cmpLen;
 				if (!dstFile.read(pos, &key, 1))
 				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				anotherNode->setParentID(parentId);
@@ -1206,7 +1215,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 				if (!indexFile.changePreCmpLen(longNode->getIndexId(), longNode->getPreCmpLen(), longNode->getPreCmpLen() + cmpLen + 1))
 				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				longNode->setParentID(anotherNode->getIndexId());
@@ -1218,18 +1227,12 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 				if (!tmpNode->insertChildNode(this, key, indexNodeChild))
 				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 			}
 				break;
 			default:
 				break;
-			}
-
-			//比较小的节点加入了新的节点可能比较大缩小下大小
-			if (!cutNodeSize(anotherNode->getIndexId(), anotherNode))
-			{
-				return false;
 			}
 
 			anotherNode->setIsModified(true);
@@ -1244,7 +1247,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		unsigned char* leftBuffer = (unsigned char*)malloc(4 * 1024);
 		if (leftBuffer == nullptr)
 		{
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 
 		unsigned char* rightBuffer = (unsigned char*)malloc(4 * 1024);
@@ -1252,7 +1255,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		if (rightBuffer == nullptr)
 		{
 			free(leftBuffer);
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 
 		while (cmpLen + 4 * 1024 <= remainReadSize)
@@ -1264,7 +1267,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leftBuffer);
 				free(rightBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 			unsigned long long rightPos;
 			rightPos = rightFilePos + cmpLen;
@@ -1272,7 +1275,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leftBuffer);
 				free(rightBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			unsigned long long subCmpLen = 0;
@@ -1293,7 +1296,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				{
 					free(leftBuffer);
 					free(rightBuffer);
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				pNode->setStart(leftFilePos);
@@ -1305,14 +1308,14 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				{
 					free(leftBuffer);
 					free(rightBuffer);
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				if (!pNode->appendLeafSet(rightNode, cmpLen + subCmpLen + 8, dstFileSize))
 				{
 					free(leftBuffer);
 					free(rightBuffer);
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				//修改左边节点的长度
@@ -1323,7 +1326,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				{
 					free(leftBuffer);
 					free(rightBuffer);
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				leftNode->setParentID(pNode->getIndexId());
@@ -1337,7 +1340,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				{
 					free(leftBuffer);
 					free(rightBuffer);
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				//右边节点修改相应节点的长度
@@ -1348,7 +1351,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				{
 					free(leftBuffer);
 					free(rightBuffer);
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				rightNode->setParentID(pNode->getIndexId());
@@ -1360,7 +1363,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				{
 					free(leftBuffer);
 					free(rightBuffer);
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				pNode->setIsModified(true);
@@ -1385,7 +1388,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leftBuffer);
 				free(rightBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 			unsigned long long rightPos;
 			rightPos = rightFilePos + cmpLen;
@@ -1393,7 +1396,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leftBuffer);
 				free(rightBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 		}
 
@@ -1415,7 +1418,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leftBuffer);
 				free(rightBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			pNode->setStart(leftFilePos);
@@ -1427,14 +1430,14 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leftBuffer);
 				free(rightBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			if (!pNode->appendLeafSet(rightNode, cmpLen + subCmpLen + 8, dstFileSize))
 			{
 				free(leftBuffer);
 				free(rightBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			//修改左边节点的长度
@@ -1445,7 +1448,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leftBuffer);
 				free(rightBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			leftNode->setParentID(pNode->getIndexId());
@@ -1459,7 +1462,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leftBuffer);
 				free(rightBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			//右边节点修改相应节点的长度
@@ -1470,7 +1473,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leftBuffer);
 				free(rightBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			rightNode->setParentID(pNode->getIndexId());
@@ -1482,7 +1485,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leftBuffer);
 				free(rightBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			pNode->setIsModified(true);
@@ -1509,7 +1512,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 					{
 						free(leftBuffer);
 						free(rightBuffer);
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 				}
 				else
@@ -1519,7 +1522,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 					{
 						free(leftBuffer);
 						free(rightBuffer);
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 				}
 			}
@@ -1529,15 +1532,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leftBuffer);
 				free(rightBuffer);
-				return false;
-			}
-
-			//合并完成了以后左边的节点可能比较大要缩小一下节点
-			if (!cutNodeSize(leftNode->getIndexId(), leftNode))
-			{
-				free(leftBuffer);
-				free(rightBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			leftNode->setIsModified(true);
@@ -1579,7 +1574,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leftBuffer);
 				free(rightBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			anotherNode->setParentID(parentId);
@@ -1592,7 +1587,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leftBuffer);
 				free(rightBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			longNode->setParentID(anotherNode->getIndexId());
@@ -1606,7 +1601,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leftBuffer);
 				free(rightBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 		}
 			break;
@@ -1620,7 +1615,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leftBuffer);
 				free(rightBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			anotherNode->setParentID(parentId);
@@ -1634,7 +1629,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leftBuffer);
 				free(rightBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			longNode->setParentID(anotherNode->getIndexId());
@@ -1648,7 +1643,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leftBuffer);
 				free(rightBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 		}
 			break;
@@ -1662,7 +1657,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leftBuffer);
 				free(rightBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			anotherNode->setParentID(parentId);
@@ -1675,7 +1670,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leftBuffer);
 				free(rightBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			longNode->setParentID(anotherNode->getIndexId());
@@ -1689,7 +1684,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leftBuffer);
 				free(rightBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 		}
 			break;
@@ -1703,7 +1698,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leftBuffer);
 				free(rightBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			anotherNode->setParentID(parentId);
@@ -1720,20 +1715,12 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leftBuffer);
 				free(rightBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 		}
 			break;
 		default:
 			break;
-		}
-
-		//比较小的节点加入了新的节点可能比较大缩小下大小
-		if (!cutNodeSize(anotherNode->getIndexId(), anotherNode))
-		{
-			free(leftBuffer);
-			free(rightBuffer);
-			return false;
 		}
 
 		anotherNode->setIsModified(true);
@@ -1758,7 +1745,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		IndexNode* pNotLeafNode = indexFile.getIndexNode(nodeIndexId);
 		if (pNotLeafNode == nullptr)
 		{
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 
 		unsigned long long nodeFilePos = pNotLeafNode->getStart();
@@ -1792,13 +1779,13 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				leafPos = leafFilePos;
 				if (!dstFile.read(leafPos, leafData, needChartoEight))
 				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 				unsigned long long nodePos;
 				nodePos = nodeFilePos;
 				if (!dstFile.read(nodePos, nodeData, needChartoEight))
 				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 			}
 
@@ -1865,7 +1852,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 				if (pNode == nullptr)
 				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				//设置这个新设置的节点的各个参数
@@ -1884,7 +1871,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 					
 					if (!indexFile.changePreCmpLen(pNotLeafNode->getIndexId(), pNotLeafNode->getPreCmpLen(), pNotLeafNode->getPreCmpLen() + cmpLen + 4))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 					pNotLeafNode->setParentID(pNode->getIndexId());
 					pNotLeafNode->setIsModified(true);
@@ -1893,14 +1880,14 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 					if (!tmpNode->insertChildNode(this, *(unsigned int*)(&nodeData[cmpLen]), indexNodeChild))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 
 					//插入叶子节点
 					IndexNodeChild lIndexNodeChild(CHILD_TYPE_LEAF, leafFilePos + cmpLen + 4);
 					if (!tmpNode->insertChildNode(this, *(unsigned int*)(&leafData[cmpLen]), lIndexNodeChild))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 				}
 				break;
@@ -1914,7 +1901,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 					if (!indexFile.changePreCmpLen(pNotLeafNode->getIndexId(), pNotLeafNode->getPreCmpLen(), pNotLeafNode->getPreCmpLen() + cmpLen + 2))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 					pNotLeafNode->setParentID(pNode->getIndexId());
 					pNotLeafNode->setIsModified(true);
@@ -1923,13 +1910,13 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 					if (!tmpNode->insertChildNode(this, *(unsigned short*)(&nodeData[cmpLen]), indexNodeChild))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 
 					IndexNodeChild lIndexNodeChild(CHILD_TYPE_LEAF, leafFilePos + cmpLen + 2);
 					if (!tmpNode->insertChildNode(this, *(unsigned short*)(&leafData[cmpLen]), lIndexNodeChild))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 				}
 					break;
@@ -1942,7 +1929,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 					if (!indexFile.changePreCmpLen(pNotLeafNode->getIndexId(), pNotLeafNode->getPreCmpLen(), pNotLeafNode->getPreCmpLen() + cmpLen + 1))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 					pNotLeafNode->setParentID(pNode->getIndexId());
 					pNotLeafNode->setIsModified(true);
@@ -1951,13 +1938,13 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 					if (!tmpNode->insertChildNode(this, *(unsigned char*)(&nodeData[cmpLen]), indexNodeChild))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 
 					IndexNodeChild lIndexNodeChild(CHILD_TYPE_LEAF, leafFilePos + cmpLen + 1);
 					if (!tmpNode->insertChildNode(this, *(unsigned char*)(&leafData[cmpLen]), lIndexNodeChild))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 				}
 					break;
@@ -2004,7 +1991,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				pos = leafFilePos + cmpLen;
 				if (!dstFile.read(pos, &key, 8))
 				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				pNotLeafNode->setParentID(parentId);
@@ -2014,7 +2001,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 				if (!tmpNode->insertChildNode(this, key, indexNodeChild))
 				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 			}
 				break;
@@ -2026,7 +2013,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				pos = leafFilePos + cmpLen;
 				if (!dstFile.read(pos, &key, 4))
 				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				pNotLeafNode->setParentID(parentId);
@@ -2036,7 +2023,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 				if (!tmpNode->insertChildNode(this, key, indexNodeChild))
 				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 			}
 				break;
@@ -2048,7 +2035,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				pos = leafFilePos + cmpLen;
 				if (!dstFile.read(pos, &key, 2))
 				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				pNotLeafNode->setParentID(parentId);
@@ -2058,7 +2045,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 				if (!tmpNode->insertChildNode(this, key, indexNodeChild))
 				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 			}
 				break;
@@ -2070,7 +2057,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				pos = leafFilePos + cmpLen;
 				if (!dstFile.read(pos, &key, 1))
 				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				pNotLeafNode->setParentID(parentId);
@@ -2080,18 +2067,12 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 				if (!tmpNode->insertChildNode(this, key, indexNodeChild))
 				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 			}
 				break;
 			default:
 				break;
-			}
-
-			//叶子节点加入到了非叶子节点可能比较大缩小下大小
-			if (!cutNodeSize(pNotLeafNode->getIndexId(), pNotLeafNode))
-			{
-				return false;
 			}
 
 			pNotLeafNode->setIsModified(true);
@@ -2106,14 +2087,14 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		unsigned char* leafBuffer = (unsigned char*)malloc(4 * 1024);
 		if (leafBuffer == nullptr)
 		{
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 
 		unsigned char* nodeBuffer = (unsigned char*)malloc(4 * 1024);
 		if (nodeBuffer == nullptr)
 		{
 			free(leafBuffer);
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 
 		while (cmpLen + 4 * 1024 <= remainReadSize)
@@ -2125,7 +2106,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leafBuffer);
 				free(nodeBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 			unsigned long long nodePos;
 			nodePos = nodeFilePos + cmpLen;
@@ -2133,7 +2114,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leafBuffer);
 				free(nodeBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			unsigned long long subCmpLen = 0;
@@ -2154,7 +2135,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				{
 					free(leafBuffer);
 					free(nodeBuffer);
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				pNode->setStart(leafFilePos);
@@ -2166,7 +2147,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				{
 					free(leafBuffer);
 					free(nodeBuffer);
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				//修改非叶子节点的长度
@@ -2177,7 +2158,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				{
 					free(leafBuffer);
 					free(nodeBuffer);
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				pNotLeafNode->setParentID(pNode->getIndexId());
@@ -2191,7 +2172,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				{
 					free(leafBuffer);
 					free(nodeBuffer);
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				//插入叶子节点
@@ -2201,7 +2182,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				{
 					free(leafBuffer);
 					free(nodeBuffer);
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				pNode->setIsModified(true);
@@ -2227,7 +2208,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leafBuffer);
 				free(nodeBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			unsigned long long nodePos;
@@ -2236,7 +2217,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leafBuffer);
 				free(nodeBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 		}
 
@@ -2258,7 +2239,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leafBuffer);
 				free(nodeBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			pNode->setStart(leafFilePos);
@@ -2270,7 +2251,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leafBuffer);
 				free(nodeBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			//修改非叶子节点的长度
@@ -2281,7 +2262,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leafBuffer);
 				free(nodeBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			pNotLeafNode->setParentID(pNode->getIndexId());
@@ -2295,7 +2276,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leafBuffer);
 				free(nodeBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			//插入叶子节点
@@ -2306,7 +2287,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			{
 				free(leafBuffer);
 				free(nodeBuffer);
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			pNode->setIsModified(true);
@@ -2360,7 +2341,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				{
 					free(leafBuffer);
 					free(nodeBuffer);
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				pNotLeafNode->setParentID(parentId);
@@ -2372,7 +2353,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				{
 					free(leafBuffer);
 					free(nodeBuffer);
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 			}
 				break;
@@ -2386,7 +2367,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				{
 					free(leafBuffer);
 					free(nodeBuffer);
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				pNotLeafNode->setParentID(parentId);
@@ -2398,7 +2379,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				{
 					free(leafBuffer);
 					free(nodeBuffer);
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 			}
 			break;
@@ -2411,7 +2392,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				{
 					free(leafBuffer);
 					free(nodeBuffer);
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				pNotLeafNode->setParentID(parentId);
@@ -2423,7 +2404,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				{
 					free(leafBuffer);
 					free(nodeBuffer);
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 			}
 			break;
@@ -2436,7 +2417,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				{
 					free(leafBuffer);
 					free(nodeBuffer);
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				pNotLeafNode->setParentID(parentId);
@@ -2448,20 +2429,12 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				{
 					free(leafBuffer);
 					free(nodeBuffer);
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 			}
 			break;
 			default:
 				break;
-			}
-
-			//叶子节点加入到了非叶子节点可能比较大缩小下大小
-			if (!cutNodeSize(pNotLeafNode->getIndexId(), pNotLeafNode))
-			{
-				free(leafBuffer);
-				free(nodeBuffer);
-				return false;
 			}
 
 			pNotLeafNode->setIsModified(true);
@@ -2479,7 +2452,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		{
 			free(leafBuffer);
 			free(nodeBuffer);
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 
 		//读取完整的key值
@@ -2489,7 +2462,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		{
 			free(leafBuffer);
 			free(nodeBuffer);
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 
 		pNode->setStart(leafFilePos);
@@ -2501,7 +2474,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		{
 			free(leafBuffer);
 			free(nodeBuffer);
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 
 		IndexNodeTypeOne* tmpNode = (IndexNodeTypeOne*)pNode;
@@ -2514,7 +2487,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		{
 			free(leafBuffer);
 			free(nodeBuffer);
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 
 		pNotLeafNode->setParentID(pNode->getIndexId());
@@ -2526,7 +2499,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		{
 			free(leafBuffer);
 			free(nodeBuffer);
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 
 		//插入叶子节点
@@ -2556,13 +2529,13 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 		IndexNode* leftNode = kvIndexFile.getIndexNode(leftChildNode.getIndexId(), BUILD_TYPE_KV);
 		if (leftNode == nullptr)
 		{
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 
 		IndexNode* rightNode = kvIndexFile.getIndexNode(rightChildNode.getIndexId(), BUILD_TYPE_KV);
 		if (rightNode == nullptr)
 		{
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 
 		unsigned long long leftFilePos = leftNode->getStart();
@@ -2651,7 +2624,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 
 				if (pNode == nullptr)
 				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				//设置这个新设置的节点的各个参数
@@ -2673,7 +2646,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 					//要修改preCmpLen也要修改优先级
 					if (!kvIndexFile.changePreCmpLen(leftNode->getIndexId(), leftNode->getPreCmpLen(), leftNode->getPreCmpLen() + cmpLen + 4))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 					leftNode->setParentID(pNode->getIndexId());
 					leftNode->setIsModified(true);
@@ -2682,7 +2655,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 
 					if (!tmpNode->insertChildNode(this, *(unsigned int*)(&leftData[cmpLen]), indexNodeChild, BUILD_TYPE_KV))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 
 					//右边节点修改相应节点的长度
@@ -2692,7 +2665,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 					//要修改preCmpLen也要修改优先级
 					if (!kvIndexFile.changePreCmpLen(rightNode->getIndexId(), rightNode->getPreCmpLen(), rightNode->getPreCmpLen() + cmpLen + 4))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 					rightNode->setParentID(pNode->getIndexId());
 					rightNode->setIsModified(true);
@@ -2700,7 +2673,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 					IndexNodeChild rIndexNodeChild(CHILD_TYPE_NODE, rightNode->getIndexId());
 					if (!tmpNode->insertChildNode(this, *(unsigned int*)(&rightData[cmpLen]), rIndexNodeChild, BUILD_TYPE_KV))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 				}
 				break;
@@ -2716,7 +2689,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 					//要修改preCmpLen也要修改优先级
 					if (!kvIndexFile.changePreCmpLen(leftNode->getIndexId(), leftNode->getPreCmpLen(), leftNode->getPreCmpLen() + cmpLen + 2))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 					leftNode->setParentID(pNode->getIndexId());
 					leftNode->setIsModified(true);
@@ -2725,7 +2698,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 
 					if (!tmpNode->insertChildNode(this, *(unsigned short*)(&leftData[cmpLen]), indexNodeChild, BUILD_TYPE_KV))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 
 					//右边节点修改相应节点的长度
@@ -2735,7 +2708,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 					//要修改preCmpLen也要修改优先级
 					if (!kvIndexFile.changePreCmpLen(rightNode->getIndexId(), rightNode->getPreCmpLen(), rightNode->getPreCmpLen() + cmpLen + 2))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 
 					rightNode->setParentID(pNode->getIndexId());
@@ -2744,7 +2717,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 					IndexNodeChild rIndexNodeChild(CHILD_TYPE_NODE, rightNode->getIndexId());
 					if (!tmpNode->insertChildNode(this, *(unsigned short*)(&rightData[cmpLen]), rIndexNodeChild, BUILD_TYPE_KV))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 				}
 				break;
@@ -2760,7 +2733,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 					//要修改preCmpLen也要修改优先级
 					if (!kvIndexFile.changePreCmpLen(leftNode->getIndexId(), leftNode->getPreCmpLen(), leftNode->getPreCmpLen() + cmpLen + 1))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 					leftNode->setParentID(pNode->getIndexId());
 					leftNode->setIsModified(true);
@@ -2769,7 +2742,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 
 					if (!tmpNode->insertChildNode(this, *(unsigned char*)(&leftData[cmpLen]), indexNodeChild, BUILD_TYPE_KV))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 
 					//右边节点修改相应节点的长度
@@ -2779,7 +2752,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 					//要修改preCmpLen也要修改优先级
 					if (!kvIndexFile.changePreCmpLen(rightNode->getIndexId(), rightNode->getPreCmpLen(), rightNode->getPreCmpLen() + cmpLen + 1))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 
 					rightNode->setParentID(pNode->getIndexId());
@@ -2788,7 +2761,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 					IndexNodeChild rIndexNodeChild(CHILD_TYPE_NODE, rightNode->getIndexId());
 					if (!tmpNode->insertChildNode(this, *(unsigned char*)(&rightData[cmpLen]), rIndexNodeChild, BUILD_TYPE_KV))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 				}
 				break;
@@ -2817,7 +2790,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 					rightNode = changeNodeType(rightNode->getIndexId(), rightNode, BUILD_TYPE_KV);
 					if (rightNode == nullptr)
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 				}
 				else
@@ -2825,7 +2798,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 					leftNode = changeNodeType(leftNode->getIndexId(), leftNode, BUILD_TYPE_KV);
 					if (leftNode == nullptr)
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 				}
 			}
@@ -2833,13 +2806,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 			//把两个长度相同类型相同的节点合并
 			if (!leftNode->mergeSameLenNode(this, rightNode, BUILD_TYPE_KV))
 			{
-				return false;
-			}
-
-			//合并完成了以后左边的节点可能比较大要缩小一下节点
-			if (!cutNodeSize(leftNode->getIndexId(), leftNode, BUILD_TYPE_KV))
-			{
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			leftNode->setIsModified(true);
@@ -2847,7 +2814,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 			//右边的节点完全融入了左边的节点所以右边的节点可以说是完全不存在删除
 			if (!kvIndexFile.deleteIndexNode(rightNode->getIndexId()))
 			{
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			leftChildNode.setIndexId(leftNode->getIndexId());
@@ -2883,7 +2850,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 
 			if (!kvIndexFile.changePreCmpLen(longNode->getIndexId(), longNode->getPreCmpLen(), longNode->getPreCmpLen() + cmpLen + 2))
 			{
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			longNode->setParentID(anotherNode->getIndexId());
@@ -2895,7 +2862,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 
 			if (!tmpNode->insertChildNode(this, key, indexNodeChild, BUILD_TYPE_KV))
 			{
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 		}
 		break;
@@ -2915,7 +2882,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 
 			if (!kvIndexFile.changePreCmpLen(longNode->getIndexId(), longNode->getPreCmpLen(), longNode->getPreCmpLen() + cmpLen + 1))
 			{
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			longNode->setParentID(anotherNode->getIndexId());
@@ -2927,18 +2894,12 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 
 			if (!tmpNode->insertChildNode(this, key, indexNodeChild, BUILD_TYPE_KV))
 			{
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 		}
 		break;
 		default:
 			break;
-		}
-
-		//比较小的节点加入了新的节点可能比较大缩小下大小
-		if (!cutNodeSize(anotherNode->getIndexId(), anotherNode, BUILD_TYPE_KV))
-		{
-			return false;
 		}
 
 		anotherNode->setIsModified(true);
@@ -2947,7 +2908,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 		
 		return true;
 	}
-	return false;
+	printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 }
 
 IndexNode* BuildIndex::changeNodeType(unsigned long long indexId, IndexNode* indexNode, unsigned char buildType)
@@ -3081,7 +3042,7 @@ bool BuildIndex::addKV(unsigned long long key, unsigned long long value)
 		IndexNodeTypeOne* pTmpNode = (IndexNodeTypeOne*)newIndexNode;
 		if (!pTmpNode->insertChildNode(this, bigEndKey, indexNodeChild, BUILD_TYPE_KV))
 		{
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 		pTmpNode->setIsModified(true);
 
@@ -3093,7 +3054,7 @@ bool BuildIndex::addKV(unsigned long long key, unsigned long long value)
 	IndexNode* newIndexNode = kvIndexFile.newIndexNode(NODE_TYPE_ONE, 0);
 	if (newIndexNode == nullptr)
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 	newIndexNode->setStart(0);
 	newIndexNode->setLen(0);
@@ -3102,14 +3063,14 @@ bool BuildIndex::addKV(unsigned long long key, unsigned long long value)
 	IndexNodeTypeOne* pTmpNode = (IndexNodeTypeOne*)newIndexNode;
 	if (!pTmpNode->insertChildNode(this, bigEndKey, indexNodeChild, BUILD_TYPE_KV))
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 	pTmpNode->setIsModified(true);
 
 	IndexNodeChild rightNodeChild(CHILD_TYPE_NODE, newIndexNode->getIndexId());
 	if (!addVMergeNode(0, 0, leftNodeChild, rightNodeChild))
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	//添加完数据以后根节点可能发生改变所以要改变下根节点
@@ -3117,7 +3078,7 @@ bool BuildIndex::addKV(unsigned long long key, unsigned long long value)
 
 	if (!kvIndexFile.reduceCache())
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	return true;
@@ -3139,7 +3100,7 @@ bool BuildIndex::build(bool needBuildLineIndex, char delimiter)
 		//一开始就是第一行所以添加第一行
 		if (!addKV(0, lineNum))
 		{
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 		++lineNum;
 	}
@@ -3156,7 +3117,7 @@ bool BuildIndex::build(bool needBuildLineIndex, char delimiter)
 				pos = filePos;
 				if (!dstFile.read(pos, buffer, 8))
 				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				for (int i = 0; i < 8; ++i)
@@ -3165,7 +3126,7 @@ bool BuildIndex::build(bool needBuildLineIndex, char delimiter)
 					{
 						if (!addKV(filePos + i + 1, lineNum))
 						{
-							return false;
+							printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 						}
 						++lineNum;
 					}
@@ -3177,7 +3138,7 @@ bool BuildIndex::build(bool needBuildLineIndex, char delimiter)
 				pos = filePos;
 				if (!dstFile.read(pos, buffer, dstFileSize - filePos))
 				{
-					return false;
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
 
 				for (unsigned long long i = 0; i < (dstFileSize - filePos); ++i)
@@ -3189,7 +3150,7 @@ bool BuildIndex::build(bool needBuildLineIndex, char delimiter)
 						{
 							if (!addKV(filePos + i + 1, lineNum))
 							{
-								return false;
+								printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 							}
 							++lineNum;
 						}
@@ -3212,7 +3173,7 @@ bool BuildIndex::build(bool needBuildLineIndex, char delimiter)
 		if (!mergeNode(0, 0, leftNode, indexNodeChild))
 		{
 			printf("mergeNode fail filePos %llu\n", filePos);
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 
 		if (filePos % DST_SIZE_PER_ROOT == 0)
@@ -3222,7 +3183,7 @@ bool BuildIndex::build(bool needBuildLineIndex, char delimiter)
 			//后面合成新的节点里面的数据和这里无关这里就先把里面的数据先清空
 			if (!indexFile.writeCacheWithoutRootIndex())
 			{
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 		}
 		//printf("%lu\n", indexFile.size());
@@ -3238,7 +3199,7 @@ bool BuildIndex::build(bool needBuildLineIndex, char delimiter)
 
 			if (pNode == nullptr)
 			{
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			pNode->setStart(leftNode.getIndexId());
@@ -3249,7 +3210,7 @@ bool BuildIndex::build(bool needBuildLineIndex, char delimiter)
 			indexFile.pushRootIndexId(pNode->getIndexId());
 			if (!indexFile.writeCacheWithoutRootIndex())
 			{
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 		}
 		else
@@ -3258,7 +3219,7 @@ bool BuildIndex::build(bool needBuildLineIndex, char delimiter)
 			indexFile.pushRootIndexId(leftNode.getIndexId());
 			if (!indexFile.writeCacheWithoutRootIndex())
 			{
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 		}
 	}
@@ -3266,13 +3227,13 @@ bool BuildIndex::build(bool needBuildLineIndex, char delimiter)
 	//把所有的根节点写入到索引文件当中
 	if (!indexFile.writeEveryRootIndexId())
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	//把所有的行数据写进硬盘
 	if (!kvIndexFile.writeEveryCache())
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 	return true;
 }
@@ -3286,26 +3247,27 @@ bool BuildIndex::initForSegment(const char* fileName, const char* indexFileName,
 {
 	if (index == nullptr || fileName == nullptr || indexFileName == nullptr)
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	//打开目标文件（只读）
 	if (!dstFile.init(fileName, false))
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	//打开索引文件（多个线程各自打开同一个文件的独立文件描述符）
 	if (!indexFile.init(indexFileName, index))
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
+	indexFile.setBuildIndex(this, BUILD_TYPE_FILE);
 
 	//获取文件的大小
 	struct stat statbuf;
 	if (stat(fileName, &statbuf) != 0)
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 	dstFileSize = statbuf.st_size;
 	return true;
@@ -3331,7 +3293,7 @@ bool BuildIndex::buildSegment(unsigned long long startPos, unsigned long long en
 		if (!mergeNode(0, 0, leftNode, indexNodeChild))
 		{
 			printf("mergeNode fail filePos %llu\n", filePos);
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 
 		if (filePos != startPos && filePos % DST_SIZE_PER_ROOT == 0)
@@ -3340,7 +3302,7 @@ bool BuildIndex::buildSegment(unsigned long long startPos, unsigned long long en
 			indexFile.pushRootIndexId(leftNode.getIndexId());
 			if (!indexFile.writeCacheWithoutRootIndex())
 			{
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 		}
 	}
@@ -3355,7 +3317,7 @@ bool BuildIndex::buildSegment(unsigned long long startPos, unsigned long long en
 
 			if (pNode == nullptr)
 			{
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			pNode->setStart(leftNode.getIndexId());
@@ -3366,7 +3328,7 @@ bool BuildIndex::buildSegment(unsigned long long startPos, unsigned long long en
 			indexFile.pushRootIndexId(pNode->getIndexId());
 			if (!indexFile.writeCacheWithoutRootIndex())
 			{
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 		}
 		else
@@ -3374,7 +3336,7 @@ bool BuildIndex::buildSegment(unsigned long long startPos, unsigned long long en
 			indexFile.pushRootIndexId(leftNode.getIndexId());
 			if (!indexFile.writeCacheWithoutRootIndex())
 			{
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 		}
 	}
@@ -3390,7 +3352,7 @@ bool BuildIndex::buildKvIndex(char delimiter)
 	//一开始就是第一行所以添加第一行
 	if (!addKV(0, lineNum))
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 	++lineNum;
 
@@ -3403,7 +3365,7 @@ bool BuildIndex::buildKvIndex(char delimiter)
 			pos = filePos;
 			if (!dstFile.read(pos, buffer, 8))
 			{
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			for (int i = 0; i < 8; ++i)
@@ -3412,7 +3374,7 @@ bool BuildIndex::buildKvIndex(char delimiter)
 				{
 					if (!addKV(filePos + i + 1, lineNum))
 					{
-						return false;
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 					}
 					++lineNum;
 				}
@@ -3424,7 +3386,7 @@ bool BuildIndex::buildKvIndex(char delimiter)
 			pos = filePos;
 			if (!dstFile.read(pos, buffer, dstFileSize - filePos))
 			{
-				return false;
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
 			for (unsigned long long i = 0; i < (dstFileSize - filePos); ++i)
@@ -3435,7 +3397,7 @@ bool BuildIndex::buildKvIndex(char delimiter)
 					{
 						if (!addKV(filePos + i + 1, lineNum))
 						{
-							return false;
+							printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 						}
 						++lineNum;
 					}
@@ -3447,7 +3409,7 @@ bool BuildIndex::buildKvIndex(char delimiter)
 	//把所有的行数据写进硬盘
 	if (!kvIndexFile.writeEveryCache())
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 	return true;
 }
