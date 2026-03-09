@@ -799,34 +799,48 @@ bool IndexFile::writeEveryCache()																	//把缓存当中的数据全�
 		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
-	unsigned long long indexId;
-	IndexNode* pIndexNode;
+	std::vector<unsigned long long> batchIds;
+	unsigned long long currentPreCmpLen = 0;
 	unsigned long long cursor = 0;
-	while (pIndex->getFirstModifiedNodeIdAndNode(indexId, pIndexNode, cursor))
+	while (pIndex->getModifiedNodeIdsWithSamePreCmpLen(batchIds, currentPreCmpLen, cursor))
 	{
-		cursor = pIndexNode->getPreCmpLen();
-		if (!writeFile(indexId, pIndexNode))
+		cursor = currentPreCmpLen + 1;
+		for (unsigned long long indexId : batchIds)
 		{
-			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-		}
+			IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
+			if (pIndexNode != nullptr && pIndexNode->getIsModified())
+			{
+				if (!writeFile(indexId, pIndexNode))
+				{
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				}
 
-		if (!writeEveryLaterWriteNodes())
-		{
-			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				if (!writeEveryLaterWriteNodes())
+				{
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				}
+			}
 		}
 	}
 
 	//最终扫描：捕获游标后方被重新标记为modified的节点
-	while (pIndex->getFirstModifiedNodeIdAndNode(indexId, pIndexNode))
+	while (pIndex->getModifiedNodeIdsWithSamePreCmpLen(batchIds, currentPreCmpLen, 0))
 	{
-		if (!writeFile(indexId, pIndexNode))
+		for (unsigned long long indexId : batchIds)
 		{
-			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-		}
+			IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
+			if (pIndexNode != nullptr && pIndexNode->getIsModified())
+			{
+				if (!writeFile(indexId, pIndexNode))
+				{
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				}
 
-		if (!writeEveryLaterWriteNodes())
-		{
-			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				if (!writeEveryLaterWriteNodes())
+				{
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				}
+			}
 		}
 	}
 
@@ -888,34 +902,48 @@ bool IndexFile::writeCacheWithoutRootIndex()
 		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
-	unsigned long long indexId;
-	IndexNode* pIndexNode;
+	std::vector<unsigned long long> batchIds;
+	unsigned long long currentPreCmpLen = 0;
 	unsigned long long cursor = 0;
-	while (pIndex->getFirstModifiedNodeIdAndNode(indexId, pIndexNode, cursor))
+	while (pIndex->getModifiedNodeIdsWithSamePreCmpLen(batchIds, currentPreCmpLen, cursor))
 	{
-		cursor = pIndexNode->getPreCmpLen();
-		if (!writeFile(indexId, pIndexNode, WRITE_FILE_CHECK_NEW_ROOT))
+		cursor = currentPreCmpLen + 1;
+		for (unsigned long long indexId : batchIds)
 		{
-			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-		}
+			IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
+			if (pIndexNode != nullptr && pIndexNode->getIsModified())
+			{
+				if (!writeFile(indexId, pIndexNode, WRITE_FILE_CHECK_NEW_ROOT))
+				{
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				}
 
-		if (!writeEveryLaterWriteNodes())
-		{
-			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				if (!writeEveryLaterWriteNodes())
+				{
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				}
+			}
 		}
 	}
 
 	//最终扫描：捕获游标后方被重新标记为modified的节点
-	while (pIndex->getFirstModifiedNodeIdAndNode(indexId, pIndexNode))
+	while (pIndex->getModifiedNodeIdsWithSamePreCmpLen(batchIds, currentPreCmpLen, 0))
 	{
-		if (!writeFile(indexId, pIndexNode, WRITE_FILE_CHECK_NEW_ROOT))
+		for (unsigned long long indexId : batchIds)
 		{
-			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-		}
+			IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
+			if (pIndexNode != nullptr && pIndexNode->getIsModified())
+			{
+				if (!writeFile(indexId, pIndexNode, WRITE_FILE_CHECK_NEW_ROOT))
+				{
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				}
 
-		if (!writeEveryLaterWriteNodes())
-		{
-			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				if (!writeEveryLaterWriteNodes())
+				{
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				}
+			}
 		}
 	}
 

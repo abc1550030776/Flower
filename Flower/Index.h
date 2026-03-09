@@ -28,7 +28,8 @@ public:
 	bool evictIndexNode(unsigned long long indexId);										//从缓存驱逐节点，不回收ID
 	bool rekeyNode(unsigned long long oldIndexId, unsigned long long newIndexId);			//节点id变更后更新缓存中的键
 	void clearCache();
-	bool getFirstModifiedNodeIdAndNode(unsigned long long& indexId, IndexNode*& pIndexNode, unsigned long long startPreCmpLen = 0);	//获取指定preCmpLen起的第一个已修改节点
+	bool getModifiedNodeIdsWithSamePreCmpLen(std::vector<unsigned long long>& indexIds, unsigned long long& currentPreCmpLen, unsigned long long startPreCmpLen = 0);
+	IndexNode* getCacheNode(unsigned long long indexId);
 	unsigned char getUseType();																//获取使用方式
 	bool putIndexNode(IndexNode* indexNode);												//外部使用完了告诉说外部已经不再引用
 	unsigned long long acquireNumber(unsigned char numCount);								//获取连续的几个数

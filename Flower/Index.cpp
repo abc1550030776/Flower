@@ -557,17 +557,39 @@ void Index::setInitMaxUniqueNum(unsigned long long initMaxUniqueNum)
 		generator.setInitMaxUniqueNum(initMaxUniqueNum);
 }
 
-bool Index::getFirstModifiedNodeIdAndNode(unsigned long long& indexId, IndexNode*& pIndexNode, unsigned long long startPreCmpLen)
+bool Index::getModifiedNodeIdsWithSamePreCmpLen(std::vector<unsigned long long>& indexIds, unsigned long long& currentPreCmpLen, unsigned long long startPreCmpLen)
 {
-	for (auto it = IndexIdPreority.lower_bound(startPreCmpLen); it != IndexIdPreority.end(); ++it)
+	indexIds.clear();
+	auto it = IndexIdPreority.lower_bound(startPreCmpLen);
+	
+	while (it != IndexIdPreority.end())
 	{
 		auto cacheIt = indexNodeCache.find(it->second);
-		if (cacheIt != end(indexNodeCache) && cacheIt->second->getIsModified())
+		if (cacheIt != indexNodeCache.end() && cacheIt->second->getIsModified())
 		{
-			indexId = it->second;
-			pIndexNode = cacheIt->second;
-			return true;
+			currentPreCmpLen = it->first;
+			break;
+		}
+		++it;
+	}
+
+	if (it == IndexIdPreority.end()) return false;
+
+	auto range = IndexIdPreority.equal_range(currentPreCmpLen);
+	for (auto rangeIt = range.first; rangeIt != range.second; ++rangeIt)
+	{
+		auto cacheIt = indexNodeCache.find(rangeIt->second);
+		if (cacheIt != indexNodeCache.end() && cacheIt->second->getIsModified())
+		{
+			indexIds.push_back(rangeIt->second);
 		}
 	}
-	return false;
+	return true;
+}
+
+IndexNode* Index::getCacheNode(unsigned long long indexId)
+{
+	auto it = indexNodeCache.find(indexId);
+	if (it != indexNodeCache.end()) return it->second;
+	return nullptr;
 }
