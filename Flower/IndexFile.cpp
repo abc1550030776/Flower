@@ -824,8 +824,10 @@ bool IndexFile::writeEveryCache()																	//把缓存当中的数据全�
 	}
 
 	//最终扫描：捕获游标后方被重新标记为modified的节点
-	while (pIndex->getModifiedNodeIdsWithSamePreCmpLen(batchIds, currentPreCmpLen, 0))
+	cursor = 0;
+	while (pIndex->getModifiedNodeIdsWithSamePreCmpLen(batchIds, currentPreCmpLen, cursor))
 	{
+		cursor = currentPreCmpLen + 1;
 		for (unsigned long long indexId : batchIds)
 		{
 			IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
@@ -927,8 +929,10 @@ bool IndexFile::writeCacheWithoutRootIndex()
 	}
 
 	//最终扫描：捕获游标后方被重新标记为modified的节点
-	while (pIndex->getModifiedNodeIdsWithSamePreCmpLen(batchIds, currentPreCmpLen, 0))
+	cursor = 0;
+	while (pIndex->getModifiedNodeIdsWithSamePreCmpLen(batchIds, currentPreCmpLen, cursor))
 	{
+		cursor = currentPreCmpLen + 1;
 		for (unsigned long long indexId : batchIds)
 		{
 			IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
