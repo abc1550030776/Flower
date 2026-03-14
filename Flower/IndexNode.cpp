@@ -248,6 +248,32 @@ size_t IndexNode::getLeafSetSize()
 	return leafSet.size();
 }
 
+size_t IndexNode::getExactPayloadSize()
+{
+	size_t perChildSize = 0;
+	switch (getType())
+	{
+	case NODE_TYPE_ONE:
+		perChildSize = 16;
+		break;
+	case NODE_TYPE_TWO:
+		perChildSize = 12;
+		break;
+	case NODE_TYPE_THREE:
+		perChildSize = 10;
+		break;
+	case NODE_TYPE_FOUR:
+		perChildSize = 9;
+		break;
+	default:
+		return 0;
+	}
+
+	size_t childrenNum = getChildrenNum();
+	size_t leafSetSize = getLeafSetSize();
+	return 48 + childrenNum * perChildSize + leafSetSize * 8;
+}
+
 unsigned long long IndexNode::getPartOfKey()
 {
 	return partOfKey;
@@ -432,7 +458,7 @@ bool IndexNodeTypeOne::toBinary(char* buffer, int len)
 
 bool IndexNodeTypeOne::toObject(char* buffer, int len, unsigned char buildType)
 {
-	gridNum = (unsigned char)((len + 2 + SIZE_PER_INDEX_FILE_GRID) / SIZE_PER_INDEX_FILE_GRID);
+gridNum = (unsigned char)((len + 3 + SIZE_PER_INDEX_FILE_GRID - 1) / SIZE_PER_INDEX_FILE_GRID);
 
 	char* p = buffer;
 	int leftSize = len;
@@ -876,7 +902,7 @@ bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 
 bool IndexNodeTypeTwo::toObject(char* buffer, int len, unsigned char buildType)
 {
-	gridNum = (unsigned char)((len + 2 + SIZE_PER_INDEX_FILE_GRID) / SIZE_PER_INDEX_FILE_GRID);
+gridNum = (unsigned char)((len + 3 + SIZE_PER_INDEX_FILE_GRID - 1) / SIZE_PER_INDEX_FILE_GRID);
 
 	char* p = buffer;
 	int leftSize = len;
@@ -1434,7 +1460,7 @@ bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 
 bool IndexNodeTypeThree::toObject(char* buffer, int len, unsigned char buildType)
 {
-	gridNum = (unsigned char)((len + 2 + SIZE_PER_INDEX_FILE_GRID) / SIZE_PER_INDEX_FILE_GRID);
+gridNum = (unsigned char)((len + 3 + SIZE_PER_INDEX_FILE_GRID - 1) / SIZE_PER_INDEX_FILE_GRID);
 	char* p = buffer;
 	int leftSize = len;
 	if (leftSize < 40)
@@ -1985,7 +2011,7 @@ bool IndexNodeTypeFour::toBinary(char* buffer, int len)
 
 bool IndexNodeTypeFour::toObject(char* buffer, int len, unsigned char buildType)
 {
-	gridNum = (unsigned char)((len + 2 + SIZE_PER_INDEX_FILE_GRID) / SIZE_PER_INDEX_FILE_GRID);
+gridNum = (unsigned char)((len + 3 + SIZE_PER_INDEX_FILE_GRID - 1) / SIZE_PER_INDEX_FILE_GRID);
 
 	char* p = buffer;
 	int leftSize = len;

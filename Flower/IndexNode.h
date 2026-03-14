@@ -62,6 +62,7 @@ public:
 	void swiftPartOfKey(unsigned long long byte);
 	unsigned char getGridNum();
 	void setGridNum(unsigned char gridNum);
+	size_t getExactPayloadSize();										//获取序列化payload大小（不含类型和长度字段）
 	virtual ~IndexNode();
 protected:
 	unsigned long long start;	//在原文件当中的位置

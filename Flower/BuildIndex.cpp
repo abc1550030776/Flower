@@ -78,39 +78,30 @@ bool BuildIndex::cutNodeSize(unsigned long long indexId, IndexNode*& indexNode, 
 		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
-	//计算每种节点类型的单个子节点二进制大小和key宽度
-	size_t perChildSize = 0;
+	//计算每种节点类型的key宽度
 	unsigned char keyWidth = 0;
 	switch (indexNode->getType())
 	{
 	case NODE_TYPE_ONE:
-		perChildSize = 16;
 		keyWidth = 8;
 		break;
 	case NODE_TYPE_TWO:
-		perChildSize = 12;
 		keyWidth = 4;
 		break;
 	case NODE_TYPE_THREE:
-		perChildSize = 10;
 		keyWidth = 2;
 		break;
 	case NODE_TYPE_FOUR:
-		perChildSize = 9;
 		keyWidth = 1;
 		break;
 	default:
 		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
-	//计算当前节点的预估二进制大小
-	//头部: 42字节, 子节点部分: 4 + childrenNum * perChildSize
-	//leafSet部分: 4 + leafSetSize * 8
-	size_t childrenNum = indexNode->getChildrenNum();
-	size_t leafSetSize = indexNode->getLeafSetSize();
-	size_t estimatedSize = 42 + (4 + childrenNum * perChildSize) + (4 + leafSetSize * 8);
-
-	if (estimatedSize <= MAX_SIZE_PER_INDEX_NODE)
+	//计算当前节点的精确二进制大小（含类型与长度字段）
+	size_t payloadSize = indexNode->getExactPayloadSize();
+	size_t totalSize = payloadSize + 3;
+	if (totalSize <= MAX_SIZE_PER_INDEX_NODE)
 	{
 		return true;
 	}
@@ -133,16 +124,15 @@ bool BuildIndex::cutNodeSize(unsigned long long indexId, IndexNode*& indexNode, 
 		//重新检查是否还需要处理leafSet
 		switch (indexNode->getType())
 		{
-		case NODE_TYPE_ONE: perChildSize = 16; keyWidth = 8; break;
-		case NODE_TYPE_TWO: perChildSize = 12; keyWidth = 4; break;
-		case NODE_TYPE_THREE: perChildSize = 10; keyWidth = 2; break;
-		case NODE_TYPE_FOUR: perChildSize = 9; keyWidth = 1; break;
+		case NODE_TYPE_ONE: keyWidth = 8; break;
+		case NODE_TYPE_TWO: keyWidth = 4; break;
+		case NODE_TYPE_THREE: keyWidth = 2; break;
+		case NODE_TYPE_FOUR: keyWidth = 1; break;
 		default: printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
-		childrenNum = indexNode->getChildrenNum();
-		leafSetSize = indexNode->getLeafSetSize();
-		estimatedSize = 42 + (4 + childrenNum * perChildSize) + (4 + leafSetSize * 8);
-		if (estimatedSize <= MAX_SIZE_PER_INDEX_NODE)
+		payloadSize = indexNode->getExactPayloadSize();
+		totalSize = payloadSize + 3;
+		if (totalSize <= MAX_SIZE_PER_INDEX_NODE)
 		{
 			return true;
 		}

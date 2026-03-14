@@ -139,7 +139,7 @@ IndexNode* IndexFile::getIndexNode(unsigned long long indexId, unsigned char bui
 		free(buffer);
 		return nullptr;
 	}
-	pIndexNode->setGridNum((unsigned char)((len + 2 + SIZE_PER_INDEX_FILE_GRID) / SIZE_PER_INDEX_FILE_GRID));
+pIndexNode->setGridNum((unsigned char)((len + 3 + SIZE_PER_INDEX_FILE_GRID - 1) / SIZE_PER_INDEX_FILE_GRID));
 
 	//把二进制转成节点的里面的数据
 	if (!pIndexNode->toObject(p, len, buildType))
@@ -196,14 +196,157 @@ IndexNode* IndexFile::getIndexNode(unsigned long long indexId, unsigned char bui
 	return pIndexNode;
 }
 
+bool IndexFile::prepareForWrite(unsigned long long& indexId, IndexNode*& pIndexNode, char writeFileType)
+{
+	if (pBuildIndex != nullptr)
+	{
+		if (!pBuildIndex->cutNodeSize(indexId, pIndexNode, buildType))
+		{
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+		}
+	}
+	if (pIndexNode == nullptr)
+	{
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+	}
+
+	size_t payloadSize = pIndexNode->getExactPayloadSize();
+	size_t onDiskSize = payloadSize + 3;
+	if (onDiskSize <= pIndexNode->getGridNum() * SIZE_PER_INDEX_FILE_GRID)
+	{
+		return true;
+	}
+
+	unsigned char requiredGridNum = (unsigned char)((onDiskSize + SIZE_PER_INDEX_FILE_GRID - 1) / SIZE_PER_INDEX_FILE_GRID);
+	unsigned long long newIndexId = pIndex->acquireNumber(requiredGridNum);
+	std::vector<IndexNode*> acquiredNodes;
+	auto releaseAcquiredNodes = [&]() {
+		for (IndexNode* node : acquiredNodes)
+		{
+			if (node != nullptr)
+			{
+				putIndexNode(node);
+			}
+		}
+		acquiredNodes.clear();
+	};
+
+	//由于节点的id已经改变了所以也要把父节点对应的孩子节点id和孩子节点对应的父节点id修改
+	unsigned long long parentIndexId = pIndexNode->getParentId();
+	if (parentIndexId != 0)
+	{
+		IndexNode* parentNode = getIndexNode(parentIndexId, buildType);
+		if (parentNode == nullptr)
+		{
+			releaseAcquiredNodes();
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+		}
+
+		acquiredNodes.push_back(parentNode);
+
+		//修改父节点对应的子节点的id
+		if (!parentNode->changeChildIndexId(indexId, newIndexId))
+		{
+			printf("Failed to changeChildIndexId! parentId=%llu, child_to_find=%llu, new_child=%llu\n", parentIndexId, indexId, newIndexId);
+			// Print all children of the parent to see what it actually has
+			std::vector<unsigned long long> childIds;
+			parentNode->getAllChildNodeId(childIds);
+			printf("Parent has %lu child nodes: ", childIds.size());
+			for (auto cid : childIds) { printf("%llu ", cid); }
+			printf("\n");
+			printf("Parent node type=%d, len=%llu, start=%llu\n", parentNode->getType(), parentNode->getLen(), parentNode->getStart());
+
+			releaseAcquiredNodes();
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+		}
+		parentNode->setIsModified(true);
+	}
+
+	//修改所有子节点的父节点id
+	std::vector<unsigned long long> childIndexId;
+	pIndexNode->getAllChildNodeId(childIndexId);
+
+	//把所有的孩子节点的数据读取出来
+	std::vector<IndexNode*> childIndexNode;
+	for (auto& value : childIndexId)
+	{
+		IndexNode* childNode = getIndexNode(value, buildType);
+		if (childNode == nullptr)
+		{
+			releaseAcquiredNodes();
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+		}
+
+		acquiredNodes.push_back(childNode);
+		childIndexNode.push_back(childNode);
+	}
+
+	//把所有的孩子节点的父节点id改掉
+	for (auto& value : childIndexNode)
+	{
+		value->setParentID(newIndexId);
+		value->setIsModified(true);
+	}
+
+	releaseAcquiredNodes();
+
+	//写文件的时候改变了节点的id,可能改变的是根节点的id这个时候把根节点id也改掉
+	if (writeFileType == WRITE_FILE_CHECK_EVERY_ROOT)
+	{
+		if (rootIndexId == indexId)
+		{
+			rootIndexId = newIndexId;
+		}
+		else
+		{
+			if (!rootIndexIds.empty())
+			{
+				for (unsigned long i = 0; i < rootIndexIds.size(); ++i)
+				{
+					if (rootIndexIds[i] == indexId)
+					{
+						rootIndexIds[i] = newIndexId;
+						break;
+					}
+				}
+			}
+		}
+	}
+	else
+	{
+		//构建文件索引的时候把文件分成一块一块,构建完一块生成新的根节点先放到节点列表的最后面然后再写入所以最后那个节点是最新的
+		if (!rootIndexIds.empty())
+		{
+			if (rootIndexIds.back() == indexId)
+			{
+				rootIndexIds.back() = newIndexId;
+			}
+		}
+	}
+
+	//父节点还有所有的孩子节点的父节点id都改变了以后这个节点就是用新节点id了。
+	//创建了新的节点的id所以旧的节点的id就无效了放回去
+	pIndex->recycleNumber(indexId, pIndexNode->getGridNum());
+
+	//更新缓存中的键：旧id -> 新id
+	pIndex->rekeyNode(indexId, newIndexId);
+
+	indexId = newIndexId;
+	pIndexNode->setIndexId(indexId);
+	pIndexNode->setGridNum(requiredGridNum);
+	pIndexNode->setIsModified(true);
+
+	return true;
+}
+
 //把某个节点写入到文件当中
 bool IndexFile::writeFile(unsigned long long& indexId, IndexNode* pIndexNode, char writeFileType)
 {
 	if (indexId == 4 || indexId == 1604) {
 		printf("writeFile called for indexId=%llu\n", indexId);
 	}
-	if (pBuildIndex != nullptr) { pBuildIndex->cutNodeSize(indexId, pIndexNode, buildType); }
-	if (pIndexNode == nullptr)	{
+	if (!prepareForWrite(indexId, pIndexNode, writeFileType))
+	{
 		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 	//判断节点是否是已经修改过了的
@@ -221,144 +364,13 @@ bool IndexFile::writeFile(unsigned long long& indexId, IndexNode* pIndexNode, ch
 		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 	short len = *((short*)p);
-	if ((len + 3) > (pIndexNode->getGridNum() * SIZE_PER_INDEX_FILE_GRID))
+	//不改变indexid写盘
+	if ((len + 3) <= ((pIndexNode->getGridNum() - 1) * SIZE_PER_INDEX_FILE_GRID))
 	{
-		//节点的大小比本来要存储使用的格子的大小还要大这个时候换一个可以保存相应大小的id
-		unsigned long long newIndexId = pIndex->acquireNumber((unsigned char)((len + 2 + SIZE_PER_INDEX_FILE_GRID) / SIZE_PER_INDEX_FILE_GRID));
-		std::vector<IndexNode*> acquiredNodes;
-		auto releaseAcquiredNodes = [&]() {
-			for (IndexNode* node : acquiredNodes)
-			{
-				if (node != nullptr)
-				{
-					putIndexNode(node);
-				}
-			}
-			acquiredNodes.clear();
-		};
-
-		//由于节点的id已经改变了所以也要把父节点对应的孩子节点id和孩子节点对应的父节点id修改
-		unsigned long long parentIndexId = pIndexNode->getParentId();
-		if (parentIndexId != 0)
-		{
-			IndexNode* parentNode = getIndexNode(parentIndexId, buildType);
-			if (parentNode == nullptr)
-			{
-				releaseAcquiredNodes();
-				free(buffer);
-				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-			}
-
-			acquiredNodes.push_back(parentNode);
-
-			//修改父节点对应的子节点的id
-			if (!parentNode->changeChildIndexId(indexId, newIndexId))
-			{
-				printf("Failed to changeChildIndexId! parentId=%llu, child_to_find=%llu, new_child=%llu\n", parentIndexId, indexId, newIndexId);
-                // Print all children of the parent to see what it actually has
-                std::vector<unsigned long long> childIds;
-                parentNode->getAllChildNodeId(childIds);
-                printf("Parent has %lu child nodes: ", childIds.size());
-                for (auto cid : childIds) { printf("%llu ", cid); }
-                printf("\n");
-                printf("Parent node type=%d, len=%llu, start=%llu\n", parentNode->getType(), parentNode->getLen(), parentNode->getStart());
-
-				releaseAcquiredNodes();
-				free(buffer);
-				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-			}
-			parentNode->setIsModified(true);
-		}
-
-		//修改所有子节点的父节点id
-
-		//先把所有的子节点id找出来
-		std::vector<unsigned long long> childIndexId;
-		pIndexNode->getAllChildNodeId(childIndexId);
-
-		//把所有的孩子节点的数据读取出来
-		std::vector< IndexNode*> childIndexNode;
-		for (auto& value : childIndexId)
-		{
-			IndexNode* childNode = getIndexNode(value, buildType);
-			if (childNode == nullptr)
-			{
-				releaseAcquiredNodes();
-				free(buffer);
-				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-			}
-
-			acquiredNodes.push_back(childNode);
-			childIndexNode.push_back(childNode);
-		}
-
-		//把所有的孩子节点的父节点id改掉
-		for (auto& value : childIndexNode)
-		{
-			value->setParentID(newIndexId);
-			value->setIsModified(true);
-		}
-
-		releaseAcquiredNodes();
-
-		//写文件的时候改变了节点的id,可能改变的是根节点的id这个时候把根节点id也改掉
-		if (writeFileType == WRITE_FILE_CHECK_EVERY_ROOT)
-		{
-			if (rootIndexId == indexId)
-			{
-				rootIndexId = newIndexId;
-			}
-			else
-			{
-				if (!rootIndexIds.empty())
-				{
-					for (unsigned long i = 0; i < rootIndexIds.size(); ++i)
-					{
-						if (rootIndexIds[i] == indexId)
-						{
-							rootIndexIds[i] = newIndexId;
-							break;
-						}
-					}
-				}
-			}
-		}
-		else
-		{
-			//构建文件索引的时候把文件分成一块一块,构建完一块生成新的根节点先放到节点列表的最后面然后再写入所以最后那个节点是最新的
-			if (!rootIndexIds.empty())
-			{
-				if (rootIndexIds.back() == indexId)
-				{
-					rootIndexIds.back() = newIndexId;
-				}
-			}
-		}
-		//父节点还有所有的孩子节点的父节点id都改变了以后这个节点就是用新节点id了。
-		//创建了新的节点的id所以旧的节点的id就无效了放回去
-		pIndex->recycleNumber(indexId, pIndexNode->getGridNum());
-
-		//更新缓存中的键：旧id -> 新id
-		pIndex->rekeyNode(indexId, newIndexId);
-
-		indexId = newIndexId;
-		
-	if (indexId == 1604) {
-		printf("Loaded 1604 from disk! type=%d, len=%llu\n", pIndexNode->getType(), pIndexNode->getLen());
-	}
-	pIndexNode->setIndexId(indexId);
-		pIndexNode->setGridNum((unsigned char)((len + 2 + SIZE_PER_INDEX_FILE_GRID) / SIZE_PER_INDEX_FILE_GRID));
-	}
-	else
-	{
-		//不改变indexid写盘
-		if ((len + 3) <= ((pIndexNode->getGridNum() - 1) * SIZE_PER_INDEX_FILE_GRID))
-		{
-			//写入的时候发现只需要更小的存储空间就够了,但是从硬盘里面读出来的时候是超过当前的大小,大于原本大小的部分已经不需要了把一个id回收
-			unsigned char newGridNum = (unsigned char)((len + 2 + SIZE_PER_INDEX_FILE_GRID) / SIZE_PER_INDEX_FILE_GRID);
-			pIndex->recycleNumber(indexId + newGridNum, (unsigned char)(pIndexNode->getGridNum() - newGridNum));
-			pIndexNode->setGridNum(newGridNum);
-		}
+		//写入的时候发现只需要更小的存储空间就够了,但是从硬盘里面读出来的时候是超过当前的大小,大于原本大小的部分已经不需要了把一个id回收
+		unsigned char newGridNum = (unsigned char)((len + 3 + SIZE_PER_INDEX_FILE_GRID - 1) / SIZE_PER_INDEX_FILE_GRID);
+		pIndex->recycleNumber(indexId + newGridNum, (unsigned char)(pIndexNode->getGridNum() - newGridNum));
+		pIndexNode->setGridNum(newGridNum);
 	}
 
 	//把这个节点的数据写进磁盘里面
