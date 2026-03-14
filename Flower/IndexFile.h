@@ -35,6 +35,7 @@ public:
 	const std::vector<unsigned long long>& getRootIndexIds() const;						//获取所有根节点id列表
 private:
 	bool prepareForWrite(unsigned long long& indexId, IndexNode*& pIndexNode, char writeFileType);
+	bool flushNodeToDisk(unsigned long long indexId, IndexNode* pIndexNode);
 	bool writeFile(unsigned long long& indexId, IndexNode* pIndexNode, char writeFileType = WRITE_FILE_CHECK_EVERY_ROOT);
 	size_t size();																			//返回内存中索引的数量
 private:

@@ -346,22 +346,8 @@ bool IndexFile::prepareForWrite(unsigned long long& indexId, IndexNode*& pIndexN
 	return true;
 }
 
-//把某个节点写入到文件当中
-bool IndexFile::writeFile(unsigned long long& indexId, IndexNode* pIndexNode, char writeFileType)
+bool IndexFile::flushNodeToDisk(unsigned long long indexId, IndexNode* pIndexNode)
 {
-	if (indexId == 4 || indexId == 1604) {
-		printf("writeFile called for indexId=%llu\n", indexId);
-	}
-	if (!prepareForWrite(indexId, pIndexNode, writeFileType))
-	{
-		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-	}
-	//判断节点是否是已经修改过了的
-	if (!pIndexNode->getIsModified())
-	{
-		return true;
-	}
-
 	char* buffer = (char*)malloc(MAX_SIZE_PER_INDEX_NODE);
 	char* p = buffer + 1;
 	bool ok = pIndexNode->toBinary(p, MAX_SIZE_PER_INDEX_NODE - 1);
@@ -372,7 +358,6 @@ bool IndexFile::writeFile(unsigned long long& indexId, IndexNode* pIndexNode, ch
 	}
 	short len = *((short*)p);
 
-	//把这个节点的数据写进磁盘里面
 	*((unsigned char*)buffer) = pIndexNode->getType();
 	unsigned long long pos;
 	pos = indexId * SIZE_PER_INDEX_FILE_GRID;
@@ -385,6 +370,25 @@ bool IndexFile::writeFile(unsigned long long& indexId, IndexNode* pIndexNode, ch
 	free(buffer);
 	pIndexNode->setIsModified(false);
 	return true;
+}
+
+//把某个节点写入到文件当中
+bool IndexFile::writeFile(unsigned long long& indexId, IndexNode* pIndexNode, char writeFileType)
+{
+	if (indexId == 4 || indexId == 1604) {
+		printf("writeFile called for indexId=%llu\n", indexId);
+	}
+	if (!prepareForWrite(indexId, pIndexNode, writeFileType))
+	{
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+	}
+
+	if (!pIndexNode->getIsModified())
+	{
+		return true;
+	}
+
+	return flushNodeToDisk(indexId, pIndexNode);
 }
 
 //缓存维持一个大小不要太大
