@@ -214,6 +214,13 @@ bool IndexFile::prepareForWrite(unsigned long long& indexId, IndexNode*& pIndexN
 	size_t onDiskSize = payloadSize + 3;
 	if (onDiskSize <= pIndexNode->getGridNum() * SIZE_PER_INDEX_FILE_GRID)
 	{
+		//写入的时候发现只需要更小的存储空间就够了,多余的格子回收
+		if (onDiskSize <= (pIndexNode->getGridNum() - 1) * SIZE_PER_INDEX_FILE_GRID)
+		{
+			unsigned char newGridNum = (unsigned char)((onDiskSize + SIZE_PER_INDEX_FILE_GRID - 1) / SIZE_PER_INDEX_FILE_GRID);
+			pIndex->recycleNumber(indexId + newGridNum, (unsigned char)(pIndexNode->getGridNum() - newGridNum));
+			pIndexNode->setGridNum(newGridNum);
+		}
 		return true;
 	}
 
@@ -364,14 +371,6 @@ bool IndexFile::writeFile(unsigned long long& indexId, IndexNode* pIndexNode, ch
 		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 	short len = *((short*)p);
-	//不改变indexid写盘
-	if ((len + 3) <= ((pIndexNode->getGridNum() - 1) * SIZE_PER_INDEX_FILE_GRID))
-	{
-		//写入的时候发现只需要更小的存储空间就够了,但是从硬盘里面读出来的时候是超过当前的大小,大于原本大小的部分已经不需要了把一个id回收
-		unsigned char newGridNum = (unsigned char)((len + 3 + SIZE_PER_INDEX_FILE_GRID - 1) / SIZE_PER_INDEX_FILE_GRID);
-		pIndex->recycleNumber(indexId + newGridNum, (unsigned char)(pIndexNode->getGridNum() - newGridNum));
-		pIndexNode->setGridNum(newGridNum);
-	}
 
 	//把这个节点的数据写进磁盘里面
 	*((unsigned char*)buffer) = pIndexNode->getType();
