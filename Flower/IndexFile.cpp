@@ -196,148 +196,6 @@ IndexNode* IndexFile::getIndexNode(unsigned long long indexId, unsigned char bui
 	return pIndexNode;
 }
 
-//获取临时节点
-IndexNode* IndexFile::getTempIndexNode(unsigned long long indexId)
-{
-	//判断是否已经初始化
-	if (pIndex == nullptr)
-	{
-		return nullptr;
-	}
-
-	//先从缓存当中查找然后返回
-	IndexNode* pIndexNode = pIndex->getIndexNode(indexId);
-	if (pIndexNode != nullptr)
-	{
-		//当前缓存当中存在的节点所以打一个标记
-		tempIndexNodeId.insert(indexId);
-		return pIndexNode;
-	}
-
-	//从文件当中读取但是不放入缓存
-
-	//从文件当中把数据读取出来
-	char* buffer = (char*)malloc(MAX_SIZE_PER_INDEX_NODE);
-	if (buffer == nullptr)
-	{
-		return nullptr;
-	}
-
-	//在文件当中的存储位置是用索引id * 4 * 1024来定的,有些存储的存储的比较大会大于4k
-	unsigned long long pos;
-	pos = indexId * SIZE_PER_INDEX_FILE_GRID;
-	if (!indexFile.read(pos, buffer, 3))
-	{
-		free(buffer);
-		return nullptr;
-	}
-
-	//根据不同的节点类型创建节点（使用内存池）
-	IndexNodePoolManager& poolManager = pIndex->getPoolManager();
-	char* p = buffer;
-	switch (*((unsigned char*)p))
-	{
-	case NODE_TYPE_ONE:
-		pIndexNode = poolManager.getPoolTypeOne().allocate();
-		break;
-	case NODE_TYPE_TWO:
-		pIndexNode = poolManager.getPoolTypeTwo().allocate();
-		break;
-	case NODE_TYPE_THREE:
-		pIndexNode = poolManager.getPoolTypeThree().allocate();
-		break;
-	case NODE_TYPE_FOUR:
-		pIndexNode = poolManager.getPoolTypeFour().allocate();
-		break;
-	default:
-		free(buffer);
-		return nullptr;
-	}
-	p++;
-	unsigned short len = *((unsigned short*)p);
-	p += 2;
-
-	if (len > MAX_SIZE_PER_INDEX_NODE - 3)
-	{
-		// 使用内存池释放
-		switch (*((unsigned char*)buffer))
-		{
-		case NODE_TYPE_ONE:
-			poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(pIndexNode));
-			break;
-		case NODE_TYPE_TWO:
-			poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(pIndexNode));
-			break;
-		case NODE_TYPE_THREE:
-			poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(pIndexNode));
-			break;
-		case NODE_TYPE_FOUR:
-			poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(pIndexNode));
-			break;
-		}
-		free(buffer);
-		return nullptr;
-	}
-
-	//把剩下的字节给读取出来
-	pos = indexId * SIZE_PER_INDEX_FILE_GRID + 3;
-	if (!indexFile.read(pos, &buffer[3], len))
-	{
-		// 使用内存池释放
-		switch (*((unsigned char*)buffer))
-		{
-		case NODE_TYPE_ONE:
-			poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(pIndexNode));
-			break;
-		case NODE_TYPE_TWO:
-			poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(pIndexNode));
-			break;
-		case NODE_TYPE_THREE:
-			poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(pIndexNode));
-			break;
-		case NODE_TYPE_FOUR:
-			poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(pIndexNode));
-			break;
-		}
-		free(buffer);
-		return nullptr;
-	}
-	pIndexNode->setGridNum((unsigned char)((len + 2 + SIZE_PER_INDEX_FILE_GRID) / SIZE_PER_INDEX_FILE_GRID));
-
-	//把二进制转成节点的里面的数据
-	if (!pIndexNode->toObject(p, len))
-	{
-		// 使用内存池释放
-		switch (*((unsigned char*)buffer))
-		{
-		case NODE_TYPE_ONE:
-			poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(pIndexNode));
-			break;
-		case NODE_TYPE_TWO:
-			poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(pIndexNode));
-			break;
-		case NODE_TYPE_THREE:
-			poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(pIndexNode));
-			break;
-		case NODE_TYPE_FOUR:
-			poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(pIndexNode));
-			break;
-		}
-		free(buffer);
-		return nullptr;
-	}
-
-	free(buffer);
-
-	
-	if (indexId == 1604) {
-		printf("Loaded 1604 from disk! type=%d, len=%llu\n", pIndexNode->getType(), pIndexNode->getLen());
-	}
-	pIndexNode->setIndexId(indexId);
-
-	return pIndexNode;
-}
-
 //把某个节点写入到文件当中
 bool IndexFile::writeFile(unsigned long long& indexId, IndexNode* pIndexNode, char writeFileType)
 {
@@ -365,50 +223,51 @@ bool IndexFile::writeFile(unsigned long long& indexId, IndexNode* pIndexNode, ch
 	short len = *((short*)p);
 	if ((len + 3) > (pIndexNode->getGridNum() * SIZE_PER_INDEX_FILE_GRID))
 	{
-		std::vector<unsigned long long> indexIdVec;
-		std::vector<IndexNode*> indexNodeVec;
 		//节点的大小比本来要存储使用的格子的大小还要大这个时候换一个可以保存相应大小的id
 		unsigned long long newIndexId = pIndex->acquireNumber((unsigned char)((len + 2 + SIZE_PER_INDEX_FILE_GRID) / SIZE_PER_INDEX_FILE_GRID));
+		std::vector<IndexNode*> acquiredNodes;
+		auto releaseAcquiredNodes = [&]() {
+			for (IndexNode* node : acquiredNodes)
+			{
+				if (node != nullptr)
+				{
+					putIndexNode(node);
+				}
+			}
+			acquiredNodes.clear();
+		};
 
 		//由于节点的id已经改变了所以也要把父节点对应的孩子节点id和孩子节点对应的父节点id修改
-		
-		//由于这里是临时拿数据的也就是说拿出来了以后要立马放回去的
 		unsigned long long parentIndexId = pIndexNode->getParentId();
 		if (parentIndexId != 0)
 		{
-			IndexNode* pTempIndexNode = getTempIndexNode(parentIndexId);
-			if (pTempIndexNode == nullptr)
+			IndexNode* parentNode = getIndexNode(parentIndexId, buildType);
+			if (parentNode == nullptr)
 			{
-				for (unsigned int i = 0; i < indexIdVec.size(); ++i)
-				{
-					writeTempFile(indexIdVec[i], indexNodeVec[i]);
-				}
+				releaseAcquiredNodes();
 				free(buffer);
 				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
-				indexIdVec.push_back(parentIndexId);
-				indexNodeVec.push_back(pTempIndexNode);
+			acquiredNodes.push_back(parentNode);
 
 			//修改父节点对应的子节点的id
-			if (!pTempIndexNode->changeChildIndexId(indexId, newIndexId))
+			if (!parentNode->changeChildIndexId(indexId, newIndexId))
 			{
 				printf("Failed to changeChildIndexId! parentId=%llu, child_to_find=%llu, new_child=%llu\n", parentIndexId, indexId, newIndexId);
                 // Print all children of the parent to see what it actually has
                 std::vector<unsigned long long> childIds;
-                pTempIndexNode->getAllChildNodeId(childIds);
+                parentNode->getAllChildNodeId(childIds);
                 printf("Parent has %lu child nodes: ", childIds.size());
                 for (auto cid : childIds) { printf("%llu ", cid); }
                 printf("\n");
-                printf("Parent node type=%d, len=%llu, start=%llu\n", pTempIndexNode->getType(), pTempIndexNode->getLen(), pTempIndexNode->getStart());
-                
-				for (unsigned int i = 0; i < indexIdVec.size(); ++i)
-				{
-					writeTempFile(indexIdVec[i], indexNodeVec[i]);
-				}
+                printf("Parent node type=%d, len=%llu, start=%llu\n", parentNode->getType(), parentNode->getLen(), parentNode->getStart());
+
+				releaseAcquiredNodes();
 				free(buffer);
 				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
+			parentNode->setIsModified(true);
 		}
 
 		//修改所有子节点的父节点id
@@ -421,19 +280,15 @@ bool IndexFile::writeFile(unsigned long long& indexId, IndexNode* pIndexNode, ch
 		std::vector< IndexNode*> childIndexNode;
 		for (auto& value : childIndexId)
 		{
-			IndexNode* childNode = getTempIndexNode(value);
+			IndexNode* childNode = getIndexNode(value, buildType);
 			if (childNode == nullptr)
 			{
-				for (unsigned int i = 0; i < indexIdVec.size(); ++i)
-				{
-					writeTempFile(indexIdVec[i], indexNodeVec[i]);
-				}
+				releaseAcquiredNodes();
 				free(buffer);
 				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
-			indexIdVec.push_back(value);
-			indexNodeVec.push_back(childNode);
+			acquiredNodes.push_back(childNode);
 			childIndexNode.push_back(childNode);
 		}
 
@@ -441,13 +296,10 @@ bool IndexFile::writeFile(unsigned long long& indexId, IndexNode* pIndexNode, ch
 		for (auto& value : childIndexNode)
 		{
 			value->setParentID(newIndexId);
+			value->setIsModified(true);
 		}
 
-		//把所有临时打开的文件保存回去
-		for (unsigned int i = 0; i < indexIdVec.size(); ++i)
-		{
-			writeTempFile(indexIdVec[i], indexNodeVec[i]);
-		}
+		releaseAcquiredNodes();
 
 		//写文件的时候改变了节点的id,可能改变的是根节点的id这个时候把根节点id也改掉
 		if (writeFileType == WRITE_FILE_CHECK_EVERY_ROOT)
@@ -499,8 +351,7 @@ bool IndexFile::writeFile(unsigned long long& indexId, IndexNode* pIndexNode, ch
 	}
 	else
 	{
-		//不改变indexid写盘记录到已经写入硬盘的记录里面
-		writeDiskIds.insert(indexId);
+		//不改变indexid写盘
 		if ((len + 3) <= ((pIndexNode->getGridNum() - 1) * SIZE_PER_INDEX_FILE_GRID))
 		{
 			//写入的时候发现只需要更小的存储空间就够了,但是从硬盘里面读出来的时候是超过当前的大小,大于原本大小的部分已经不需要了把一个id回收
@@ -522,121 +373,6 @@ bool IndexFile::writeFile(unsigned long long& indexId, IndexNode* pIndexNode, ch
 
 	free(buffer);
 	pIndexNode->setIsModified(false);
-	return true;
-}
-
-bool IndexFile::writeTempFile(unsigned long long indexId, IndexNode* pIndexNode)
-{
-	if (pIndexNode == nullptr)
-	{
-		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-	}
-	//首先检查下缓存是否已经有了
-	auto it = tempIndexNodeId.find(indexId);
-	if (it != end(tempIndexNodeId))
-	{
-		//之前已经写入硬盘的后面会直接从缓存删除现在又有修改所以记录下来在后面一次性写入
-		if (writeDiskIds.count(indexId) == 1)
-		{
-			laterWriteNodes.insert(pIndexNode);
-		}
-		pIndexNode->setIsModified(true);
-		tempIndexNodeId.erase(it);
-		return true;
-	}
-
-	//把数据写入文件当中
-	char* buffer = (char*)malloc(MAX_SIZE_PER_INDEX_NODE);
-	char* p = buffer + 1;
-	bool ok = pIndexNode->toBinary(p, MAX_SIZE_PER_INDEX_NODE - 1);
-	if (!ok)
-	{
-		free(buffer);
-		// 使用内存池释放
-		IndexNodePoolManager& poolManager = pIndex->getPoolManager();
-		switch (pIndexNode->getType())
-		{
-		case NODE_TYPE_ONE:
-			poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(pIndexNode));
-			break;
-		case NODE_TYPE_TWO:
-			poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(pIndexNode));
-			break;
-		case NODE_TYPE_THREE:
-			poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(pIndexNode));
-			break;
-		case NODE_TYPE_FOUR:
-			poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(pIndexNode));
-			break;
-		}
-		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-	}
-
-	//由于读取临时文件的时候只是对里面的id字段进行了改动所以大小是不会有改变的直接存入到文件里面就可以了
-
-	//根据类型填写相应类型的字段
-	*((unsigned char*)buffer) = pIndexNode->getType();
-	short len = *((short*)p);
-	unsigned long long pos;
-	pos = indexId * SIZE_PER_INDEX_FILE_GRID;
-	if (!indexFile.write(pos, buffer, len + 3))
-	{
-		free(buffer);
-		// 使用内存池释放
-		IndexNodePoolManager& poolManager = pIndex->getPoolManager();
-		switch (pIndexNode->getType())
-		{
-		case NODE_TYPE_ONE:
-			poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(pIndexNode));
-			break;
-		case NODE_TYPE_TWO:
-			poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(pIndexNode));
-			break;
-		case NODE_TYPE_THREE:
-			poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(pIndexNode));
-			break;
-		case NODE_TYPE_FOUR:
-			poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(pIndexNode));
-			break;
-		}
-		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-	}
-	
-	//写入完成了以后堆内存进行释放（使用内存池）
-	free(buffer);
-	IndexNodePoolManager& poolManager = pIndex->getPoolManager();
-	switch (pIndexNode->getType())
-	{
-	case NODE_TYPE_ONE:
-		poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(pIndexNode));
-		break;
-	case NODE_TYPE_TWO:
-		poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(pIndexNode));
-		break;
-	case NODE_TYPE_THREE:
-		poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(pIndexNode));
-		break;
-	case NODE_TYPE_FOUR:
-		poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(pIndexNode));
-		break;
-	}
-	return true;
-}
-
-bool IndexFile::writeEveryLaterWriteNodes()
-{
-	for (auto& value : laterWriteNodes)
-	{
-		unsigned long long laterWriteId = value->getIndexId();
-		if (!writeFile(laterWriteId, value))
-		{
-			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-		}
-	}
-
-	//所有的后来写入的节点都已经写入后清空两个辅助的容器
-	writeDiskIds.clear();
-	laterWriteNodes.clear();
 	return true;
 }
 
@@ -712,11 +448,6 @@ bool IndexFile::reduceCache()
 			}
 
 			pIndex->evictIndexNode(indexId);
-
-			if (!writeEveryLaterWriteNodes())
-			{
-				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-			}
 			++count;
 		}
 	}
@@ -745,8 +476,6 @@ bool IndexFile::swapNode(unsigned long long indexId, IndexNode* newNode)
 		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
-	removeLaterWriteNode(indexId);
-
 	return pIndex->swapNode(indexId, newNode);
 }
 
@@ -766,8 +495,6 @@ bool IndexFile::deleteIndexNode(unsigned long long indexId)
 	{
 		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
-
-	removeLaterWriteNode(indexId);
 
 	return pIndex->deleteIndexNode(indexId);
 }
@@ -814,11 +541,6 @@ bool IndexFile::writeEveryCache()																	//把缓存当中的数据全�
 				{
 					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
-
-				if (!writeEveryLaterWriteNodes())
-				{
-					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-				}
 			}
 		}
 	}
@@ -834,11 +556,6 @@ bool IndexFile::writeEveryCache()																	//把缓存当中的数据全�
 			if (pIndexNode != nullptr && pIndexNode->getIsModified())
 			{
 				if (!writeFile(indexId, pIndexNode))
-				{
-					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-				}
-
-				if (!writeEveryLaterWriteNodes())
 				{
 					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
@@ -877,21 +594,6 @@ Index* IndexFile::getIndex()
 	return pIndex;
 }
 
-void IndexFile::removeLaterWriteNode(unsigned long long indexId)
-{
-	for (auto it = laterWriteNodes.begin(); it != laterWriteNodes.end(); )
-	{
-		if ((*it)->getIndexId() == indexId)
-		{
-			it = laterWriteNodes.erase(it);
-		}
-		else
-		{
-			++it;
-		}
-	}
-}
-
 size_t IndexFile::size()
 {
 	return pIndex->size();
@@ -919,11 +621,6 @@ bool IndexFile::writeCacheWithoutRootIndex()
 				{
 					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
-
-				if (!writeEveryLaterWriteNodes())
-				{
-					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-				}
 			}
 		}
 	}
@@ -939,11 +636,6 @@ bool IndexFile::writeCacheWithoutRootIndex()
 			if (pIndexNode != nullptr && pIndexNode->getIsModified())
 			{
 				if (!writeFile(indexId, pIndexNode, WRITE_FILE_CHECK_NEW_ROOT))
-				{
-					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-				}
-
-				if (!writeEveryLaterWriteNodes())
 				{
 					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}

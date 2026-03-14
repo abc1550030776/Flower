@@ -19,8 +19,8 @@ This project has been optimized with a memory pool to reduce the performance ove
 
 - **Index.cpp**: 所有 IndexNode 的 new/delete 操作已替换为内存池分配/释放
   - All IndexNode new/delete operations replaced with memory pool allocation/deallocation
-- **IndexFile.cpp**: getIndexNode、getTempIndexNode 和 writeTempFile 函数已使用内存池
-  - getIndexNode, getTempIndexNode, and writeTempFile functions now use memory pool
+- **IndexFile.cpp**: getIndexNode 函数已使用内存池
+  - getIndexNode function now uses memory pool
 
 ### 3. 内存池设计 (Memory Pool Design)
 
