@@ -552,7 +552,7 @@ bool IndexFile::writeEveryCache()																	//把缓存当中的数据全�
 			IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
 			if (pIndexNode != nullptr && pIndexNode->getIsModified())
 			{
-				if (!writeFile(indexId, pIndexNode))
+				if (!prepareForWrite(indexId, pIndexNode, WRITE_FILE_CHECK_EVERY_ROOT))
 				{
 					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
@@ -560,7 +560,6 @@ bool IndexFile::writeEveryCache()																	//把缓存当中的数据全�
 		}
 	}
 
-	//最终扫描：捕获游标后方被重新标记为modified的节点
 	cursor = 0;
 	while (pIndex->getModifiedNodeIdsWithSamePreCmpLen(batchIds, currentPreCmpLen, cursor))
 	{
@@ -632,7 +631,7 @@ bool IndexFile::writeCacheWithoutRootIndex()
 			IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
 			if (pIndexNode != nullptr && pIndexNode->getIsModified())
 			{
-				if (!writeFile(indexId, pIndexNode, WRITE_FILE_CHECK_NEW_ROOT))
+				if (!prepareForWrite(indexId, pIndexNode, WRITE_FILE_CHECK_NEW_ROOT))
 				{
 					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
@@ -640,7 +639,6 @@ bool IndexFile::writeCacheWithoutRootIndex()
 		}
 	}
 
-	//最终扫描：捕获游标后方被重新标记为modified的节点
 	cursor = 0;
 	while (pIndex->getModifiedNodeIdsWithSamePreCmpLen(batchIds, currentPreCmpLen, cursor))
 	{
