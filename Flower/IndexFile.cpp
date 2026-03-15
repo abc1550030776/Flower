@@ -569,7 +569,7 @@ bool IndexFile::writeEveryCache()																	//把缓存当中的数据全�
 			IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
 			if (pIndexNode != nullptr && pIndexNode->getIsModified())
 			{
-				if (!writeFile(indexId, pIndexNode))
+				if (!flushNodeToDisk(indexId, pIndexNode))
 				{
 					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
@@ -648,7 +648,7 @@ bool IndexFile::writeCacheWithoutRootIndex()
 			IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
 			if (pIndexNode != nullptr && pIndexNode->getIsModified())
 			{
-				if (!writeFile(indexId, pIndexNode, WRITE_FILE_CHECK_NEW_ROOT))
+				if (!flushNodeToDisk(indexId, pIndexNode))
 				{
 					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
