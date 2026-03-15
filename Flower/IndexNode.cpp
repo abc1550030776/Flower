@@ -14,6 +14,7 @@ IndexNode::IndexNode()
 	refCount = 0;
 	partOfKey = 0;
 	gridNum = 1;
+	insertCount = 0;
 }
 
 unsigned long long IndexNode::getPreCmpLen()
@@ -93,6 +94,7 @@ unsigned long long IndexNode::getIndexId()
 void IndexNode::insertLeafSet(unsigned long long start)
 {
 	leafSet.insert(start);
+	insertCount++;
 }
 
 bool IndexNode::mergeSameLenNode(BuildIndex* buildIndex, IndexNode* indexNode, unsigned char buildType)
@@ -180,6 +182,7 @@ bool IndexNode::appendLeafSet(IndexNode* indexNode, unsigned long long beforeNum
 
 	setIsModified(true);
 	indexNode->setIsModified(true);
+	insertCount++;
 
 	return true;
 }
@@ -297,6 +300,16 @@ unsigned char IndexNode::getGridNum()
 void IndexNode::setGridNum(unsigned char gridNum)
 {
 	this->gridNum = gridNum;
+}
+
+unsigned short IndexNode::getInsertCount()
+{
+	return insertCount;
+}
+
+void IndexNode::resetInsertCount()
+{
+	insertCount = 0;
 }
 
 IndexNode::~IndexNode()
@@ -655,6 +668,7 @@ bool IndexNodeTypeOne::insertChildNode(BuildIndex* buildIndex, unsigned long lon
 	{
 		return false;
 	}
+	insertCount++;
 
 	auto it = children.find(key);
 	if (it == end(children))
@@ -1067,6 +1081,7 @@ bool IndexNodeTypeTwo::insertChildNode(BuildIndex* buildIndex, unsigned long lon
 	{
 		return false;
 	}
+	insertCount++;
 
 	//先对添加进来的节点进行处理
 	IndexNodeChild newIndexNodeChild(indexNodeChild.getType(), indexNodeChild.getIndexId());
@@ -1177,6 +1192,7 @@ bool IndexNodeTypeTwo::insertChildNode(BuildIndex* buildIndex, unsigned int key,
 	{
 		return false;
 	}
+	insertCount++;
 
 	auto it = children.find(key);
 	if (it == end(children))
@@ -1594,6 +1610,7 @@ bool IndexNodeTypeThree::insertChildNode(BuildIndex* buildIndex, unsigned int ke
 	{
 		return false;
 	}
+	insertCount++;
 
 	//先对添加进来的节点进行处理
 	IndexNodeChild newIndexNodeChild(indexNodeChild.getType(), indexNodeChild.getIndexId());
@@ -1705,6 +1722,7 @@ bool IndexNodeTypeThree::insertChildNode(BuildIndex* buildIndex, unsigned short 
 	{
 		return false;
 	}
+	insertCount++;
 
 	auto it = children.find(key);
 	if (it == end(children))
@@ -2076,6 +2094,7 @@ bool IndexNodeTypeFour::insertChildNode(BuildIndex* buildIndex, unsigned short k
 	{
 		return false;
 	}
+	insertCount++;
 
 	//先对添加进来的节点进行处理
 	IndexNodeChild newIndexNodeChild(indexNodeChild.getType(), indexNodeChild.getIndexId());
@@ -2186,6 +2205,7 @@ bool IndexNodeTypeFour::insertChildNode(BuildIndex* buildIndex, unsigned char ke
 	{
 		return false;
 	}
+	insertCount++;
 
 	auto it = children.find(key);
 	if (it == end(children))

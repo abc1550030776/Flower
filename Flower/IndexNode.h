@@ -20,6 +20,8 @@ const unsigned char NODE_TYPE_FOUR = 3;
 const unsigned char BUILD_TYPE_FILE = 0;
 const unsigned char BUILD_TYPE_KV = 1;
 
+const unsigned short CUT_NODE_SIZE_INTERVAL = 128;
+
 class BuildIndex;
 class Myfile;
 class IndexNodePoolManager;
@@ -62,6 +64,8 @@ public:
 	unsigned char getGridNum();
 	void setGridNum(unsigned char gridNum);
 	size_t getExactPayloadSize();										//获取序列化payload大小（不含类型和长度字段）
+	unsigned short getInsertCount();
+	void resetInsertCount();
 	virtual ~IndexNode();
 protected:
 	unsigned long long start;	//在原文件当中的位置
@@ -74,6 +78,7 @@ protected:
 	bool isModified;			//从缓存中删除了以后是否需要写入硬盘
 	volatile unsigned long refCount;		//搜索文件的时候是采用多线程的这个时候有可能多个线程同时使用同一个的情况不好判断删除的时机所以这里加一个引用数量
 	unsigned char gridNum;		//在索引文件当中占用的格子数
+	unsigned short insertCount;	//插入操作计数器，用于节流cutNodeSize
 };
 
 class IndexNodeChild
