@@ -78,184 +78,135 @@ bool BuildIndex::cutNodeSize(unsigned long long indexId, IndexNode*& indexNode, 
 		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
-	//计算每种节点类型的key宽度
-	unsigned char keyWidth = 0;
-	switch (indexNode->getType())
+	while (true)
 	{
-	case NODE_TYPE_ONE:
-		keyWidth = 8;
-		break;
-	case NODE_TYPE_TWO:
-		keyWidth = 4;
-		break;
-	case NODE_TYPE_THREE:
-		keyWidth = 2;
-		break;
-	case NODE_TYPE_FOUR:
-		keyWidth = 1;
-		break;
-	default:
-		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-	}
-
-	//计算当前节点的精确二进制大小（含类型与长度字段）
-	size_t payloadSize = indexNode->getExactPayloadSize();
-	size_t totalSize = payloadSize + 3;
-	if (totalSize <= MAX_SIZE_PER_INDEX_NODE)
-	{
-		return true;
-	}
-
-	//先尝试改变节点类型让键更小
-	if (indexNode->getType() != NODE_TYPE_FOUR)
-	{
-		IndexNode* newNode = changeNodeType(indexId, indexNode, buildType);
-		if (newNode == nullptr)
-		{
-			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-		}
-
-		indexNode = newNode->cutNodeSize(this, indexId, buildType);
-		if (indexNode == nullptr)
-		{
-			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-		}
-
-		//重新检查是否还需要处理leafSet
+		unsigned char keyWidth = 0;
 		switch (indexNode->getType())
 		{
-		case NODE_TYPE_ONE: keyWidth = 8; break;
-		case NODE_TYPE_TWO: keyWidth = 4; break;
-		case NODE_TYPE_THREE: keyWidth = 2; break;
-		case NODE_TYPE_FOUR: keyWidth = 1; break;
-		default: printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+		case NODE_TYPE_ONE:
+			keyWidth = 8;
+			break;
+		case NODE_TYPE_TWO:
+			keyWidth = 4;
+			break;
+		case NODE_TYPE_THREE:
+			keyWidth = 2;
+			break;
+		case NODE_TYPE_FOUR:
+			keyWidth = 1;
+			break;
+		default:
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
-		payloadSize = indexNode->getExactPayloadSize();
-		totalSize = payloadSize + 3;
+
+		size_t payloadSize = indexNode->getExactPayloadSize();
+		size_t totalSize = payloadSize + 3;
 		if (totalSize <= MAX_SIZE_PER_INDEX_NODE)
 		{
 			return true;
 		}
-	}
 
-	//KV构建时leafSet含义不同，不适用拆分逻辑
-	if (buildType == BUILD_TYPE_KV)
-	{
-		return true;
-	}
-
-	//到这里说明leafSet太大导致节点超标
-	//方案：缩短当前节点的len为一半，创建一个新的父节点
-	//新父节点拥有原来的indexId，当前节点获得新的indexId
-	//原节点中"剩余数据长度不够"的leafSet条目转移到父节点
-	unsigned long long orgLen = indexNode->getLen();
-	unsigned long long parentLen = orgLen / 2;
-	if (orgLen - parentLen <= (unsigned long long)keyWidth)
-	{
-		//len太短无法继续拆分：剩余部分不够放key和子节点的len
-		return true;
-	}
-
-	unsigned long long childLen = orgLen - parentLen - keyWidth;
-
-	//从文件中读取key值（位于start + parentLen处的keyWidth个字节）
-	unsigned long long keyPos = indexNode->getStart() + parentLen;
-	unsigned long long key = 0;
-	if (!dstFile.read(keyPos, (char*)&key, keyWidth))
-	{
-		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-	}
-
-	//创建新的父节点（和原节点相同类型）
-	unsigned char nodeType = indexNode->getType();
-	unsigned long long orgPreCmpLen = indexNode->getPreCmpLen();
-
-	IndexFile& idxFile = (buildType == BUILD_TYPE_FILE) ? indexFile : kvIndexFile;
-	IndexNode* parentNode = idxFile.newIndexNode(nodeType, orgPreCmpLen);
-	if (parentNode == nullptr)
-	{
-		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-	}
-
-	//设置父节点属性
-	parentNode->setStart(indexNode->getStart());
-	parentNode->setLen(parentLen);
-	parentNode->setParentID(indexNode->getParentId());
-	parentNode->setIsModified(true);
-
-	//修改原节点属性
-	unsigned long long newChildIndexId = parentNode->getIndexId();
-	//把父节点放到原来的indexId位置，原节点移到新的indexId位置
-	//先交换：让parentNode占据indexId，原节点占据newChildIndexId
-	if (!idxFile.swapNode(indexId, parentNode))
-	{
-		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-	}
-	if (!idxFile.swapNode(newChildIndexId, indexNode))
-	{
-		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-	}
-
-	//更新节点的id记录
-	parentNode->setIndexId(indexId);
-	indexNode->setIndexId(newChildIndexId);
-
-	//修改原节点的start、len、preCmpLen、parentID
-	indexNode->setStart(indexNode->getStart() + parentLen + keyWidth);
-	indexNode->setLen(childLen);
-	indexNode->setPreCmpLen(orgPreCmpLen + parentLen + keyWidth);
-	indexNode->setParentID(indexId);
-	indexNode->setIsModified(true);
-
-	//indexNode已从indexId移到newChildIndexId，更新所有子节点的parentId
-	std::vector<unsigned long long> childNodeIds;
-	indexNode->getAllChildNodeId(childNodeIds);
-	for (auto& childId : childNodeIds)
-	{
-		IndexNode* childNode = getIndexNode(childId, buildType);
-		if (childNode != nullptr)
+		if (indexNode->getType() != NODE_TYPE_FOUR)
 		{
-			childNode->setParentID(newChildIndexId);
-			childNode->setIsModified(true);
+			IndexNode* newNode = changeNodeType(indexId, indexNode, buildType);
+			if (newNode == nullptr)
+			{
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+			}
+			indexNode = newNode;
+			continue;
 		}
+
+		if (buildType == BUILD_TYPE_KV)
+		{
+			return true;
+		}
+
+		unsigned long long orgLen = indexNode->getLen();
+		unsigned long long parentLen = orgLen / 2;
+		if (orgLen - parentLen <= (unsigned long long)keyWidth)
+		{
+			return true;
+		}
+
+		unsigned long long childLen = orgLen - parentLen - keyWidth;
+
+		unsigned long long keyPos = indexNode->getStart() + parentLen;
+		unsigned long long key = 0;
+		if (!dstFile.read(keyPos, (char*)&key, keyWidth))
+		{
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+		}
+
+		unsigned char nodeType = indexNode->getType();
+		unsigned long long orgPreCmpLen = indexNode->getPreCmpLen();
+
+		IndexFile& idxFile = (buildType == BUILD_TYPE_FILE) ? indexFile : kvIndexFile;
+		IndexNode* parentNode = idxFile.newIndexNode(nodeType, orgPreCmpLen);
+		if (parentNode == nullptr)
+		{
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+		}
+
+		parentNode->setStart(indexNode->getStart());
+		parentNode->setLen(parentLen);
+		parentNode->setParentID(indexNode->getParentId());
+		parentNode->setIsModified(true);
+
+		unsigned long long newChildIndexId = parentNode->getIndexId();
+		if (!idxFile.swapNode(indexId, parentNode))
+		{
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+		}
+		if (!idxFile.swapNode(newChildIndexId, indexNode))
+		{
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+		}
+
+		parentNode->setIndexId(indexId);
+		indexNode->setIndexId(newChildIndexId);
+
+		indexNode->setStart(indexNode->getStart() + parentLen + keyWidth);
+		indexNode->setLen(childLen);
+		indexNode->setPreCmpLen(orgPreCmpLen + parentLen + keyWidth);
+		indexNode->setParentID(indexId);
+		indexNode->setIsModified(true);
+
+		std::vector<unsigned long long> childNodeIds;
+		indexNode->getAllChildNodeId(childNodeIds);
+		for (auto& childId : childNodeIds)
+		{
+			IndexNode* childNode = getIndexNode(childId, buildType);
+			if (childNode != nullptr)
+			{
+				childNode->setParentID(newChildIndexId);
+				childNode->setIsModified(true);
+			}
+		}
+
+		changePreCmpLen(newChildIndexId, orgPreCmpLen, orgPreCmpLen + parentLen + keyWidth, buildType);
+
+		parentNode->appendLeafSet(indexNode, parentLen + keyWidth, dstFileSize);
+
+		IndexNodeChild childRef(CHILD_TYPE_NODE, newChildIndexId);
+		switch (nodeType)
+		{
+		case NODE_TYPE_ONE:
+			((IndexNodeTypeOne*)parentNode)->insertChildNode(this, key, childRef, buildType);
+			break;
+		case NODE_TYPE_TWO:
+			((IndexNodeTypeTwo*)parentNode)->insertChildNode(this, (unsigned int)key, childRef, buildType);
+			break;
+		case NODE_TYPE_THREE:
+			((IndexNodeTypeThree*)parentNode)->insertChildNode(this, (unsigned short)key, childRef, buildType);
+			break;
+		case NODE_TYPE_FOUR:
+			((IndexNodeTypeFour*)parentNode)->insertChildNode(this, (unsigned char)key, childRef, buildType);
+			break;
+		}
+
+		indexNode = parentNode;
 	}
-
-	//更新缓存中的preCmpLen优先级
-	changePreCmpLen(newChildIndexId, orgPreCmpLen, orgPreCmpLen + parentLen + keyWidth, buildType);
-
-	//把原节点中"剩余数据不够"的leafSet条目转移到父节点
-	//条件：fileSize - start - parentNode.preCmpLen < parentLen + keyWidth
-	//即这些位置的数据不够长到进入子节点
-	parentNode->appendLeafSet(indexNode, parentLen + keyWidth, dstFileSize);
-
-	//把原节点作为父节点的孩子
-	IndexNodeChild childRef(CHILD_TYPE_NODE, newChildIndexId);
-	switch (nodeType)
-	{
-	case NODE_TYPE_ONE:
-		((IndexNodeTypeOne*)parentNode)->insertChildNode(this, key, childRef, buildType);
-		break;
-	case NODE_TYPE_TWO:
-		((IndexNodeTypeTwo*)parentNode)->insertChildNode(this, (unsigned int)key, childRef, buildType);
-		break;
-	case NODE_TYPE_THREE:
-		((IndexNodeTypeThree*)parentNode)->insertChildNode(this, (unsigned short)key, childRef, buildType);
-		break;
-	case NODE_TYPE_FOUR:
-		((IndexNodeTypeFour*)parentNode)->insertChildNode(this, (unsigned char)key, childRef, buildType);
-		break;
-	}
-
-	//更新indexNode引用为父节点，因为调用者期望得到这个indexId对应的节点
-	indexNode = parentNode;
-
-	//递归检查：父节点的leafSet可能仍然很大，继续处理
-	if (!cutNodeSize(indexId, indexNode, buildType))
-	{
-		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-	}
-
-	return true;
 }
 
 IndexNode* BuildIndex::getIndexNode(unsigned long long indexId, unsigned char buildType)

@@ -647,19 +647,7 @@ IndexNode* IndexNodeTypeOne::changeType(BuildIndex* buildIndex, unsigned char bu
 	return ret;
 }
 
-IndexNode* IndexNodeTypeOne::cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId, unsigned char buildType)
-{
-	if (buildIndex == nullptr)
-	{
-		return nullptr;
-	}
-	IndexNode* tmpNode = this;
-	if (!buildIndex->cutNodeSize(indexId, tmpNode, buildType))
-	{
-		return nullptr;
-	}
-	return tmpNode;
-}
+
 
 bool IndexNodeTypeOne::insertChildNode(BuildIndex* buildIndex, unsigned long long key, const IndexNodeChild& indexNodeChild, unsigned char buildType)
 {
@@ -1071,19 +1059,7 @@ IndexNode* IndexNodeTypeTwo::changeType(BuildIndex* buildIndex, unsigned char bu
 	return ret;
 }
 
-IndexNode* IndexNodeTypeTwo::cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId, unsigned char buildType)
-{
-	if (buildIndex == nullptr)
-	{
-		return nullptr;
-	}
-	IndexNode* tmpNode = this;
-	if (!buildIndex->cutNodeSize(indexId, tmpNode, buildType))
-	{
-		return nullptr;
-	}
-	return tmpNode;
-}
+
 
 bool IndexNodeTypeTwo::insertChildNode(BuildIndex* buildIndex, unsigned long long key, const IndexNodeChild& indexNodeChild, unsigned char buildType)
 {
@@ -1610,19 +1586,7 @@ IndexNode* IndexNodeTypeThree::changeType(BuildIndex* buildIndex, unsigned char 
 	return ret;
 }
 
-IndexNode* IndexNodeTypeThree::cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId, unsigned char buildType)
-{
-	if (buildIndex == nullptr)
-	{
-		return nullptr;
-	}
-	IndexNode* tmpNode = this;
-	if (!buildIndex->cutNodeSize(indexId, tmpNode, buildType))
-	{
-		return nullptr;
-	}
-	return tmpNode;
-}
+
 
 bool IndexNodeTypeThree::insertChildNode(BuildIndex* buildIndex, unsigned int key, const IndexNodeChild& indexNodeChild, unsigned char buildType)
 {
@@ -2104,19 +2068,7 @@ IndexNode* IndexNodeTypeFour::changeType(BuildIndex* buildIndex, unsigned char b
 	return nullptr;
 }
 
-IndexNode* IndexNodeTypeFour::cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId, unsigned char buildType)
-{
-	if (buildIndex == nullptr)
-	{
-		return nullptr;
-	}
-	IndexNode* tmpNode = this;
-	if (!buildIndex->cutNodeSize(indexId, tmpNode, buildType))
-	{
-		return nullptr;
-	}
-	return tmpNode;
-}
+
 
 bool IndexNodeTypeFour::insertChildNode(BuildIndex* buildIndex, unsigned short key, const IndexNodeChild& indexNodeChild, unsigned char buildType)
 {

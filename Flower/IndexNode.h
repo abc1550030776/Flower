@@ -44,7 +44,6 @@ public:
 	unsigned long long getLen();										//获取节点在文件当中的长度
 	void setPreCmpLen(unsigned long long preCmpLen);												//设置这个节点前面已经比较过的长度
 	void setIsModified(bool isModified);								//设置是否已经改变过
-	virtual IndexNode* cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId, unsigned char buildType = BUILD_TYPE_FILE) = 0;				//减小节点的大小
 	void setIndexId(unsigned long long indexId);
 	unsigned long long getIndexId();									//获取节点的索引id
 	void insertLeafSet(unsigned long long start);												//插入叶子节点
@@ -110,7 +109,6 @@ class IndexNodeTypeOne : public IndexNode
 	bool getAllChildNodeId(std::vector<unsigned long long>& childIndexId);
 	size_t getChildrenNum();
 	IndexNode* changeType(BuildIndex* buildIndex, unsigned char buildType, IndexNodePoolManager* poolManager = nullptr);
-	IndexNode* cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId, unsigned char buildType);
 	bool insertChildNode(BuildIndex* buildIndex, unsigned long long key, const IndexNodeChild& indexNodeChild, unsigned char buildType = BUILD_TYPE_FILE);
 	bool mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeOne* indexNode, unsigned char buildType = BUILD_TYPE_FILE);
 	IndexNodeChild* getIndexNodeChild(unsigned long long key);
@@ -133,7 +131,6 @@ class IndexNodeTypeTwo : public IndexNode
 	bool getAllChildNodeId(std::vector<unsigned long long>& childIndexId);
 	size_t getChildrenNum();
 	IndexNode* changeType(BuildIndex* buildIndex, unsigned char buildType, IndexNodePoolManager* poolManager = nullptr);
-	IndexNode* cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId, unsigned char buildType);
 	bool insertChildNode(BuildIndex* buildIndex, unsigned long long key, const IndexNodeChild& indexNodeChild, unsigned char buildType = BUILD_TYPE_FILE);
 	bool insertChildNode(BuildIndex* buildIndex, unsigned int key, const IndexNodeChild& indexNodeChild, unsigned char buildType = BUILD_TYPE_FILE);
 	bool mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeTwo* indexNode, unsigned char buildType = BUILD_TYPE_FILE);
@@ -157,7 +154,6 @@ class IndexNodeTypeThree : public IndexNode
 	bool getAllChildNodeId(std::vector<unsigned long long>& childIndexId);
 	size_t getChildrenNum();
 	IndexNode* changeType(BuildIndex* buildIndex, unsigned char buildType, IndexNodePoolManager* poolManager = nullptr);
-	IndexNode* cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId, unsigned char buildType);
 	bool insertChildNode(BuildIndex* buildIndex, unsigned int key, const IndexNodeChild& indexNodeChild, unsigned char buildType = BUILD_TYPE_FILE);
 	bool insertChildNode(BuildIndex* buildIndex, unsigned short key, const IndexNodeChild& indexNodeChild, unsigned char buildType = BUILD_TYPE_FILE);
 	bool mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeThree* indexNode, unsigned char buildType = BUILD_TYPE_FILE);
@@ -181,7 +177,6 @@ class IndexNodeTypeFour : public IndexNode
 	bool getAllChildNodeId(std::vector<unsigned long long>& childIndexId);
 	size_t getChildrenNum();
 	IndexNode* changeType(BuildIndex* buildIndex, unsigned char buildType, IndexNodePoolManager* poolManager = nullptr);
-	IndexNode* cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId, unsigned char buildType);
 	bool insertChildNode(BuildIndex* buildIndex, unsigned short key, const IndexNodeChild& indexNodeChild, unsigned char buildType = BUILD_TYPE_FILE);
 	bool insertChildNode(BuildIndex* buildIndex, unsigned char key, const IndexNodeChild& indexNodeChild, unsigned char buildType = BUILD_TYPE_FILE);
 	bool mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeFour* indexNode, unsigned char buildType = BUILD_TYPE_FILE);
