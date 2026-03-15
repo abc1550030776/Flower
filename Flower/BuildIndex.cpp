@@ -386,6 +386,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 				//两个叶节点合并成一个索引节点了以后设置左边的那个孩子节点
 				leftChildNode.setChildType(CHILD_TYPE_NODE);
+				if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_FILE))
+				{
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				}
 				leftChildNode.setIndexId(pNode->getIndexId());
 
 				return true;
@@ -483,6 +487,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				pNode->setIsModified(true);
 
 				leftChildNode.setChildType(CHILD_TYPE_NODE);
+				if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_FILE))
+				{
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				}
 				leftChildNode.setIndexId(pNode->getIndexId());
 
 				free(leftBuffer);
@@ -523,6 +531,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			pNode->setIsModified(true);
 
 			leftChildNode.setChildType(CHILD_TYPE_NODE);
+			if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_FILE))
+			{
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+			}
 			leftChildNode.setIndexId(pNode->getIndexId());
 
 			free(leftBuffer);
@@ -596,6 +608,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			pNode->setIsModified(true);
 
 			leftChildNode.setChildType(CHILD_TYPE_NODE);
+			if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_FILE))
+			{
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+			}
 			leftChildNode.setIndexId(pNode->getIndexId());
 
 			free(leftBuffer);
@@ -643,6 +659,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			pNode->setIsModified(true);
 
 			leftChildNode.setChildType(CHILD_TYPE_NODE);
+			if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_FILE))
+			{
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+			}
 			leftChildNode.setIndexId(pNode->getIndexId());
 
 			free(leftBuffer);
@@ -699,6 +719,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		pNode->setIsModified(true);
 
 		leftChildNode.setChildType(CHILD_TYPE_NODE);
+		if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_FILE))
+		{
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+		}
 		leftChildNode.setIndexId(pNode->getIndexId());
 
 		free(leftBuffer);
@@ -968,6 +992,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				pNode->setIsModified(true);
 
 				//两个节点合并成一个节点了以后设置左边的那个孩子节点
+				if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_FILE))
+				{
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				}
 				leftChildNode.setIndexId(pNode->getIndexId());
 
 				return true;
@@ -1011,6 +1039,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				//右边的节点完全融入了左边的节点所以右边的节点可以说是完全不存在删除
 				indexFile.deleteIndexNode(rightNode->getIndexId());
 
+				if (!cutNodeSize(leftNode->getIndexId(), leftNode, BUILD_TYPE_FILE))
+				{
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				}
 				leftChildNode.setIndexId(leftNode->getIndexId());
 
 				return true;
@@ -1178,6 +1210,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 			anotherNode->setIsModified(true);
 
+			if (!cutNodeSize(anotherNode->getIndexId(), anotherNode, BUILD_TYPE_FILE))
+			{
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+			}
 			leftChildNode.setIndexId(anotherNode->getIndexId());
 
 			return true;
@@ -1309,6 +1345,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 				pNode->setIsModified(true);
 
+				if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_FILE))
+				{
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				}
 				leftChildNode.setIndexId(pNode->getIndexId());
 
 				free(leftBuffer);
@@ -1431,6 +1471,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 			pNode->setIsModified(true);
 
+			if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_FILE))
+			{
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+			}
 			leftChildNode.setIndexId(pNode->getIndexId());
 
 			free(leftBuffer);
@@ -1481,6 +1525,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			//右边的节点完全融入了左边的节点所以右边的节点可以说完全不存在删除
 			indexFile.deleteIndexNode(rightNode->getIndexId());
 
+			if (!cutNodeSize(leftNode->getIndexId(), leftNode, BUILD_TYPE_FILE))
+			{
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+			}
 			leftChildNode.setIndexId(leftNode->getIndexId());
 
 			free(leftBuffer);
@@ -1666,6 +1714,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 		anotherNode->setIsModified(true);
 
+		if (!cutNodeSize(anotherNode->getIndexId(), anotherNode, BUILD_TYPE_FILE))
+		{
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+		}
 		leftChildNode.setIndexId(anotherNode->getIndexId());
 
 		free(leftBuffer);
@@ -1898,6 +1950,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 				//两个节点合并成一个节点了以后设置左边的那个孩子节点
 				leftChildNode.setChildType(CHILD_TYPE_NODE);
+				if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_FILE))
+				{
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				}
 				leftChildNode.setIndexId(pNode->getIndexId());
 
 				return true;
@@ -1916,6 +1972,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				pNotLeafNode->setIsModified(true);
 
 				leftChildNode.setChildType(CHILD_TYPE_NODE);
+				if (!cutNodeSize(pNotLeafNode->getIndexId(), pNotLeafNode, BUILD_TYPE_FILE))
+				{
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				}
 				leftChildNode.setIndexId(pNotLeafNode->getIndexId());
 
 				return true;
@@ -2019,6 +2079,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			pNotLeafNode->setIsModified(true);
 
 			leftChildNode.setChildType(CHILD_TYPE_NODE);
+			if (!cutNodeSize(pNotLeafNode->getIndexId(), pNotLeafNode, BUILD_TYPE_FILE))
+			{
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+			}
 			leftChildNode.setIndexId(pNotLeafNode->getIndexId());
 			return true;
 		}
@@ -2129,6 +2193,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				pNode->setIsModified(true);
 
 				leftChildNode.setChildType(CHILD_TYPE_NODE);
+				if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_FILE))
+				{
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				}
 				leftChildNode.setIndexId(pNode->getIndexId());
 
 				free(leafBuffer);
@@ -2234,6 +2302,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			pNode->setIsModified(true);
 
 			leftChildNode.setChildType(CHILD_TYPE_NODE);
+			if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_FILE))
+			{
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+			}
 			leftChildNode.setIndexId(pNode->getIndexId());
 			
 			free(leafBuffer);
@@ -2262,6 +2334,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				pNotLeafNode->setIsModified(true);
 
 				leftChildNode.setChildType(CHILD_TYPE_NODE);
+				if (!cutNodeSize(pNotLeafNode->getIndexId(), pNotLeafNode, BUILD_TYPE_FILE))
+				{
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				}
 				leftChildNode.setIndexId(pNotLeafNode->getIndexId());
 
 				free(leafBuffer);
@@ -2380,6 +2456,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 			pNotLeafNode->setIsModified(true);
 			leftChildNode.setChildType(CHILD_TYPE_NODE);
+			if (!cutNodeSize(pNotLeafNode->getIndexId(), pNotLeafNode, BUILD_TYPE_FILE))
+			{
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+			}
 			leftChildNode.setIndexId(pNotLeafNode->getIndexId());
 			free(leafBuffer);
 			free(nodeBuffer);
@@ -2449,6 +2529,10 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		pNode->setIsModified(true);
 
 		leftChildNode.setChildType(CHILD_TYPE_NODE);
+		if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_FILE))
+		{
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+		}
 		leftChildNode.setIndexId(pNode->getIndexId());
 
 		free(leafBuffer);
@@ -2714,6 +2798,10 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 				pNode->setIsModified(true);
 
 				//两个节点合并成一个节点了以后设置左边的那个孩子节点
+				if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_KV))
+				{
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				}
 				leftChildNode.setIndexId(pNode->getIndexId());
 
 				return true;
@@ -2758,6 +2846,10 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
+			if (!cutNodeSize(leftNode->getIndexId(), leftNode, BUILD_TYPE_KV))
+			{
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+			}
 			leftChildNode.setIndexId(leftNode->getIndexId());
 
 			return true;
@@ -2845,6 +2937,10 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 
 		anotherNode->setIsModified(true);
 
+		if (!cutNodeSize(anotherNode->getIndexId(), anotherNode, BUILD_TYPE_KV))
+		{
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+		}
 		leftChildNode.setIndexId(anotherNode->getIndexId());
 		
 		return true;
@@ -3148,6 +3244,10 @@ bool BuildIndex::build(bool needBuildLineIndex, char delimiter)
 			pNode->setParentID(0);
 
 			pNode->insertLeafSet(leftNode.getIndexId());				//根节点是特殊的有一个叶子节点从开头直到结尾
+			if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_FILE))
+			{
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+			}
 			indexFile.pushRootIndexId(pNode->getIndexId());
 			if (!indexFile.writeCacheWithoutRootIndex())
 			{
@@ -3266,6 +3366,10 @@ bool BuildIndex::buildSegment(unsigned long long startPos, unsigned long long en
 			pNode->setParentID(0);
 
 			pNode->insertLeafSet(leftNode.getIndexId());
+			if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_FILE))
+			{
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+			}
 			indexFile.pushRootIndexId(pNode->getIndexId());
 			if (!indexFile.writeCacheWithoutRootIndex())
 			{
