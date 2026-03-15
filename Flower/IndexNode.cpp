@@ -2,6 +2,7 @@
 #include "string.h"
 #include "BuildIndex.h"
 #include "MemoryPool.h"
+#include "common.h"
 
 IndexNode::IndexNode()
 {
@@ -762,6 +763,12 @@ std::unordered_map<unsigned long long, IndexNodeChild>& IndexNodeTypeOne::getChi
 	return children;
 }
 
+unsigned short IndexNodeTypeOne::getCutNodeSizeThreshold() const
+{
+	static const unsigned short kThreshold = (MAX_SIZE_PER_INDEX_NODE - 3 - 48) / 16;
+	return kThreshold;
+}
+
 bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 {
 	short totalSize = 0;
@@ -1283,6 +1290,12 @@ IndexNodeChild* IndexNodeTypeTwo::getIndexNodeChild(unsigned int key)
 std::unordered_map<unsigned int, IndexNodeChild>& IndexNodeTypeTwo::getChildren()
 {
 	return children;
+}
+
+unsigned short IndexNodeTypeTwo::getCutNodeSizeThreshold() const
+{
+	static const unsigned short kThreshold = (MAX_SIZE_PER_INDEX_NODE - 3 - 48) / 12;
+	return kThreshold;
 }
 
 bool IndexNodeTypeThree::toBinary(char* buffer, int len)
@@ -1815,6 +1828,12 @@ std::unordered_map<unsigned short, IndexNodeChild>& IndexNodeTypeThree::getChild
 	return children;
 }
 
+unsigned short IndexNodeTypeThree::getCutNodeSizeThreshold() const
+{
+	static const unsigned short kThreshold = (MAX_SIZE_PER_INDEX_NODE - 3 - 48) / 10;
+	return kThreshold;
+}
+
 bool IndexNodeTypeFour::toBinary(char* buffer, int len)
 {
 	short totalSize = 0;
@@ -2296,4 +2315,10 @@ IndexNodeChild* IndexNodeTypeFour::getIndexNodeChild(unsigned char key)
 std::unordered_map<unsigned char, IndexNodeChild>& IndexNodeTypeFour::getChildren()
 {
 	return children;
+}
+
+unsigned short IndexNodeTypeFour::getCutNodeSizeThreshold() const
+{
+	static const unsigned short kThreshold = (MAX_SIZE_PER_INDEX_NODE - 3 - 48) / 9;
+	return kThreshold;
 }

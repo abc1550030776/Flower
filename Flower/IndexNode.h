@@ -20,8 +20,6 @@ const unsigned char NODE_TYPE_FOUR = 3;
 const unsigned char BUILD_TYPE_FILE = 0;
 const unsigned char BUILD_TYPE_KV = 1;
 
-const unsigned short CUT_NODE_SIZE_INTERVAL = 128;
-
 class BuildIndex;
 class Myfile;
 class IndexNodePoolManager;
@@ -64,6 +62,7 @@ public:
 	unsigned char getGridNum();
 	void setGridNum(unsigned char gridNum);
 	size_t getExactPayloadSize();										//获取序列化payload大小（不含类型和长度字段）
+	virtual unsigned short getCutNodeSizeThreshold() const = 0;		//cutNodeSize的限流阈值（与节点类型相关）
 	unsigned short getInsertCount();
 	void resetInsertCount();
 	virtual ~IndexNode();
@@ -118,6 +117,7 @@ class IndexNodeTypeOne : public IndexNode
 	bool mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeOne* indexNode, unsigned char buildType = BUILD_TYPE_FILE);
 	IndexNodeChild* getIndexNodeChild(unsigned long long key);
 	std::unordered_map<unsigned long long, IndexNodeChild>& getChildren();
+	unsigned short getCutNodeSizeThreshold() const override;
 	std::unordered_map<unsigned long long, IndexNodeChild> children;
 };
 
@@ -141,6 +141,7 @@ class IndexNodeTypeTwo : public IndexNode
 	bool mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeTwo* indexNode, unsigned char buildType = BUILD_TYPE_FILE);
 	IndexNodeChild* getIndexNodeChild(unsigned int key);
 	std::unordered_map<unsigned int, IndexNodeChild>& getChildren();
+	unsigned short getCutNodeSizeThreshold() const override;
 	std::unordered_map<unsigned int, IndexNodeChild> children;
 };
 
@@ -164,6 +165,7 @@ class IndexNodeTypeThree : public IndexNode
 	bool mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeThree* indexNode, unsigned char buildType = BUILD_TYPE_FILE);
 	IndexNodeChild* getIndexNodeChild(unsigned short key);
 	std::unordered_map<unsigned short, IndexNodeChild>& getChildren();
+	unsigned short getCutNodeSizeThreshold() const override;
 	std::unordered_map<unsigned short, IndexNodeChild> children;
 };
 
@@ -187,5 +189,6 @@ class IndexNodeTypeFour : public IndexNode
 	bool mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeFour* indexNode, unsigned char buildType = BUILD_TYPE_FILE);
 	IndexNodeChild* getIndexNodeChild(unsigned char key);
 	std::unordered_map<unsigned char, IndexNodeChild>& getChildren();
+	unsigned short getCutNodeSizeThreshold() const override;
 	std::unordered_map<unsigned char, IndexNodeChild> children;
 };

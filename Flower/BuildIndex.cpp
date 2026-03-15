@@ -386,7 +386,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 				//两个叶节点合并成一个索引节点了以后设置左边的那个孩子节点
 				leftChildNode.setChildType(CHILD_TYPE_NODE);
-				if (pNode->getInsertCount() >= CUT_NODE_SIZE_INTERVAL)
+				if (pNode->getInsertCount() >= pNode->getCutNodeSizeThreshold())
 				{
 					if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_FILE))
 					{
@@ -491,7 +491,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				pNode->setIsModified(true);
 
 				leftChildNode.setChildType(CHILD_TYPE_NODE);
-				if (pNode->getInsertCount() >= CUT_NODE_SIZE_INTERVAL)
+				if (pNode->getInsertCount() >= pNode->getCutNodeSizeThreshold())
 				{
 					if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_FILE))
 					{
@@ -539,7 +539,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			pNode->setIsModified(true);
 
 			leftChildNode.setChildType(CHILD_TYPE_NODE);
-			if (pNode->getInsertCount() >= CUT_NODE_SIZE_INTERVAL)
+			if (pNode->getInsertCount() >= pNode->getCutNodeSizeThreshold())
 			{
 				if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_FILE))
 				{
@@ -620,7 +620,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			pNode->setIsModified(true);
 
 			leftChildNode.setChildType(CHILD_TYPE_NODE);
-			if (pNode->getInsertCount() >= CUT_NODE_SIZE_INTERVAL)
+			if (pNode->getInsertCount() >= pNode->getCutNodeSizeThreshold())
 			{
 				if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_FILE))
 				{
@@ -675,7 +675,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			pNode->setIsModified(true);
 
 			leftChildNode.setChildType(CHILD_TYPE_NODE);
-			if (pNode->getInsertCount() >= CUT_NODE_SIZE_INTERVAL)
+			if (pNode->getInsertCount() >= pNode->getCutNodeSizeThreshold())
 			{
 				if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_FILE))
 				{
@@ -739,7 +739,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		pNode->setIsModified(true);
 
 		leftChildNode.setChildType(CHILD_TYPE_NODE);
-		if (pNode->getInsertCount() >= CUT_NODE_SIZE_INTERVAL)
+		if (pNode->getInsertCount() >= pNode->getCutNodeSizeThreshold())
 		{
 			if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_FILE))
 			{
@@ -1016,7 +1016,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				pNode->setIsModified(true);
 
 				//两个节点合并成一个节点了以后设置左边的那个孩子节点
-				if (pNode->getInsertCount() >= CUT_NODE_SIZE_INTERVAL)
+				if (pNode->getInsertCount() >= pNode->getCutNodeSizeThreshold())
 				{
 					if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_FILE))
 					{
@@ -1067,7 +1067,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				//右边的节点完全融入了左边的节点所以右边的节点可以说是完全不存在删除
 				indexFile.deleteIndexNode(rightNode->getIndexId());
 
-				if (leftNode->getInsertCount() >= CUT_NODE_SIZE_INTERVAL)
+				if (leftNode->getInsertCount() >= leftNode->getCutNodeSizeThreshold())
 				{
 					if (!cutNodeSize(leftNode->getIndexId(), leftNode, BUILD_TYPE_FILE))
 					{
@@ -1242,7 +1242,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 			anotherNode->setIsModified(true);
 
-			if (anotherNode->getInsertCount() >= CUT_NODE_SIZE_INTERVAL)
+			if (anotherNode->getInsertCount() >= anotherNode->getCutNodeSizeThreshold())
 			{
 				if (!cutNodeSize(anotherNode->getIndexId(), anotherNode, BUILD_TYPE_FILE))
 				{
@@ -1381,7 +1381,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 				pNode->setIsModified(true);
 
-				if (pNode->getInsertCount() >= CUT_NODE_SIZE_INTERVAL)
+				if (pNode->getInsertCount() >= pNode->getCutNodeSizeThreshold())
 				{
 					if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_FILE))
 					{
@@ -1511,7 +1511,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 			pNode->setIsModified(true);
 
-			if (pNode->getInsertCount() >= CUT_NODE_SIZE_INTERVAL)
+			if (pNode->getInsertCount() >= pNode->getCutNodeSizeThreshold())
 			{
 				if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_FILE))
 				{
@@ -1569,7 +1569,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			//右边的节点完全融入了左边的节点所以右边的节点可以说完全不存在删除
 			indexFile.deleteIndexNode(rightNode->getIndexId());
 
-			if (leftNode->getInsertCount() >= CUT_NODE_SIZE_INTERVAL)
+			if (leftNode->getInsertCount() >= leftNode->getCutNodeSizeThreshold())
 			{
 				if (!cutNodeSize(leftNode->getIndexId(), leftNode, BUILD_TYPE_FILE))
 				{
@@ -1762,7 +1762,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 		anotherNode->setIsModified(true);
 
-		if (anotherNode->getInsertCount() >= CUT_NODE_SIZE_INTERVAL)
+		if (anotherNode->getInsertCount() >= anotherNode->getCutNodeSizeThreshold())
 		{
 			if (!cutNodeSize(anotherNode->getIndexId(), anotherNode, BUILD_TYPE_FILE))
 			{
@@ -2002,7 +2002,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 				//两个节点合并成一个节点了以后设置左边的那个孩子节点
 				leftChildNode.setChildType(CHILD_TYPE_NODE);
-				if (pNode->getInsertCount() >= CUT_NODE_SIZE_INTERVAL)
+				if (pNode->getInsertCount() >= pNode->getCutNodeSizeThreshold())
 				{
 					if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_FILE))
 					{
@@ -2028,7 +2028,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				pNotLeafNode->setIsModified(true);
 
 				leftChildNode.setChildType(CHILD_TYPE_NODE);
-				if (pNotLeafNode->getInsertCount() >= CUT_NODE_SIZE_INTERVAL)
+				if (pNotLeafNode->getInsertCount() >= pNotLeafNode->getCutNodeSizeThreshold())
 				{
 					if (!cutNodeSize(pNotLeafNode->getIndexId(), pNotLeafNode, BUILD_TYPE_FILE))
 					{
@@ -2139,7 +2139,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			pNotLeafNode->setIsModified(true);
 
 			leftChildNode.setChildType(CHILD_TYPE_NODE);
-			if (pNotLeafNode->getInsertCount() >= CUT_NODE_SIZE_INTERVAL)
+			if (pNotLeafNode->getInsertCount() >= pNotLeafNode->getCutNodeSizeThreshold())
 			{
 				if (!cutNodeSize(pNotLeafNode->getIndexId(), pNotLeafNode, BUILD_TYPE_FILE))
 				{
@@ -2257,7 +2257,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				pNode->setIsModified(true);
 
 				leftChildNode.setChildType(CHILD_TYPE_NODE);
-				if (pNode->getInsertCount() >= CUT_NODE_SIZE_INTERVAL)
+				if (pNode->getInsertCount() >= pNode->getCutNodeSizeThreshold())
 				{
 					if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_FILE))
 					{
@@ -2370,7 +2370,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 			pNode->setIsModified(true);
 
 			leftChildNode.setChildType(CHILD_TYPE_NODE);
-			if (pNode->getInsertCount() >= CUT_NODE_SIZE_INTERVAL)
+			if (pNode->getInsertCount() >= pNode->getCutNodeSizeThreshold())
 			{
 				if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_FILE))
 				{
@@ -2406,7 +2406,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 				pNotLeafNode->setIsModified(true);
 
 				leftChildNode.setChildType(CHILD_TYPE_NODE);
-				if (pNotLeafNode->getInsertCount() >= CUT_NODE_SIZE_INTERVAL)
+				if (pNotLeafNode->getInsertCount() >= pNotLeafNode->getCutNodeSizeThreshold())
 				{
 					if (!cutNodeSize(pNotLeafNode->getIndexId(), pNotLeafNode, BUILD_TYPE_FILE))
 					{
@@ -2532,7 +2532,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 
 			pNotLeafNode->setIsModified(true);
 			leftChildNode.setChildType(CHILD_TYPE_NODE);
-			if (pNotLeafNode->getInsertCount() >= CUT_NODE_SIZE_INTERVAL)
+			if (pNotLeafNode->getInsertCount() >= pNotLeafNode->getCutNodeSizeThreshold())
 			{
 				if (!cutNodeSize(pNotLeafNode->getIndexId(), pNotLeafNode, BUILD_TYPE_FILE))
 				{
@@ -2609,7 +2609,7 @@ bool BuildIndex::mergeNode(unsigned long long preCmpLen, unsigned long long pare
 		pNode->setIsModified(true);
 
 		leftChildNode.setChildType(CHILD_TYPE_NODE);
-		if (pNode->getInsertCount() >= CUT_NODE_SIZE_INTERVAL)
+		if (pNode->getInsertCount() >= pNode->getCutNodeSizeThreshold())
 		{
 			if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_FILE))
 			{
@@ -2882,7 +2882,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 				pNode->setIsModified(true);
 
 				//两个节点合并成一个节点了以后设置左边的那个孩子节点
-				if (pNode->getInsertCount() >= CUT_NODE_SIZE_INTERVAL)
+				if (pNode->getInsertCount() >= pNode->getCutNodeSizeThreshold())
 				{
 					if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_KV))
 					{
@@ -2934,7 +2934,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
-			if (leftNode->getInsertCount() >= CUT_NODE_SIZE_INTERVAL)
+			if (leftNode->getInsertCount() >= leftNode->getCutNodeSizeThreshold())
 			{
 				if (!cutNodeSize(leftNode->getIndexId(), leftNode, BUILD_TYPE_KV))
 				{
@@ -3029,7 +3029,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 
 		anotherNode->setIsModified(true);
 
-		if (anotherNode->getInsertCount() >= CUT_NODE_SIZE_INTERVAL)
+		if (anotherNode->getInsertCount() >= anotherNode->getCutNodeSizeThreshold())
 		{
 			if (!cutNodeSize(anotherNode->getIndexId(), anotherNode, BUILD_TYPE_KV))
 			{
@@ -3340,7 +3340,7 @@ bool BuildIndex::build(bool needBuildLineIndex, char delimiter)
 			pNode->setParentID(0);
 
 			pNode->insertLeafSet(leftNode.getIndexId());				//根节点是特殊的有一个叶子节点从开头直到结尾
-			if (pNode->getInsertCount() >= CUT_NODE_SIZE_INTERVAL)
+			if (pNode->getInsertCount() >= pNode->getCutNodeSizeThreshold())
 			{
 				if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_FILE))
 				{
@@ -3466,7 +3466,7 @@ bool BuildIndex::buildSegment(unsigned long long startPos, unsigned long long en
 			pNode->setParentID(0);
 
 			pNode->insertLeafSet(leftNode.getIndexId());
-			if (pNode->getInsertCount() >= CUT_NODE_SIZE_INTERVAL)
+			if (pNode->getInsertCount() >= pNode->getCutNodeSizeThreshold())
 			{
 				if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_FILE))
 				{
