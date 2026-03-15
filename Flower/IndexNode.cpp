@@ -653,25 +653,7 @@ IndexNode* IndexNodeTypeOne::cutNodeSize(BuildIndex* buildIndex, unsigned long l
 	{
 		return nullptr;
 	}
-	for (auto& it : children)
-	{
-		if (it.second.getType() == CHILD_TYPE_NODE)
-		{
-			IndexNode* node = buildIndex->getIndexNode(it.second.getIndexId(), buildType);
-			if (node == nullptr)
-			{
-				return nullptr;
-			}
-
-			if (!buildIndex->cutNodeSize(it.second.getIndexId(), node, buildType))
-			{
-				return nullptr;
-			}
-		}
-	}
-
 	IndexNode* tmpNode = this;
-	//本身可能比256要大所以也要调用
 	if (!buildIndex->cutNodeSize(indexId, tmpNode, buildType))
 	{
 		return nullptr;
@@ -1095,25 +1077,7 @@ IndexNode* IndexNodeTypeTwo::cutNodeSize(BuildIndex* buildIndex, unsigned long l
 	{
 		return nullptr;
 	}
-	for (auto& it : children)
-	{
-		if (it.second.getType() == CHILD_TYPE_NODE)
-		{
-			IndexNode* node = buildIndex->getIndexNode(it.second.getIndexId(), buildType);
-			if (node == nullptr)
-			{
-				return nullptr;
-			}
-
-			if (!buildIndex->cutNodeSize(it.second.getIndexId(), node, buildType))
-			{
-				return nullptr;
-			}
-		}
-	}
-
 	IndexNode* tmpNode = this;
-	//本身可能比256要大所以也要调用
 	if (!buildIndex->cutNodeSize(indexId, tmpNode, buildType))
 	{
 		return nullptr;
@@ -1652,25 +1616,7 @@ IndexNode* IndexNodeTypeThree::cutNodeSize(BuildIndex* buildIndex, unsigned long
 	{
 		return nullptr;
 	}
-	for (auto& it : children)
-	{
-		if (it.second.getType() == CHILD_TYPE_NODE)
-		{
-			IndexNode* node = buildIndex->getIndexNode(it.second.getIndexId(), buildType);
-			if (node == nullptr)
-			{
-				return nullptr;
-			}
-
-			if (!buildIndex->cutNodeSize(it.second.getIndexId(), node, buildType))
-			{
-				return nullptr;
-			}
-		}
-	}
-
 	IndexNode* tmpNode = this;
-	//本身可能比256要大所以也要调用
 	if (!buildIndex->cutNodeSize(indexId, tmpNode, buildType))
 	{
 		return nullptr;
@@ -2164,25 +2110,7 @@ IndexNode* IndexNodeTypeFour::cutNodeSize(BuildIndex* buildIndex, unsigned long 
 	{
 		return nullptr;
 	}
-	for (auto& it : children)
-	{
-		if (it.second.getType() == CHILD_TYPE_NODE)
-		{
-			IndexNode* node = buildIndex->getIndexNode(it.second.getIndexId(), buildType);
-			if (node == nullptr)
-			{
-				return nullptr;
-			}
-
-			if (!buildIndex->cutNodeSize(it.second.getIndexId(), node, buildType))
-			{
-				return nullptr;
-			}
-		}
-	}
-
 	IndexNode* tmpNode = this;
-	//本身可能比256要大所以也要调用
 	if (!buildIndex->cutNodeSize(indexId, tmpNode, buildType))
 	{
 		return nullptr;
