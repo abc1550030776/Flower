@@ -2882,7 +2882,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 				pNode->setIsModified(true);
 
 				//两个节点合并成一个节点了以后设置左边的那个孩子节点
-				if (pNode->getInsertCount() >= pNode->getCutNodeSizeThreshold())
+				if (pNode->getInsertCount() >= KV_CUT_NODE_SIZE_THRESHOLD)
 				{
 					if (!cutNodeSize(pNode->getIndexId(), pNode, BUILD_TYPE_KV))
 					{
@@ -2934,7 +2934,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 
-			if (leftNode->getInsertCount() >= leftNode->getCutNodeSizeThreshold())
+			if (leftNode->getInsertCount() >= KV_CUT_NODE_SIZE_THRESHOLD)
 			{
 				if (!cutNodeSize(leftNode->getIndexId(), leftNode, BUILD_TYPE_KV))
 				{
@@ -3029,7 +3029,7 @@ bool BuildIndex::addVMergeNode(unsigned long long preCmpLen, unsigned long long 
 
 		anotherNode->setIsModified(true);
 
-		if (anotherNode->getInsertCount() >= anotherNode->getCutNodeSizeThreshold())
+		if (anotherNode->getInsertCount() >= KV_CUT_NODE_SIZE_THRESHOLD)
 		{
 			if (!cutNodeSize(anotherNode->getIndexId(), anotherNode, BUILD_TYPE_KV))
 			{
