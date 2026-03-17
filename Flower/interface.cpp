@@ -93,7 +93,7 @@ bool BuildDstIndex(const char* fileName, bool needBuildLineIndex, char delimiter
 	unsigned long rootIndexCount = (unsigned long)((dstFileSize + DST_SIZE_PER_ROOT - 1) / DST_SIZE_PER_ROOT);
 
 	//确定线程数量
-	unsigned long threadCount = std::thread::hardware_concurrency();
+	unsigned long threadCount = std::thread::hardware_concurrency() * 2;
 	if (threadCount == 0) threadCount = 1;
 	if (threadCount > rootIndexCount) threadCount = rootIndexCount;
 
