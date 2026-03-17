@@ -1,12 +1,18 @@
 #pragma once
 #include <stack>
 #include <mutex>
+#include <cstdint>
+#include <cstring>
 #include "common.h"
+
+static const unsigned short RECYCLE_BUCKET_COUNT = MAX_SIZE_PER_INDEX_NODE / SIZE_PER_INDEX_FILE_GRID;
+static const unsigned short BITMAP_WORD_COUNT = (RECYCLE_BUCKET_COUNT + 63) / 64;
 
 class UniqueGenerator {
 
 	unsigned long long maxUniqueNum;
-	std::stack<unsigned long long> everyRecycleNumber[MAX_SIZE_PER_INDEX_NODE / SIZE_PER_INDEX_FILE_GRID];
+	std::stack<unsigned long long> everyRecycleNumber[RECYCLE_BUCKET_COUNT];
+	uint64_t recycleBitmap[BITMAP_WORD_COUNT];
 	mutable std::mutex mutex_;
 
 public:
