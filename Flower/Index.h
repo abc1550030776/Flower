@@ -1,5 +1,6 @@
 #pragma once
 #include <map>
+#include <unordered_set>
 #include <vector>
 #include "ReadWriteLock.h"
 #include "UniqueGenerator.h"
@@ -26,6 +27,7 @@ public:
 	IndexNode* newIndexNode(unsigned char nodeType, unsigned long long preCmpLen);			//创建新的节点
 	bool deleteIndexNode(unsigned long long indexId);										//删除节点
 	bool evictIndexNode(unsigned long long indexId);										//从缓存驱逐节点，不回收ID
+	bool evictIndexNodesWithSamePreCmpLen(unsigned long long preCmpLen, const std::unordered_set<unsigned long long>& indexIds);
 	bool rekeyNode(unsigned long long oldIndexId, unsigned long long newIndexId);			//节点id变更后更新缓存中的键
 	void clearCache();
 	bool getModifiedNodeIdsWithSamePreCmpLen(std::vector<unsigned long long>& indexIds, unsigned long long& currentPreCmpLen, unsigned long long startPreCmpLen = 0);

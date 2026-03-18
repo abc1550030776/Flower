@@ -1,5 +1,6 @@
 #include "IndexNode.h"
 #include <cstdlib>
+#include <unordered_map>
 #include <unordered_set>
 #include "BuildIndex.h"
 #include "UniqueGenerator.h"
@@ -545,85 +546,109 @@ bool IndexFile::writeEveryCache()
 	std::vector<unsigned long long> batchIds;
 	unsigned long long currentPreCmpLen = 0;
 	unsigned long long cursor = 0;
+	std::unordered_set<unsigned long long> modifiedIds;
 
 	while (pIndex->getModifiedNodeIdsWithSamePreCmpLen(batchIds, currentPreCmpLen, cursor))
 	{
 		cursor = currentPreCmpLen + 1;
 
 		std::vector<unsigned long long> processedIds;
+		processedIds.reserve(batchIds.size());
+		std::unordered_set<unsigned long long> parentsToEvict;
+		std::unordered_set<unsigned long long> leavesToEvict;
 		for (unsigned long long indexId : batchIds)
 		{
 			IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
 			if (pIndexNode != nullptr && pIndexNode->getIsModified())
 			{
+				unsigned long long originalIndexId = indexId;
 				if (!prepareForWrite(indexId, pIndexNode, WRITE_FILE_CHECK_EVERY_ROOT))
 				{
 					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				}
+				modifiedIds.insert(indexId);
+				if (indexId != originalIndexId)
+				{
+					unsigned long long parentId = pIndexNode->getParentId();
+					if (parentId != 0)
+					{
+						modifiedIds.insert(parentId);
+					}
 				}
 			}
 			processedIds.push_back(indexId);
 		}
 
-		std::unordered_set<unsigned long long> evictedIds;
-
+		std::vector<unsigned long long> childNodeIds;
 		for (unsigned long long indexId : processedIds)
 		{
 			IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
 			if (pIndexNode == nullptr) continue;
 			unsigned long long parentId = pIndexNode->getParentId();
-			if (parentId != 0 && evictedIds.count(parentId) == 0)
+			if (parentId != 0)
 			{
-				IndexNode* parentNode = pIndex->getCacheNode(parentId);
-				if (parentNode != nullptr)
-				{
-					if (parentNode->getIsModified())
-					{
-						if (!flushNodeToDisk(parentId, parentNode))
-						{
-							printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-						}
-					}
-					pIndex->evictIndexNode(parentId);
-					evictedIds.insert(parentId);
-				}
+				parentsToEvict.insert(parentId);
 			}
-		}
-
-		for (unsigned long long indexId : processedIds)
-		{
-			if (evictedIds.count(indexId) != 0) continue;
-			IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
-			if (pIndexNode == nullptr) continue;
-			std::vector<unsigned long long> childNodeIds;
+			childNodeIds.clear();
 			pIndexNode->getAllChildNodeId(childNodeIds);
 			if (childNodeIds.empty())
 			{
-				if (pIndexNode->getIsModified())
-				{
-					if (!flushNodeToDisk(indexId, pIndexNode))
-					{
-						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-					}
-				}
-				pIndex->evictIndexNode(indexId);
-				evictedIds.insert(indexId);
+				leavesToEvict.insert(indexId);
 			}
 		}
-	}
 
-	cursor = 0;
-	while (pIndex->getModifiedNodeIdsWithSamePreCmpLen(batchIds, currentPreCmpLen, cursor))
-	{
-		cursor = currentPreCmpLen + 1;
-		for (unsigned long long indexId : batchIds)
-		{
+		std::unordered_map<unsigned long long, std::unordered_set<unsigned long long>> evictGroups;
+		auto queueEvict = [&](unsigned long long indexId) -> bool {
 			IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
-			if (pIndexNode != nullptr && pIndexNode->getIsModified())
+			if (pIndexNode == nullptr) return true;
+			auto& bucket = evictGroups[pIndexNode->getPreCmpLen()];
+			if (!bucket.insert(indexId).second)
+			{
+				return true;
+			}
+			if (pIndexNode->getIsModified())
 			{
 				if (!flushNodeToDisk(indexId, pIndexNode))
 				{
 					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
+			}
+			return true;
+		};
+
+		for (unsigned long long parentId : parentsToEvict)
+		{
+			if (!queueEvict(parentId))
+			{
+				return false;
+			}
+		}
+
+		for (unsigned long long indexId : leavesToEvict)
+		{
+			if (!queueEvict(indexId))
+			{
+				return false;
+			}
+		}
+
+		for (auto& entry : evictGroups)
+		{
+			if (!pIndex->evictIndexNodesWithSamePreCmpLen(entry.first, entry.second))
+			{
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+			}
+		}
+	}
+
+	for (unsigned long long indexId : modifiedIds)
+	{
+		IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
+		if (pIndexNode != nullptr && pIndexNode->getIsModified())
+		{
+			if (!flushNodeToDisk(indexId, pIndexNode))
+			{
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 		}
 	}
@@ -673,85 +698,109 @@ bool IndexFile::writeCacheWithoutRootIndex()
 	std::vector<unsigned long long> batchIds;
 	unsigned long long currentPreCmpLen = 0;
 	unsigned long long cursor = 0;
+	std::unordered_set<unsigned long long> modifiedIds;
 
 	while (pIndex->getModifiedNodeIdsWithSamePreCmpLen(batchIds, currentPreCmpLen, cursor))
 	{
 		cursor = currentPreCmpLen + 1;
 
 		std::vector<unsigned long long> processedIds;
+		processedIds.reserve(batchIds.size());
+		std::unordered_set<unsigned long long> parentsToEvict;
+		std::unordered_set<unsigned long long> leavesToEvict;
 		for (unsigned long long indexId : batchIds)
 		{
 			IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
 			if (pIndexNode != nullptr && pIndexNode->getIsModified())
 			{
+				unsigned long long originalIndexId = indexId;
 				if (!prepareForWrite(indexId, pIndexNode, WRITE_FILE_CHECK_NEW_ROOT))
 				{
 					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				}
+				modifiedIds.insert(indexId);
+				if (indexId != originalIndexId)
+				{
+					unsigned long long parentId = pIndexNode->getParentId();
+					if (parentId != 0)
+					{
+						modifiedIds.insert(parentId);
+					}
 				}
 			}
 			processedIds.push_back(indexId);
 		}
 
-		std::unordered_set<unsigned long long> evictedIds;
-
+		std::vector<unsigned long long> childNodeIds;
 		for (unsigned long long indexId : processedIds)
 		{
 			IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
 			if (pIndexNode == nullptr) continue;
 			unsigned long long parentId = pIndexNode->getParentId();
-			if (parentId != 0 && evictedIds.count(parentId) == 0)
+			if (parentId != 0)
 			{
-				IndexNode* parentNode = pIndex->getCacheNode(parentId);
-				if (parentNode != nullptr)
-				{
-					if (parentNode->getIsModified())
-					{
-						if (!flushNodeToDisk(parentId, parentNode))
-						{
-							printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-						}
-					}
-					pIndex->evictIndexNode(parentId);
-					evictedIds.insert(parentId);
-				}
+				parentsToEvict.insert(parentId);
 			}
-		}
-
-		for (unsigned long long indexId : processedIds)
-		{
-			if (evictedIds.count(indexId) != 0) continue;
-			IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
-			if (pIndexNode == nullptr) continue;
-			std::vector<unsigned long long> childNodeIds;
+			childNodeIds.clear();
 			pIndexNode->getAllChildNodeId(childNodeIds);
 			if (childNodeIds.empty())
 			{
-				if (pIndexNode->getIsModified())
-				{
-					if (!flushNodeToDisk(indexId, pIndexNode))
-					{
-						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
-					}
-				}
-				pIndex->evictIndexNode(indexId);
-				evictedIds.insert(indexId);
+				leavesToEvict.insert(indexId);
 			}
 		}
-	}
 
-	cursor = 0;
-	while (pIndex->getModifiedNodeIdsWithSamePreCmpLen(batchIds, currentPreCmpLen, cursor))
-	{
-		cursor = currentPreCmpLen + 1;
-		for (unsigned long long indexId : batchIds)
-		{
+		std::unordered_map<unsigned long long, std::unordered_set<unsigned long long>> evictGroups;
+		auto queueEvict = [&](unsigned long long indexId) -> bool {
 			IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
-			if (pIndexNode != nullptr && pIndexNode->getIsModified())
+			if (pIndexNode == nullptr) return true;
+			auto& bucket = evictGroups[pIndexNode->getPreCmpLen()];
+			if (!bucket.insert(indexId).second)
+			{
+				return true;
+			}
+			if (pIndexNode->getIsModified())
 			{
 				if (!flushNodeToDisk(indexId, pIndexNode))
 				{
 					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
+			}
+			return true;
+		};
+
+		for (unsigned long long parentId : parentsToEvict)
+		{
+			if (!queueEvict(parentId))
+			{
+				return false;
+			}
+		}
+
+		for (unsigned long long indexId : leavesToEvict)
+		{
+			if (!queueEvict(indexId))
+			{
+				return false;
+			}
+		}
+
+		for (auto& entry : evictGroups)
+		{
+			if (!pIndex->evictIndexNodesWithSamePreCmpLen(entry.first, entry.second))
+			{
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+			}
+		}
+	}
+
+	for (unsigned long long indexId : modifiedIds)
+	{
+		IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
+		if (pIndexNode != nullptr && pIndexNode->getIsModified())
+		{
+			if (!flushNodeToDisk(indexId, pIndexNode))
+			{
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 			}
 		}
 	}

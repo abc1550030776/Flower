@@ -408,6 +408,66 @@ bool Index::evictIndexNode(unsigned long long indexId)
 	return true;
 }
 
+bool Index::evictIndexNodesWithSamePreCmpLen(unsigned long long preCmpLen, const std::unordered_set<unsigned long long>& indexIds)
+{
+	if (indexIds.empty())
+	{
+		return true;
+	}
+
+	for (auto indexId : indexIds)
+	{
+		auto cacheIt = indexNodeCache.find(indexId);
+		if (cacheIt == end(indexNodeCache))
+		{
+			return false;
+		}
+		if (cacheIt->second == nullptr || cacheIt->second->getPreCmpLen() != preCmpLen)
+		{
+			return false;
+		}
+	}
+
+	auto range = IndexIdPreority.equal_range(preCmpLen);
+	size_t removed = 0;
+	for (auto it = range.first; it != range.second; )
+	{
+		if (indexIds.count(it->second) == 0)
+		{
+			++it;
+			continue;
+		}
+
+		auto cacheIt = indexNodeCache.find(it->second);
+		if (cacheIt == end(indexNodeCache))
+		{
+			return false;
+		}
+
+		IndexNode* node = cacheIt->second;
+		switch (node->getType())
+		{
+		case NODE_TYPE_ONE:
+			poolManager->getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(node));
+			break;
+		case NODE_TYPE_TWO:
+			poolManager->getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(node));
+			break;
+		case NODE_TYPE_THREE:
+			poolManager->getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(node));
+			break;
+		case NODE_TYPE_FOUR:
+			poolManager->getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(node));
+			break;
+		}
+		indexNodeCache.erase(cacheIt);
+		it = IndexIdPreority.erase(it);
+		++removed;
+	}
+
+	return removed == indexIds.size();
+}
+
 bool Index::rekeyNode(unsigned long long oldIndexId, unsigned long long newIndexId)
 {
 	auto it = indexNodeCache.find(oldIndexId);
