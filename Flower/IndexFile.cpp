@@ -1,5 +1,6 @@
 #include "IndexNode.h"
 #include <cstdlib>
+#include <unordered_set>
 #include "BuildIndex.h"
 #include "UniqueGenerator.h"
 #include "common.h"
@@ -534,7 +535,7 @@ unsigned long long IndexFile::getRootIndexId()
 	return rootIndexId;
 }
 
-bool IndexFile::writeEveryCache()																	//把缓存当中的数据全部写盘
+bool IndexFile::writeEveryCache()
 {
 	if (pIndex == nullptr)
 	{
@@ -544,9 +545,12 @@ bool IndexFile::writeEveryCache()																	//把缓存当中的数据全�
 	std::vector<unsigned long long> batchIds;
 	unsigned long long currentPreCmpLen = 0;
 	unsigned long long cursor = 0;
+
 	while (pIndex->getModifiedNodeIdsWithSamePreCmpLen(batchIds, currentPreCmpLen, cursor))
 	{
 		cursor = currentPreCmpLen + 1;
+
+		std::vector<unsigned long long> processedIds;
 		for (unsigned long long indexId : batchIds)
 		{
 			IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
@@ -556,6 +560,53 @@ bool IndexFile::writeEveryCache()																	//把缓存当中的数据全�
 				{
 					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
+			}
+			processedIds.push_back(indexId);
+		}
+
+		std::unordered_set<unsigned long long> evictedIds;
+
+		for (unsigned long long indexId : processedIds)
+		{
+			IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
+			if (pIndexNode == nullptr) continue;
+			unsigned long long parentId = pIndexNode->getParentId();
+			if (parentId != 0 && evictedIds.count(parentId) == 0)
+			{
+				IndexNode* parentNode = pIndex->getCacheNode(parentId);
+				if (parentNode != nullptr)
+				{
+					if (parentNode->getIsModified())
+					{
+						if (!flushNodeToDisk(parentId, parentNode))
+						{
+							printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+						}
+					}
+					pIndex->evictIndexNode(parentId);
+					evictedIds.insert(parentId);
+				}
+			}
+		}
+
+		for (unsigned long long indexId : processedIds)
+		{
+			if (evictedIds.count(indexId) != 0) continue;
+			IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
+			if (pIndexNode == nullptr) continue;
+			std::vector<unsigned long long> childNodeIds;
+			pIndexNode->getAllChildNodeId(childNodeIds);
+			if (childNodeIds.empty())
+			{
+				if (pIndexNode->getIsModified())
+				{
+					if (!flushNodeToDisk(indexId, pIndexNode))
+					{
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+					}
+				}
+				pIndex->evictIndexNode(indexId);
+				evictedIds.insert(indexId);
 			}
 		}
 	}
@@ -579,7 +630,6 @@ bool IndexFile::writeEveryCache()																	//把缓存当中的数据全�
 
 	pIndex->clearCache();
 
-	//把根节点的id写入到文件开头
 	unsigned long long pos;
 	pos = 0;
 	if (!indexFile.write(pos, &rootIndexId, 8))
@@ -623,9 +673,12 @@ bool IndexFile::writeCacheWithoutRootIndex()
 	std::vector<unsigned long long> batchIds;
 	unsigned long long currentPreCmpLen = 0;
 	unsigned long long cursor = 0;
+
 	while (pIndex->getModifiedNodeIdsWithSamePreCmpLen(batchIds, currentPreCmpLen, cursor))
 	{
 		cursor = currentPreCmpLen + 1;
+
+		std::vector<unsigned long long> processedIds;
 		for (unsigned long long indexId : batchIds)
 		{
 			IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
@@ -635,6 +688,53 @@ bool IndexFile::writeCacheWithoutRootIndex()
 				{
 					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
+			}
+			processedIds.push_back(indexId);
+		}
+
+		std::unordered_set<unsigned long long> evictedIds;
+
+		for (unsigned long long indexId : processedIds)
+		{
+			IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
+			if (pIndexNode == nullptr) continue;
+			unsigned long long parentId = pIndexNode->getParentId();
+			if (parentId != 0 && evictedIds.count(parentId) == 0)
+			{
+				IndexNode* parentNode = pIndex->getCacheNode(parentId);
+				if (parentNode != nullptr)
+				{
+					if (parentNode->getIsModified())
+					{
+						if (!flushNodeToDisk(parentId, parentNode))
+						{
+							printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+						}
+					}
+					pIndex->evictIndexNode(parentId);
+					evictedIds.insert(parentId);
+				}
+			}
+		}
+
+		for (unsigned long long indexId : processedIds)
+		{
+			if (evictedIds.count(indexId) != 0) continue;
+			IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
+			if (pIndexNode == nullptr) continue;
+			std::vector<unsigned long long> childNodeIds;
+			pIndexNode->getAllChildNodeId(childNodeIds);
+			if (childNodeIds.empty())
+			{
+				if (pIndexNode->getIsModified())
+				{
+					if (!flushNodeToDisk(indexId, pIndexNode))
+					{
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+					}
+				}
+				pIndex->evictIndexNode(indexId);
+				evictedIds.insert(indexId);
 			}
 		}
 	}
@@ -658,7 +758,6 @@ bool IndexFile::writeCacheWithoutRootIndex()
 
 	pIndex->clearCache();
 
-	//后面创建的节点不会和前面节点有关系所以这里同步一次磁盘减少缓存
 	if (!indexFile.sync())
 	{
 		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
