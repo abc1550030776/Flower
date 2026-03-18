@@ -169,7 +169,6 @@ bool Index::reduceCache()
 			nodesToDelete.push_back(cacheIt->second);
 
 			// 直接从缓存和优先级容器中删除
-			if (cacheIt->first == 1604) printf("1604 is evicted by reduceCache!\n");
 			indexNodeCache.erase(cacheIt);
 			IndexIdPreority.erase(curIt);
 
@@ -357,7 +356,6 @@ bool Index::deleteIndexNode(unsigned long long indexId)
 		poolManager->getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(node));
 		break;
 	}
-	if (indexId == 1604) printf("1604 is deleted in deleteIndexNode!\n");
 	indexNodeCache.erase(it);
 	IndexIdPreority.erase(ipIt);
 	return true;
@@ -479,7 +477,6 @@ bool Index::rekeyNode(unsigned long long oldIndexId, unsigned long long newIndex
 	IndexNode* node = it->second;
 
 	//从旧的缓存键中移除
-	if (oldIndexId == 1604) printf("1604 is rekeyed to %llu!\n", newIndexId);
 	indexNodeCache.erase(it);
 
 	//插入到新的缓存键

@@ -33,22 +33,8 @@ unsigned long long IndexNode::getParentId()
 	return parentID;
 }
 
-#include <execinfo.h>
-#include <stdio.h>
-#include <stdlib.h>
-
 void IndexNode::setParentID(unsigned long long parentID)
 {
-	if (this->indexId == 4 && parentID == 1604) {
-		printf("Node 4 got parent 1604!\n");
-		void* callstack[128];
-		int frames = backtrace(callstack, 128);
-		char** strs = backtrace_symbols(callstack, frames);
-		for (int i = 0; i < frames; ++i) {
-			printf("%s\n", strs[i]);
-		}
-		free(strs);
-	}
 	this->parentID = parentID;
 }
 
@@ -1300,13 +1286,6 @@ unsigned short IndexNodeTypeTwo::getCutNodeSizeThreshold() const
 
 bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 {
-	if (indexId == 1604) {
-		unsigned long node_count = 0;
-		for (auto& value : children) {
-			if (value.second.childType == CHILD_TYPE_NODE) node_count++;
-		}
-		printf("Writing 1604 to binary! children size=%lu, node_count=%lu\n", children.size(), node_count);
-	}
 	short totalSize = 0;
 	char* p = buffer;
 	p += 2;

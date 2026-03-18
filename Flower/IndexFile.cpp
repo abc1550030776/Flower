@@ -168,10 +168,6 @@ pIndexNode->setGridNum((unsigned char)((len + 3 + SIZE_PER_INDEX_FILE_GRID - 1) 
 
 	free(buffer);
 
-	
-	if (indexId == 1604) {
-		printf("Loaded 1604 from disk! type=%d, len=%llu\n", pIndexNode->getType(), pIndexNode->getLen());
-	}
 	pIndexNode->setIndexId(indexId);
 	//加载完成了以后加入到索引节点里面
 	if (!pIndex->insert(indexId, pIndexNode))
@@ -377,9 +373,6 @@ bool IndexFile::flushNodeToDisk(unsigned long long indexId, IndexNode* pIndexNod
 //把某个节点写入到文件当中
 bool IndexFile::writeFile(unsigned long long& indexId, IndexNode* pIndexNode, char writeFileType)
 {
-	if (indexId == 4 || indexId == 1604) {
-		printf("writeFile called for indexId=%llu\n", indexId);
-	}
 	if (!prepareForWrite(indexId, pIndexNode, writeFileType))
 	{
 		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
