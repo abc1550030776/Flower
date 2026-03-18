@@ -641,6 +641,10 @@ bool IndexFile::writeEveryCache()
 				{
 					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 				}
+				for (auto indexId : entry.second)
+				{
+					modifiedIds.erase(indexId);
+				}
 			}
 		}
 	}
@@ -796,6 +800,10 @@ bool IndexFile::writeCacheWithoutRootIndex()
 				if (!pIndex->evictIndexNodesWithSamePreCmpLen(entry.first, entry.second))
 				{
 					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				}
+				for (auto indexId : entry.second)
+				{
+					modifiedIds.erase(indexId);
 				}
 			}
 		}
