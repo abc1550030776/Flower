@@ -258,9 +258,17 @@ LineAndColumn::LineAndColumn()
 {
 	lineNum = 0;
 	columnNum = 0;
+	endLineNum = 0;
+	endColumnNum = 0;
 }
 
-LineAndColumn::LineAndColumn(unsigned long long lineNum, unsigned long long columnNum) : lineNum(lineNum), columnNum(columnNum)
+LineAndColumn::LineAndColumn(unsigned long long lineNum, unsigned long long columnNum)
+	: lineNum(lineNum), columnNum(columnNum), endLineNum(lineNum), endColumnNum(columnNum)
+{}
+
+LineAndColumn::LineAndColumn(unsigned long long lineNum, unsigned long long columnNum,
+							 unsigned long long endLineNum, unsigned long long endColumnNum)
+	: lineNum(lineNum), columnNum(columnNum), endLineNum(endLineNum), endColumnNum(endColumnNum)
 {}
 
 unsigned long long LineAndColumn::GetLineNum()
@@ -271,6 +279,16 @@ unsigned long long LineAndColumn::GetLineNum()
 unsigned long long LineAndColumn::GetColumnNum()
 {
 	return columnNum;
+}
+
+unsigned long long LineAndColumn::GetEndLineNum()
+{
+	return endLineNum;
+}
+
+unsigned long long LineAndColumn::GetEndColumnNum()
+{
+	return endColumnNum;
 }
 
 /*static void* ThreadFun(void* arg)
