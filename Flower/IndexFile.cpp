@@ -1,21 +1,29 @@
 #include "IndexNode.h"
 #include <cstdlib>
+#include <unordered_map>
+#include <unordered_set>
 #include "BuildIndex.h"
 #include "UniqueGenerator.h"
 #include "common.h"
 #include "MemoryPool.h"
 
-IndexFile::IndexFile()
+IndexFile::IndexFile() : pBuildIndex(nullptr), buildType(0)
 {
 	pIndex = nullptr;
 	rootIndexId = 0;
+}
+
+void IndexFile::setBuildIndex(BuildIndex* buildIndex, unsigned char type)
+{
+	pBuildIndex = buildIndex;
+	buildType = type;
 }
 
 bool IndexFile::init(const char* fileName, Index* index)
 {
 	if (index == nullptr)
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	bool createIfNExist = true;
@@ -25,7 +33,7 @@ bool IndexFile::init(const char* fileName, Index* index)
 	}
 	if (!indexFile.init(fileName, createIfNExist))
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 	pIndex = index;
 	return true;
@@ -133,7 +141,7 @@ IndexNode* IndexFile::getIndexNode(unsigned long long indexId, unsigned char bui
 		free(buffer);
 		return nullptr;
 	}
-	pIndexNode->setGridNum((unsigned char)((len + 2 + SIZE_PER_INDEX_FILE_GRID) / SIZE_PER_INDEX_FILE_GRID));
+pIndexNode->setGridNum((unsigned char)((len + 3 + SIZE_PER_INDEX_FILE_GRID - 1) / SIZE_PER_INDEX_FILE_GRID));
 
 	//把二进制转成节点的里面的数据
 	if (!pIndexNode->toObject(p, len, buildType))
@@ -186,421 +194,196 @@ IndexNode* IndexFile::getIndexNode(unsigned long long indexId, unsigned char bui
 	return pIndexNode;
 }
 
-//获取临时节点
-IndexNode* IndexFile::getTempIndexNode(unsigned long long indexId)
+bool IndexFile::prepareForWrite(unsigned long long& indexId, IndexNode*& pIndexNode, char writeFileType)
 {
-	//判断是否已经初始化
-	if (pIndex == nullptr)
+	if (pBuildIndex != nullptr)
 	{
-		return nullptr;
+		if (!pBuildIndex->cutNodeSize(indexId, pIndexNode, buildType))
+		{
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+		}
+	}
+	if (pIndexNode == nullptr)
+	{
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
-	//先从缓存当中查找然后返回
-	IndexNode* pIndexNode = pIndex->getIndexNode(indexId);
-	if (pIndexNode != nullptr)
+	size_t payloadSize = pIndexNode->getExactPayloadSize();
+	size_t onDiskSize = payloadSize + 3;
+	if (onDiskSize <= pIndexNode->getGridNum() * SIZE_PER_INDEX_FILE_GRID)
 	{
-		//当前缓存当中存在的节点所以打一个标记
-		tempIndexNodeId.insert(indexId);
-		return pIndexNode;
+		//写入的时候发现只需要更小的存储空间就够了,多余的格子回收
+		if (onDiskSize <= (pIndexNode->getGridNum() - 1) * SIZE_PER_INDEX_FILE_GRID)
+		{
+			unsigned char newGridNum = (unsigned char)((onDiskSize + SIZE_PER_INDEX_FILE_GRID - 1) / SIZE_PER_INDEX_FILE_GRID);
+			pIndex->recycleNumber(indexId + newGridNum, (unsigned char)(pIndexNode->getGridNum() - newGridNum));
+			pIndexNode->setGridNum(newGridNum);
+		}
+		return true;
 	}
 
-	//从文件当中读取但是不放入缓存
+	unsigned char requiredGridNum = (unsigned char)((onDiskSize + SIZE_PER_INDEX_FILE_GRID - 1) / SIZE_PER_INDEX_FILE_GRID);
+	unsigned long long newIndexId = pIndex->acquireNumber(requiredGridNum);
+	std::vector<IndexNode*> acquiredNodes;
+	auto releaseAcquiredNodes = [&]() {
+		for (IndexNode* node : acquiredNodes)
+		{
+			if (node != nullptr)
+			{
+				putIndexNode(node);
+			}
+		}
+		acquiredNodes.clear();
+	};
 
-	//从文件当中把数据读取出来
+	//由于节点的id已经改变了所以也要把父节点对应的孩子节点id和孩子节点对应的父节点id修改
+	unsigned long long parentIndexId = pIndexNode->getParentId();
+	if (parentIndexId != 0)
+	{
+		IndexNode* parentNode = getIndexNode(parentIndexId, buildType);
+		if (parentNode == nullptr)
+		{
+			releaseAcquiredNodes();
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+		}
+
+		acquiredNodes.push_back(parentNode);
+
+		//修改父节点对应的子节点的id
+		if (!parentNode->changeChildIndexId(indexId, newIndexId))
+		{
+			printf("Failed to changeChildIndexId! parentId=%llu, child_to_find=%llu, new_child=%llu\n", parentIndexId, indexId, newIndexId);
+			// Print all children of the parent to see what it actually has
+			std::vector<unsigned long long> childIds;
+			parentNode->getAllChildNodeId(childIds);
+			printf("Parent has %lu child nodes: ", childIds.size());
+			for (auto cid : childIds) { printf("%llu ", cid); }
+			printf("\n");
+			printf("Parent node type=%d, len=%llu, start=%llu\n", parentNode->getType(), parentNode->getLen(), parentNode->getStart());
+
+			releaseAcquiredNodes();
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+		}
+		parentNode->setIsModified(true);
+	}
+
+	//修改所有子节点的父节点id
+	std::vector<unsigned long long> childIndexId;
+	pIndexNode->getAllChildNodeId(childIndexId);
+
+	//把所有的孩子节点的数据读取出来
+	std::vector<IndexNode*> childIndexNode;
+	for (auto& value : childIndexId)
+	{
+		IndexNode* childNode = getIndexNode(value, buildType);
+		if (childNode == nullptr)
+		{
+			releaseAcquiredNodes();
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+		}
+
+		acquiredNodes.push_back(childNode);
+		childIndexNode.push_back(childNode);
+	}
+
+	//把所有的孩子节点的父节点id改掉
+	for (auto& value : childIndexNode)
+	{
+		value->setParentID(newIndexId);
+		value->setIsModified(true);
+	}
+
+	releaseAcquiredNodes();
+
+	//写文件的时候改变了节点的id,可能改变的是根节点的id这个时候把根节点id也改掉
+	if (writeFileType == WRITE_FILE_CHECK_EVERY_ROOT)
+	{
+		if (rootIndexId == indexId)
+		{
+			rootIndexId = newIndexId;
+		}
+		else
+		{
+			if (!rootIndexIds.empty())
+			{
+				for (unsigned long i = 0; i < rootIndexIds.size(); ++i)
+				{
+					if (rootIndexIds[i] == indexId)
+					{
+						rootIndexIds[i] = newIndexId;
+						break;
+					}
+				}
+			}
+		}
+	}
+	else
+	{
+		//构建文件索引的时候把文件分成一块一块,构建完一块生成新的根节点先放到节点列表的最后面然后再写入所以最后那个节点是最新的
+		if (!rootIndexIds.empty())
+		{
+			if (rootIndexIds.back() == indexId)
+			{
+				rootIndexIds.back() = newIndexId;
+			}
+		}
+	}
+
+	//父节点还有所有的孩子节点的父节点id都改变了以后这个节点就是用新节点id了。
+	//创建了新的节点的id所以旧的节点的id就无效了放回去
+	pIndex->recycleNumber(indexId, pIndexNode->getGridNum());
+
+	//更新缓存中的键：旧id -> 新id
+	pIndex->rekeyNode(indexId, newIndexId);
+
+	indexId = newIndexId;
+	pIndexNode->setIndexId(indexId);
+	pIndexNode->setGridNum(requiredGridNum);
+	pIndexNode->setIsModified(true);
+
+	return true;
+}
+
+bool IndexFile::flushNodeToDisk(unsigned long long indexId, IndexNode* pIndexNode)
+{
 	char* buffer = (char*)malloc(MAX_SIZE_PER_INDEX_NODE);
-	if (buffer == nullptr)
+	char* p = buffer + 1;
+	bool ok = pIndexNode->toBinary(p, MAX_SIZE_PER_INDEX_NODE - 1);
+	if (!ok)
 	{
-		return nullptr;
+		free(buffer);
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
+	short len = *((short*)p);
 
-	//在文件当中的存储位置是用索引id * 4 * 1024来定的,有些存储的存储的比较大会大于4k
+	*((unsigned char*)buffer) = pIndexNode->getType();
 	unsigned long long pos;
 	pos = indexId * SIZE_PER_INDEX_FILE_GRID;
-	if (!indexFile.read(pos, buffer, 3))
+	if (!indexFile.write(pos, buffer, len + 3))
 	{
 		free(buffer);
-		return nullptr;
-	}
-
-	//根据不同的节点类型创建节点（使用内存池）
-	IndexNodePoolManager& poolManager = pIndex->getPoolManager();
-	char* p = buffer;
-	switch (*((unsigned char*)p))
-	{
-	case NODE_TYPE_ONE:
-		pIndexNode = poolManager.getPoolTypeOne().allocate();
-		break;
-	case NODE_TYPE_TWO:
-		pIndexNode = poolManager.getPoolTypeTwo().allocate();
-		break;
-	case NODE_TYPE_THREE:
-		pIndexNode = poolManager.getPoolTypeThree().allocate();
-		break;
-	case NODE_TYPE_FOUR:
-		pIndexNode = poolManager.getPoolTypeFour().allocate();
-		break;
-	default:
-		free(buffer);
-		return nullptr;
-	}
-	p++;
-	unsigned short len = *((unsigned short*)p);
-	p += 2;
-
-	if (len > MAX_SIZE_PER_INDEX_NODE - 3)
-	{
-		// 使用内存池释放
-		switch (*((unsigned char*)buffer))
-		{
-		case NODE_TYPE_ONE:
-			poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(pIndexNode));
-			break;
-		case NODE_TYPE_TWO:
-			poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(pIndexNode));
-			break;
-		case NODE_TYPE_THREE:
-			poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(pIndexNode));
-			break;
-		case NODE_TYPE_FOUR:
-			poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(pIndexNode));
-			break;
-		}
-		free(buffer);
-		return nullptr;
-	}
-
-	//把剩下的字节给读取出来
-	pos = indexId * SIZE_PER_INDEX_FILE_GRID + 3;
-	if (!indexFile.read(pos, &buffer[3], len))
-	{
-		// 使用内存池释放
-		switch (*((unsigned char*)buffer))
-		{
-		case NODE_TYPE_ONE:
-			poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(pIndexNode));
-			break;
-		case NODE_TYPE_TWO:
-			poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(pIndexNode));
-			break;
-		case NODE_TYPE_THREE:
-			poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(pIndexNode));
-			break;
-		case NODE_TYPE_FOUR:
-			poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(pIndexNode));
-			break;
-		}
-		free(buffer);
-		return nullptr;
-	}
-	pIndexNode->setGridNum((unsigned char)((len + 2 + SIZE_PER_INDEX_FILE_GRID) / SIZE_PER_INDEX_FILE_GRID));
-
-	//把二进制转成节点的里面的数据
-	if (!pIndexNode->toObject(p, len))
-	{
-		// 使用内存池释放
-		switch (*((unsigned char*)buffer))
-		{
-		case NODE_TYPE_ONE:
-			poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(pIndexNode));
-			break;
-		case NODE_TYPE_TWO:
-			poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(pIndexNode));
-			break;
-		case NODE_TYPE_THREE:
-			poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(pIndexNode));
-			break;
-		case NODE_TYPE_FOUR:
-			poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(pIndexNode));
-			break;
-		}
-		free(buffer);
-		return nullptr;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	free(buffer);
-
-	pIndexNode->setIndexId(indexId);
-
-	return pIndexNode;
+	pIndexNode->setIsModified(false);
+	return true;
 }
 
 //把某个节点写入到文件当中
-bool IndexFile::writeFile(unsigned long long indexId, IndexNode* pIndexNode, char writeFileType)
+bool IndexFile::writeFile(unsigned long long& indexId, IndexNode* pIndexNode, char writeFileType)
 {
-	if (pIndexNode == nullptr)
+	if (!prepareForWrite(indexId, pIndexNode, writeFileType))
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
-	//判断节点是否是已经修改过了的
+
 	if (!pIndexNode->getIsModified())
 	{
 		return true;
 	}
 
-	char* buffer = (char*)malloc(MAX_SIZE_PER_INDEX_NODE);
-	char* p = buffer + 1;
-	bool ok = pIndexNode->toBinary(p, MAX_SIZE_PER_INDEX_NODE - 1);
-	if (!ok)
-	{
-		free(buffer);
-		return false;
-	}
-	short len = *((short*)p);
-	if ((len + 3) > (pIndexNode->getGridNum() * SIZE_PER_INDEX_FILE_GRID))
-	{
-		std::vector<unsigned long long> indexIdVec;
-		std::vector<IndexNode*> indexNodeVec;
-		//节点的大小比本来要存储使用的格子的大小还要大这个时候换一个可以保存相应大小的id
-		unsigned long long newIndexId = pIndex->acquireNumber((unsigned char)((len + 2 + SIZE_PER_INDEX_FILE_GRID) / SIZE_PER_INDEX_FILE_GRID));
-
-		//由于节点的id已经改变了所以也要把父节点对应的孩子节点id和孩子节点对应的父节点id修改
-		
-		//由于这里是临时拿数据的也就是说拿出来了以后要立马放回去的
-		unsigned long long parentIndexId = pIndexNode->getParentId();
-		if (parentIndexId != 0)
-		{
-			IndexNode* pTempIndexNode = getTempIndexNode(parentIndexId);
-			if (pTempIndexNode == nullptr)
-			{
-				for (unsigned int i = 0; i < indexIdVec.size(); ++i)
-				{
-					writeTempFile(indexIdVec[i], indexNodeVec[i]);
-				}
-				free(buffer);
-				return false;
-			}
-
-			indexIdVec.push_back(parentIndexId);
-			indexNodeVec.push_back(pTempIndexNode);
-			
-			//修改父节点对应的子节点的id
-			if (!pTempIndexNode->changeChildIndexId(indexId, newIndexId))
-			{
-				for (unsigned int i = 0; i < indexIdVec.size(); ++i)
-				{
-					writeTempFile(indexIdVec[i], indexNodeVec[i]);
-				}
-				free(buffer);
-				return false;
-			}
-		}
-
-		//修改所有子节点的父节点id
-
-		//先把所有的子节点id找出来
-		std::vector<unsigned long long> childIndexId;
-		pIndexNode->getAllChildNodeId(childIndexId);
-
-		//把所有的孩子节点的数据读取出来
-		std::vector< IndexNode*> childIndexNode;
-		for (auto& value : childIndexId)
-		{
-			IndexNode* childNode = getTempIndexNode(value);
-			if (childNode == nullptr)
-			{
-				for (unsigned int i = 0; i < indexIdVec.size(); ++i)
-				{
-					writeTempFile(indexIdVec[i], indexNodeVec[i]);
-				}
-				free(buffer);
-				return false;
-			}
-
-			indexIdVec.push_back(value);
-			indexNodeVec.push_back(childNode);
-			childIndexNode.push_back(childNode);
-		}
-
-		//把所有的孩子节点的父节点id改掉
-		for (auto& value : childIndexNode)
-		{
-			value->setParentID(newIndexId);
-		}
-
-		//把所有临时打开的文件保存回去
-		for (unsigned int i = 0; i < indexIdVec.size(); ++i)
-		{
-			writeTempFile(indexIdVec[i], indexNodeVec[i]);
-		}
-
-		//写文件的时候改变了节点的id,可能改变的是根节点的id这个时候把根节点id也改掉
-		if (writeFileType == WRITE_FILE_CHECK_EVERY_ROOT)
-		{
-			if (rootIndexId == indexId)
-			{
-				rootIndexId = newIndexId;
-			}
-			else
-			{
-				if (!rootIndexIds.empty())
-				{
-					for (unsigned long i = 0; i < rootIndexIds.size(); ++i)
-					{
-						if (rootIndexIds[i] == indexId)
-						{
-							rootIndexIds[i] = newIndexId;
-							break;
-						}
-					}
-				}
-			}
-		}
-		else
-		{
-			//构建文件索引的时候把文件分成一块一块,构建完一块生成新的根节点先放到节点列表的最后面然后再写入所以最后那个节点是最新的
-			if (!rootIndexIds.empty())
-			{
-				if (rootIndexIds.back() == indexId)
-				{
-					rootIndexIds.back() = newIndexId;
-				}
-			}
-		}
-		//父节点还有所有的孩子节点的父节点id都改变了以后这个节点就是用新节点id了。
-		//创建了新的节点的id所以旧的节点的id就无效了放回去
-		pIndex->recycleNumber(indexId, pIndexNode->getGridNum());
-		indexId = newIndexId;
-		pIndexNode->setIndexId(indexId);
-	}
-	else
-	{
-		//不改变indexid写盘记录到已经写入硬盘的记录里面
-		writeDiskIds.insert(indexId);
-		if ((len + 3) <= ((pIndexNode->getGridNum() - 1) * SIZE_PER_INDEX_FILE_GRID))
-		{
-			//写入的时候发现只需要更小的存储空间就够了,但是从硬盘里面读出来的时候是超过当前的大小,大于原本大小的部分已经不需要了把一个id回收
-			unsigned char newGridNum = (unsigned char)((len + 2 + SIZE_PER_INDEX_FILE_GRID) / SIZE_PER_INDEX_FILE_GRID);
-			pIndex->recycleNumber(indexId + newGridNum, (unsigned char)(pIndexNode->getGridNum() - newGridNum));
-			pIndexNode->setGridNum(newGridNum);
-		}
-	}
-
-	//把这个节点的数据写进磁盘里面
-	*((unsigned char*)buffer) = pIndexNode->getType();
-	unsigned long long pos;
-	pos = indexId * SIZE_PER_INDEX_FILE_GRID;
-	if (!indexFile.write(pos, buffer, len + 3))
-	{
-		free(buffer);
-		return false;
-	}
-
-	free(buffer);
-	return true;
-}
-
-bool IndexFile::writeTempFile(unsigned long long indexId, IndexNode* pIndexNode)
-{
-	if (pIndexNode == nullptr)
-	{
-		return false;
-	}
-	//首先检查下缓存是否已经有了
-	auto it = tempIndexNodeId.find(indexId);
-	if (it != end(tempIndexNodeId))
-	{
-		//之前已经写入硬盘的后面会直接从缓存删除现在又有修改所以记录下来在后面一次性写入
-		if (writeDiskIds.count(indexId) == 1)
-		{
-			laterWriteNodes.insert(pIndexNode);
-		}
-		pIndexNode->setIsModified(true);
-		tempIndexNodeId.erase(it);
-		return true;
-	}
-
-	//把数据写入文件当中
-	char* buffer = (char*)malloc(MAX_SIZE_PER_INDEX_NODE);
-	char* p = buffer + 1;
-	bool ok = pIndexNode->toBinary(p, MAX_SIZE_PER_INDEX_NODE - 1);
-	if (!ok)
-	{
-		free(buffer);
-		// 使用内存池释放
-		IndexNodePoolManager& poolManager = pIndex->getPoolManager();
-		switch (pIndexNode->getType())
-		{
-		case NODE_TYPE_ONE:
-			poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(pIndexNode));
-			break;
-		case NODE_TYPE_TWO:
-			poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(pIndexNode));
-			break;
-		case NODE_TYPE_THREE:
-			poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(pIndexNode));
-			break;
-		case NODE_TYPE_FOUR:
-			poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(pIndexNode));
-			break;
-		}
-		return false;
-	}
-
-	//由于读取临时文件的时候只是对里面的id字段进行了改动所以大小是不会有改变的直接存入到文件里面就可以了
-
-	//根据类型填写相应类型的字段
-	*((unsigned char*)buffer) = pIndexNode->getType();
-	short len = *((short*)p);
-	unsigned long long pos;
-	pos = indexId * SIZE_PER_INDEX_FILE_GRID;
-	if (!indexFile.write(pos, buffer, len + 3))
-	{
-		free(buffer);
-		// 使用内存池释放
-		IndexNodePoolManager& poolManager = pIndex->getPoolManager();
-		switch (pIndexNode->getType())
-		{
-		case NODE_TYPE_ONE:
-			poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(pIndexNode));
-			break;
-		case NODE_TYPE_TWO:
-			poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(pIndexNode));
-			break;
-		case NODE_TYPE_THREE:
-			poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(pIndexNode));
-			break;
-		case NODE_TYPE_FOUR:
-			poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(pIndexNode));
-			break;
-		}
-		return false;
-	}
-	
-	//写入完成了以后堆内存进行释放（使用内存池）
-	free(buffer);
-	IndexNodePoolManager& poolManager = pIndex->getPoolManager();
-	switch (pIndexNode->getType())
-	{
-	case NODE_TYPE_ONE:
-		poolManager.getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(pIndexNode));
-		break;
-	case NODE_TYPE_TWO:
-		poolManager.getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(pIndexNode));
-		break;
-	case NODE_TYPE_THREE:
-		poolManager.getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(pIndexNode));
-		break;
-	case NODE_TYPE_FOUR:
-		poolManager.getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(pIndexNode));
-		break;
-	}
-	return true;
-}
-
-bool IndexFile::writeEveryLaterWriteNodes()
-{
-	for (auto& value : laterWriteNodes)
-	{
-		if (!writeFile(value->getIndexId(), value))
-		{
-			return false;
-		}
-	}
-
-	//所有的后来写入的节点都已经写入后清空两个辅助的容器
-	writeDiskIds.clear();
-	laterWriteNodes.clear();
-	return true;
+	return flushNodeToDisk(indexId, pIndexNode);
 }
 
 //缓存维持一个大小不要太大
@@ -608,7 +391,7 @@ bool IndexFile::reduceCache()
 {
 	if (pIndex == nullptr)
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	//根据使用的方法减少内存搜索的时候是不需要写如硬盘的所以直接清除缓存就可以了
@@ -616,7 +399,7 @@ bool IndexFile::reduceCache()
 	{
 		if (!pIndex->reduceCache())
 		{
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 	}
 	else
@@ -639,7 +422,7 @@ bool IndexFile::reduceCache()
 		// 先把所有缓存写盘
 		if (!writeEveryCache())
 		{
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 		
 		// 清空该实例的内存池，释放内存回系统
@@ -660,36 +443,22 @@ bool IndexFile::reduceCache()
 		// 部分清理：内存有点低（10% - 40%），清理70%的缓存
 		unsigned long needReduceNum = (unsigned long)((double)pIndex->size() * PARTIAL_CLEANUP_RATIO_BUILD);
 
-		//把优先级最低的那些节点取出来。
-		std::vector<unsigned long long> indexIdVec;
-		std::vector<IndexNode*> indexNodeVec;
-		indexIdVec.reserve(needReduceNum);
-		indexNodeVec.reserve(needReduceNum);
-
-		if (!pIndex->getLastNodes(needReduceNum, indexIdVec, indexNodeVec))
+		//逐个从末尾取最低优先级节点，写盘后驱逐，每次迭代基于当前缓存状态
+		unsigned long long indexId;
+		IndexNode* pIndexNode;
+		unsigned long count = 0;
+		while (count < needReduceNum && pIndex->getLastNodeIdAndNode(indexId, pIndexNode))
 		{
-			return false;
-		}
-
-		//把所有需要减少的节点全部写盘
-		for (unsigned int i = 0; i < needReduceNum; ++i)
-		{
-			if (!writeFile(indexIdVec[i], indexNodeVec[i]))
+			if (pIndexNode->getIsModified())
 			{
-				return false;
+				if (!writeFile(indexId, pIndexNode))
+				{
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				}
 			}
-		}
 
-		//前面写入文件后有些修改了id的改变了其他的也要写盘的节点这些后来还要继续写盘才能删除
-		if (!writeEveryLaterWriteNodes())
-		{
-			return false;
-		}
-
-		//减少索引里面的相应数量的数据
-		if (!pIndex->reduceCache(needReduceNum))
-		{
-			return false;
+			pIndex->evictIndexNode(indexId);
+			++count;
 		}
 	}
 	return true;
@@ -699,7 +468,7 @@ bool IndexFile::changePreCmpLen(unsigned long long indexId, unsigned long long o
 {
 	if (pIndex == nullptr)
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	return pIndex->changePreCmpLen(indexId, orgPreCmpLen, newPreCmpLen);
@@ -709,12 +478,12 @@ bool IndexFile::swapNode(unsigned long long indexId, IndexNode* newNode)
 {
 	if (pIndex == nullptr)
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	if (newNode == nullptr)
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	return pIndex->swapNode(indexId, newNode);
@@ -734,7 +503,7 @@ bool IndexFile::deleteIndexNode(unsigned long long indexId)
 {
 	if (pIndex == nullptr)
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	return pIndex->deleteIndexNode(indexId);
@@ -760,51 +529,142 @@ unsigned long long IndexFile::getRootIndexId()
 	return rootIndexId;
 }
 
-bool IndexFile::writeEveryCache()																	//把缓存当中的数据全部写盘
+bool IndexFile::writeEveryCache()
 {
 	if (pIndex == nullptr)
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
-	unsigned long size = pIndex->size();
+	std::vector<unsigned long long> batchIds;
+	unsigned long long currentPreCmpLen = 0;
+	unsigned long long cursor = 0;
+	std::unordered_set<unsigned long long> modifiedIds;
+	bool isKv = (buildType == BUILD_TYPE_KV);
 
-	std::vector<unsigned long long> indexIdVec;
-	std::vector<IndexNode*> indexNodeVec;
-	indexIdVec.reserve(size);
-	indexNodeVec.reserve(size);
-
-	if (!pIndex->getLastNodes(size, indexIdVec, indexNodeVec))
+	while (pIndex->getModifiedNodeIdsWithSamePreCmpLen(batchIds, currentPreCmpLen, cursor))
 	{
-		return false;
-	}
+		cursor = currentPreCmpLen + 1;
 
-	//把所有需要减少的节点全部写盘
-	for (unsigned long i = 0; i < size; ++i)
-	{
-		if (!writeFile(indexIdVec[i], indexNodeVec[i]))
+		std::vector<unsigned long long> processedIds;
+		processedIds.reserve(batchIds.size());
+		std::unordered_set<unsigned long long> parentsToEvict;
+		std::unordered_set<unsigned long long> leavesToEvict;
+		for (unsigned long long indexId : batchIds)
 		{
-			return false;
+			IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
+			if (pIndexNode != nullptr && pIndexNode->getIsModified())
+			{
+				unsigned long long originalIndexId = indexId;
+				if (!prepareForWrite(indexId, pIndexNode, WRITE_FILE_CHECK_EVERY_ROOT))
+				{
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				}
+				modifiedIds.insert(indexId);
+				if (indexId != originalIndexId)
+				{
+					unsigned long long parentId = pIndexNode->getParentId();
+					if (parentId != 0)
+					{
+						modifiedIds.insert(parentId);
+					}
+				}
+			}
+			processedIds.push_back(indexId);
+		}
+
+		if (isKv)
+		{
+			std::vector<unsigned long long> childNodeIds;
+			for (unsigned long long indexId : processedIds)
+			{
+				IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
+				if (pIndexNode == nullptr) continue;
+				unsigned long long parentId = pIndexNode->getParentId();
+				if (parentId != 0)
+				{
+					parentsToEvict.insert(parentId);
+				}
+				childNodeIds.clear();
+				pIndexNode->getAllChildNodeId(childNodeIds);
+				if (childNodeIds.empty())
+				{
+					leavesToEvict.insert(indexId);
+				}
+			}
+
+			std::unordered_map<unsigned long long, std::unordered_set<unsigned long long>> evictGroups;
+			auto queueEvict = [&](unsigned long long indexId) -> bool {
+				IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
+				if (pIndexNode == nullptr) return true;
+				auto& bucket = evictGroups[pIndexNode->getPreCmpLen()];
+				if (!bucket.insert(indexId).second)
+				{
+					return true;
+				}
+				if (pIndexNode->getIsModified())
+				{
+					if (!flushNodeToDisk(indexId, pIndexNode))
+					{
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+					}
+				}
+				return true;
+			};
+
+			for (unsigned long long parentId : parentsToEvict)
+			{
+				if (!queueEvict(parentId))
+				{
+					return false;
+				}
+			}
+
+			for (unsigned long long indexId : leavesToEvict)
+			{
+				if (!queueEvict(indexId))
+				{
+					return false;
+				}
+			}
+
+			for (auto& entry : evictGroups)
+			{
+				if (!pIndex->evictIndexNodesWithSamePreCmpLen(entry.first, entry.second))
+				{
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				}
+				for (auto indexId : entry.second)
+				{
+					modifiedIds.erase(indexId);
+				}
+			}
 		}
 	}
 
-	if (!writeEveryLaterWriteNodes())
+	for (unsigned long long indexId : modifiedIds)
 	{
-		return false;
+		IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
+		if (pIndexNode != nullptr && pIndexNode->getIsModified())
+		{
+			if (!flushNodeToDisk(indexId, pIndexNode))
+			{
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+			}
+		}
 	}
 
 	pIndex->clearCache();
 
-	//把根节点的id写入到文件开头
 	unsigned long long pos;
 	pos = 0;
 	if (!indexFile.write(pos, &rootIndexId, 8))
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 	if (!indexFile.sync())
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 	return true;
 }
@@ -813,7 +673,7 @@ bool IndexFile::putIndexNode(IndexNode* indexNode)
 {
 	if (pIndex == nullptr)
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
 	return pIndex->putIndexNode(indexNode);
@@ -833,41 +693,132 @@ bool IndexFile::writeCacheWithoutRootIndex()
 {
 	if (pIndex == nullptr)
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
-	unsigned long size = pIndex->size();
+	std::vector<unsigned long long> batchIds;
+	unsigned long long currentPreCmpLen = 0;
+	unsigned long long cursor = 0;
+	std::unordered_set<unsigned long long> modifiedIds;
+	bool isKv = (buildType == BUILD_TYPE_KV);
 
-	std::vector<unsigned long long> indexIdVec;
-	std::vector<IndexNode*> indexNodeVec;
-	indexIdVec.reserve(size);
-	indexNodeVec.reserve(size);
-
-	if (!pIndex->getLastNodes(size, indexIdVec, indexNodeVec))
+	while (pIndex->getModifiedNodeIdsWithSamePreCmpLen(batchIds, currentPreCmpLen, cursor))
 	{
-		return false;
-	}
+		cursor = currentPreCmpLen + 1;
 
-	//把所有需要减少的节点全部写盘
-	for (unsigned long i = 0; i < size; ++i)
-	{
-		if (!writeFile(indexIdVec[i], indexNodeVec[i], WRITE_FILE_CHECK_NEW_ROOT))
+		std::vector<unsigned long long> processedIds;
+		processedIds.reserve(batchIds.size());
+		std::unordered_set<unsigned long long> parentsToEvict;
+		std::unordered_set<unsigned long long> leavesToEvict;
+		for (unsigned long long indexId : batchIds)
 		{
-			return false;
+			IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
+			if (pIndexNode != nullptr && pIndexNode->getIsModified())
+			{
+				unsigned long long originalIndexId = indexId;
+				if (!prepareForWrite(indexId, pIndexNode, WRITE_FILE_CHECK_NEW_ROOT))
+				{
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				}
+				modifiedIds.insert(indexId);
+				if (indexId != originalIndexId)
+				{
+					unsigned long long parentId = pIndexNode->getParentId();
+					if (parentId != 0)
+					{
+						modifiedIds.insert(parentId);
+					}
+				}
+			}
+			processedIds.push_back(indexId);
+		}
+
+		if (isKv)
+		{
+			std::vector<unsigned long long> childNodeIds;
+			for (unsigned long long indexId : processedIds)
+			{
+				IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
+				if (pIndexNode == nullptr) continue;
+				unsigned long long parentId = pIndexNode->getParentId();
+				if (parentId != 0)
+				{
+					parentsToEvict.insert(parentId);
+				}
+				childNodeIds.clear();
+				pIndexNode->getAllChildNodeId(childNodeIds);
+				if (childNodeIds.empty())
+				{
+					leavesToEvict.insert(indexId);
+				}
+			}
+
+			std::unordered_map<unsigned long long, std::unordered_set<unsigned long long>> evictGroups;
+			auto queueEvict = [&](unsigned long long indexId) -> bool {
+				IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
+				if (pIndexNode == nullptr) return true;
+				auto& bucket = evictGroups[pIndexNode->getPreCmpLen()];
+				if (!bucket.insert(indexId).second)
+				{
+					return true;
+				}
+				if (pIndexNode->getIsModified())
+				{
+					if (!flushNodeToDisk(indexId, pIndexNode))
+					{
+						printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+					}
+				}
+				return true;
+			};
+
+			for (unsigned long long parentId : parentsToEvict)
+			{
+				if (!queueEvict(parentId))
+				{
+					return false;
+				}
+			}
+
+			for (unsigned long long indexId : leavesToEvict)
+			{
+				if (!queueEvict(indexId))
+				{
+					return false;
+				}
+			}
+
+			for (auto& entry : evictGroups)
+			{
+				if (!pIndex->evictIndexNodesWithSamePreCmpLen(entry.first, entry.second))
+				{
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				}
+				for (auto indexId : entry.second)
+				{
+					modifiedIds.erase(indexId);
+				}
+			}
 		}
 	}
 
-	if (!writeEveryLaterWriteNodes())
+	for (unsigned long long indexId : modifiedIds)
 	{
-		return false;
+		IndexNode* pIndexNode = pIndex->getCacheNode(indexId);
+		if (pIndexNode != nullptr && pIndexNode->getIsModified())
+		{
+			if (!flushNodeToDisk(indexId, pIndexNode))
+			{
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+			}
+		}
 	}
 
 	pIndex->clearCache();
 
-	//后面创建的节点不会和前面节点有关系所以这里同步一次磁盘减少缓存
 	if (!indexFile.sync())
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 	return true;
 }
@@ -894,16 +845,21 @@ bool IndexFile::writeEveryRootIndexId()
 	pos = 0;
 	if (!indexFile.write(pos, &size, 8))
 	{
-		return false;
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 	if (size > 0) {
 		pos = 8;
 		if (!indexFile.write(pos, &(rootIndexIds[0]), 8 * size))
 		{
-			return false;
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
 	}
 	return true;
+}
+
+const std::vector<unsigned long long>& IndexFile::getRootIndexIds() const
+{
+	return rootIndexIds;
 }
 
 unsigned long long IndexFile::getRootIndexIdByOrder(unsigned long rootOrder)

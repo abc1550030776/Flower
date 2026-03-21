@@ -7,6 +7,7 @@
 Index::Index()
 {
 	useType = USE_TYPE_SEARCH;
+	externalGenerator = nullptr;
 	rwLock.Ptr = 0;
 	poolManager = new IndexNodePoolManager();
 }
@@ -14,6 +15,15 @@ Index::Index()
 Index::Index(unsigned char useType)
 {
 	this->useType = useType;
+	externalGenerator = nullptr;
+	rwLock.Ptr = 0;
+	poolManager = new IndexNodePoolManager();
+}
+
+Index::Index(unsigned char useType, UniqueGenerator* externalGenerator)
+{
+	this->useType = useType;
+	this->externalGenerator = externalGenerator;
 	rwLock.Ptr = 0;
 	poolManager = new IndexNodePoolManager();
 }
@@ -80,113 +90,21 @@ unsigned long Index::size()
 	return indexNodeCache.size();
 }
 
-bool Index::getLastNodes(unsigned long num, std::vector<unsigned long long>& indexIdVec, std::vector<IndexNode*>& indexNodeVec)
+bool Index::getLastNodeIdAndNode(unsigned long long& indexId, IndexNode*& pIndexNode)
 {
-	if (indexNodeCache.size() < num)
+	if (IndexIdPreority.empty())
 	{
 		return false;
 	}
-	auto it = end(IndexIdPreority);
-	for (unsigned int i = 0; i < num; ++i)
-	{
-		--it;
-		auto cacheIt = indexNodeCache.find(it->second);
-		if (cacheIt == end(indexNodeCache))
-		{
-			return false;
-		}
-		indexIdVec.push_back(it->second);
-		indexNodeVec.push_back(cacheIt->second);
-	}
-	return true;
-}
-
-bool Index::reduceCache(unsigned long needReduceNum)
-{
-	// 获取锁，确保线程安全
-	UniqueLock lock(&rwLock);
-
-	if (indexNodeCache.size() < needReduceNum)
-	{
-		return false;
-	}
-
-	// 优化：使用vector预分配空间，减少内存分配开销
-	std::vector<IndexNode*> nodesToDelete;
-	nodesToDelete.reserve(needReduceNum);
-
-	// 创建一个vector来存储需要删除的indexId，避免重复查找
-	std::vector<unsigned long long> indexIdsToRemove;
-	indexIdsToRemove.reserve(needReduceNum);
-
-	auto it = end(IndexIdPreority);
+	auto it = IndexIdPreority.end();
 	--it;
-
-	for (unsigned int i = 0; i < needReduceNum && it != begin(IndexIdPreority); ++i)
+	indexId = it->second;
+	auto cacheIt = indexNodeCache.find(indexId);
+	if (cacheIt == end(indexNodeCache))
 	{
-		auto curIt = it--;
-		auto cacheIt = indexNodeCache.find(curIt->second);
-
-		if (cacheIt != end(indexNodeCache) && cacheIt->second->isZeroRef())
-		{
-			// 收集需要删除的节点和indexId
-			nodesToDelete.push_back(cacheIt->second);
-			indexIdsToRemove.push_back(curIt->second);
-		}
+		return false;
 	}
-
-	// 从缓存中删除（使用indexId直接查找，避免嵌套循环）
-	for (unsigned long long indexId : indexIdsToRemove)
-	{
-		auto cacheIt = indexNodeCache.find(indexId);
-		if (cacheIt != end(indexNodeCache))
-		{
-			indexNodeCache.erase(cacheIt);
-		}
-	}
-
-	// 从优先级容器中删除（需要重新查找，因为迭代器可能已失效）
-	// 优化：直接清理旧的优先级项（可能有一些已经被删除的项）
-	// 这是一个简化处理，性能权衡
-	auto priorityIt = begin(IndexIdPreority);
-	while (priorityIt != end(IndexIdPreority))
-	{
-		bool found = false;
-		for (unsigned long long indexId : indexIdsToRemove)
-		{
-			if (priorityIt->second == indexId)
-			{
-				priorityIt = IndexIdPreority.erase(priorityIt);
-				found = true;
-				break;
-			}
-		}
-		if (!found)
-		{
-			++priorityIt;
-		}
-	}
-
-	// 释放节点内存（在锁保护下进行，避免竞争）
-	for (IndexNode* node : nodesToDelete)
-	{
-		switch (node->getType())
-		{
-		case NODE_TYPE_ONE:
-			poolManager->getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(node));
-			break;
-		case NODE_TYPE_TWO:
-			poolManager->getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(node));
-			break;
-		case NODE_TYPE_THREE:
-			poolManager->getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(node));
-			break;
-		case NODE_TYPE_FOUR:
-			poolManager->getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(node));
-			break;
-		}
-	}
-
+	pIndexNode = cacheIt->second;
 	return true;
 }
 
@@ -358,8 +276,8 @@ IndexNode* Index::newIndexNode(unsigned char nodeType, unsigned long long preCmp
 		return nullptr;
 	}
 
-	//获取新创建的节点的id
-	unsigned long long indexId = generator.acquireNumber(1);
+	//获取新创建的节点的id（通过wrapper方法支持外部共享generator）
+	unsigned long long indexId = acquireNumber(1);
 
 	//将新创建的节点插入到缓存当中
 	bool ok = indexNodeCache.insert({ indexId, pNode }).second;
@@ -419,7 +337,7 @@ bool Index::deleteIndexNode(unsigned long long indexId)
 		return false;
 	}
 
-	generator.recycleNumber(indexId, it->second->getGridNum());
+	recycleNumber(indexId, it->second->getGridNum());
 
 	// 使用内存池释放
 	IndexNode* node = it->second;
@@ -440,6 +358,149 @@ bool Index::deleteIndexNode(unsigned long long indexId)
 	}
 	indexNodeCache.erase(it);
 	IndexIdPreority.erase(ipIt);
+	return true;
+}
+
+bool Index::evictIndexNode(unsigned long long indexId)
+{
+	auto it = indexNodeCache.find(indexId);
+	if (it == end(indexNodeCache))
+	{
+		return false;
+	}
+
+	auto range = IndexIdPreority.equal_range(it->second->getPreCmpLen());
+	auto ipIt = range.first;
+	for (; ipIt != range.second; ++ipIt)
+	{
+		if (ipIt->second == indexId)
+		{
+			break;
+		}
+	}
+
+	if (ipIt == range.second)
+	{
+		return false;
+	}
+
+	// 使用内存池释放（不回收ID）
+	IndexNode* node = it->second;
+	switch (node->getType())
+	{
+	case NODE_TYPE_ONE:
+		poolManager->getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(node));
+		break;
+	case NODE_TYPE_TWO:
+		poolManager->getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(node));
+		break;
+	case NODE_TYPE_THREE:
+		poolManager->getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(node));
+		break;
+	case NODE_TYPE_FOUR:
+		poolManager->getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(node));
+		break;
+	}
+	indexNodeCache.erase(it);
+	IndexIdPreority.erase(ipIt);
+	return true;
+}
+
+bool Index::evictIndexNodesWithSamePreCmpLen(unsigned long long preCmpLen, const std::unordered_set<unsigned long long>& indexIds)
+{
+	if (indexIds.empty())
+	{
+		return true;
+	}
+
+	for (auto indexId : indexIds)
+	{
+		auto cacheIt = indexNodeCache.find(indexId);
+		if (cacheIt == end(indexNodeCache))
+		{
+			return false;
+		}
+		if (cacheIt->second == nullptr || cacheIt->second->getPreCmpLen() != preCmpLen)
+		{
+			return false;
+		}
+	}
+
+	auto range = IndexIdPreority.equal_range(preCmpLen);
+	size_t removed = 0;
+	for (auto it = range.first; it != range.second; )
+	{
+		if (indexIds.count(it->second) == 0)
+		{
+			++it;
+			continue;
+		}
+
+		auto cacheIt = indexNodeCache.find(it->second);
+		if (cacheIt == end(indexNodeCache))
+		{
+			return false;
+		}
+
+		IndexNode* node = cacheIt->second;
+		switch (node->getType())
+		{
+		case NODE_TYPE_ONE:
+			poolManager->getPoolTypeOne().deallocate(static_cast<IndexNodeTypeOne*>(node));
+			break;
+		case NODE_TYPE_TWO:
+			poolManager->getPoolTypeTwo().deallocate(static_cast<IndexNodeTypeTwo*>(node));
+			break;
+		case NODE_TYPE_THREE:
+			poolManager->getPoolTypeThree().deallocate(static_cast<IndexNodeTypeThree*>(node));
+			break;
+		case NODE_TYPE_FOUR:
+			poolManager->getPoolTypeFour().deallocate(static_cast<IndexNodeTypeFour*>(node));
+			break;
+		}
+		indexNodeCache.erase(cacheIt);
+		it = IndexIdPreority.erase(it);
+		++removed;
+	}
+
+	return removed == indexIds.size();
+}
+
+bool Index::rekeyNode(unsigned long long oldIndexId, unsigned long long newIndexId)
+{
+	auto it = indexNodeCache.find(oldIndexId);
+	if (it == end(indexNodeCache))
+	{
+		return false;
+	}
+
+	IndexNode* node = it->second;
+
+	//从旧的缓存键中移除
+	indexNodeCache.erase(it);
+
+	//插入到新的缓存键
+	auto pair = indexNodeCache.insert({ newIndexId, node });
+	if (!pair.second)
+	{
+		//新id已存在，恢复旧entry
+		indexNodeCache.insert({ oldIndexId, node });
+		return false;
+	}
+
+	//更新IndexIdPreority
+	unsigned long long preCmpLen = node->getPreCmpLen();
+	auto range = IndexIdPreority.equal_range(preCmpLen);
+	for (auto ipIt = range.first; ipIt != range.second; ++ipIt)
+	{
+		if (ipIt->second == oldIndexId)
+		{
+			IndexIdPreority.erase(ipIt);
+			IndexIdPreority.insert({ preCmpLen, newIndexId });
+			break;
+		}
+	}
+
 	return true;
 }
 
@@ -521,12 +582,17 @@ bool Index::putIndexNode(IndexNode* indexNode)
 
 unsigned long long Index::acquireNumber(unsigned char numCount)
 {
+	if (externalGenerator != nullptr)
+		return externalGenerator->acquireNumber(numCount);
 	return generator.acquireNumber(numCount);
 }
 
 void Index::recycleNumber(unsigned long long indexId, unsigned char numCount)
 {
-	generator.recycleNumber(indexId, numCount);
+	if (externalGenerator != nullptr)
+		externalGenerator->recycleNumber(indexId, numCount);
+	else
+		generator.recycleNumber(indexId, numCount);
 }
 
 IndexNodePoolManager& Index::getPoolManager()
@@ -542,5 +608,45 @@ Index::~Index()
 
 void Index::setInitMaxUniqueNum(unsigned long long initMaxUniqueNum)
 {
-	generator.setInitMaxUniqueNum(initMaxUniqueNum);
+	if (externalGenerator != nullptr)
+		externalGenerator->setInitMaxUniqueNum(initMaxUniqueNum);
+	else
+		generator.setInitMaxUniqueNum(initMaxUniqueNum);
+}
+
+bool Index::getModifiedNodeIdsWithSamePreCmpLen(std::vector<unsigned long long>& indexIds, unsigned long long& currentPreCmpLen, unsigned long long startPreCmpLen)
+{
+	indexIds.clear();
+	auto it = IndexIdPreority.lower_bound(startPreCmpLen);
+	
+	while (it != IndexIdPreority.end())
+	{
+		auto cacheIt = indexNodeCache.find(it->second);
+		if (cacheIt != indexNodeCache.end() && cacheIt->second->getIsModified())
+		{
+			currentPreCmpLen = it->first;
+			break;
+		}
+		++it;
+	}
+
+	if (it == IndexIdPreority.end()) return false;
+
+	auto range = IndexIdPreority.equal_range(currentPreCmpLen);
+	for (auto rangeIt = range.first; rangeIt != range.second; ++rangeIt)
+	{
+		auto cacheIt = indexNodeCache.find(rangeIt->second);
+		if (cacheIt != indexNodeCache.end() && cacheIt->second->getIsModified())
+		{
+			indexIds.push_back(rangeIt->second);
+		}
+	}
+	return true;
+}
+
+IndexNode* Index::getCacheNode(unsigned long long indexId)
+{
+	auto it = indexNodeCache.find(indexId);
+	if (it != indexNodeCache.end()) return it->second;
+	return nullptr;
 }

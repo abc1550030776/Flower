@@ -10,6 +10,8 @@ const unsigned short MAX_SIZE_PER_INDEX_NODE = 20 * 1024;		//每个索引节点�
 
 const unsigned int DST_SIZE_PER_ROOT = 8 * 1024 * 1024;					//多少个目标文件字节的数据构建一个一部分的根节点
 
+const unsigned short KV_CUT_NODE_SIZE_THRESHOLD = 4096;				//KV构建路径cutNodeSize限流阈值
+
 // ========== 内存管理阈值常量 ==========
 // 紧急清理阈值：系统内存低于此值时清空所有缓存和内存池
 const float EMERGENCY_CLEANUP_THRESHOLD = 0.1f;  // 10%

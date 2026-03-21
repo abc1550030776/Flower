@@ -7,11 +7,17 @@ class LineAndColumn
 public:
 	LineAndColumn();
 	LineAndColumn(unsigned long long lineNum, unsigned long long columnNum);
+	LineAndColumn(unsigned long long lineNum, unsigned long long columnNum,
+				  unsigned long long endLineNum, unsigned long long endColumnNum);
 	unsigned long long GetLineNum();
 	unsigned long long GetColumnNum();
+	unsigned long long GetEndLineNum();
+	unsigned long long GetEndColumnNum();
 private:
 	unsigned long long lineNum;
 	unsigned long long columnNum;
+	unsigned long long endLineNum;
+	unsigned long long endColumnNum;
 };
 
 typedef std::map<unsigned long long, LineAndColumn> ResultMap;

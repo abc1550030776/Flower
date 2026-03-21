@@ -3,31 +3,60 @@
 UniqueGenerator::UniqueGenerator()
 {
 	maxUniqueNum = 1;
+	memset(recycleBitmap, 0, sizeof(recycleBitmap));
 }
 
 void UniqueGenerator::setInitMaxUniqueNum(unsigned long long initMaxUniqueNum)
 {
+	std::lock_guard<std::mutex> lock(mutex_);
 	maxUniqueNum = initMaxUniqueNum;
 }
 
 unsigned long long UniqueGenerator::acquireNumber(unsigned char numberCount)
 {
-	//首先从已经回收了的数字里面获取数字
-	for (unsigned char i = (unsigned char)(numberCount - 1); i < MAX_SIZE_PER_INDEX_NODE / SIZE_PER_INDEX_FILE_GRID; ++i)
+	std::lock_guard<std::mutex> lock(mutex_);
+
+	unsigned short startBit = (unsigned short)(numberCount - 1);
+	unsigned short wordIdx = startBit / 64;
+	unsigned short bitIdx = startBit % 64;
+
+	uint64_t mask = recycleBitmap[wordIdx] >> bitIdx << bitIdx;
+
+	for (unsigned short w = wordIdx; w < BITMAP_WORD_COUNT; ++w)
 	{
-		if (!everyRecycleNumber[i].empty())
+		if (mask == 0)
 		{
-			unsigned long long returnVal = everyRecycleNumber[i].top();
-			everyRecycleNumber[i].pop();
-			if (i > (numberCount - 1))
+			if (w + 1 < BITMAP_WORD_COUNT)
 			{
-				everyRecycleNumber[i - numberCount].push(returnVal + numberCount);
+				mask = recycleBitmap[w + 1];
 			}
-			return returnVal;
+			continue;
 		}
+
+		unsigned short bit = (unsigned short)(w * 64 + __builtin_ctzll(mask));
+		if (bit >= RECYCLE_BUCKET_COUNT)
+		{
+			break;
+		}
+
+		unsigned long long returnVal = everyRecycleNumber[bit].top();
+		everyRecycleNumber[bit].pop();
+
+		if (everyRecycleNumber[bit].empty())
+		{
+			recycleBitmap[bit / 64] &= ~(1ULL << (bit % 64));
+		}
+
+		if (bit > (unsigned short)(numberCount - 1))
+		{
+			unsigned short remainBucket = (unsigned short)(bit - numberCount);
+			everyRecycleNumber[remainBucket].push(returnVal + numberCount);
+			recycleBitmap[remainBucket / 64] |= (1ULL << (remainBucket % 64));
+		}
+
+		return returnVal;
 	}
 
-	//回收的数字当中没有数字可以用从最大值当中分配
 	unsigned long long ret = maxUniqueNum;
 	maxUniqueNum += numberCount;
 	return ret;
@@ -35,10 +64,13 @@ unsigned long long UniqueGenerator::acquireNumber(unsigned char numberCount)
 
 void UniqueGenerator::recycleNumber(unsigned long long number, unsigned char numberCount)
 {
-	if (numberCount > MAX_SIZE_PER_INDEX_NODE / SIZE_PER_INDEX_FILE_GRID)
+	std::lock_guard<std::mutex> lock(mutex_);
+	if (numberCount > RECYCLE_BUCKET_COUNT)
 	{
 		return;
 	}
 
-	everyRecycleNumber[numberCount - 1].push(number);
+	unsigned short bucket = (unsigned short)(numberCount - 1);
+	everyRecycleNumber[bucket].push(number);
+	recycleBitmap[bucket / 64] |= (1ULL << (bucket % 64));
 }

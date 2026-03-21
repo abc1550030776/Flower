@@ -7,7 +7,8 @@ class ResultMapWithLock
 {
 public:
 	ResultMapWithLock(ResultMap& resultMap);
-	void insert(unsigned long long filePos, unsigned long long lineNum, unsigned long long columnNum);
+	void insert(unsigned long long filePos, unsigned long long lineNum, unsigned long long columnNum,
+			unsigned long long endLineNum, unsigned long long endColumnNum);
 private:
 	ResultMap& resultMap;
 	EXCLOCK lock;

@@ -1,5 +1,6 @@
 #pragma once
 #include <map>
+#include <unordered_set>
 #include <vector>
 #include "ReadWriteLock.h"
 #include "UniqueGenerator.h"
@@ -15,17 +16,22 @@ class Index
 public:
 	Index();
 	Index(unsigned char useType);
+	Index(unsigned char useType, UniqueGenerator* externalGenerator);
 	IndexNode* getIndexNode(unsigned long long indexId);
 	bool insert(unsigned long long indexId, IndexNode*& pIndexNode);
 	unsigned long size();
-	bool getLastNodes(unsigned long num, std::vector<unsigned long long>& indexIdVec, std::vector<IndexNode*>& indexNodeVec);
-	bool reduceCache(unsigned long needReduceNum);
 	bool reduceCache();
+	bool getLastNodeIdAndNode(unsigned long long& indexId, IndexNode*& pIndexNode);		//获取优先级最低的节点
 	bool changePreCmpLen(unsigned long long indexId, unsigned long long orgPreCmpLen, unsigned long long newPreCmpLen);
 	bool swapNode(unsigned long long indexId, IndexNode* newNode);
 	IndexNode* newIndexNode(unsigned char nodeType, unsigned long long preCmpLen);			//创建新的节点
 	bool deleteIndexNode(unsigned long long indexId);										//删除节点
-	void clearCache();																		//清除缓存
+	bool evictIndexNode(unsigned long long indexId);										//从缓存驱逐节点，不回收ID
+	bool evictIndexNodesWithSamePreCmpLen(unsigned long long preCmpLen, const std::unordered_set<unsigned long long>& indexIds);
+	bool rekeyNode(unsigned long long oldIndexId, unsigned long long newIndexId);			//节点id变更后更新缓存中的键
+	void clearCache();
+	bool getModifiedNodeIdsWithSamePreCmpLen(std::vector<unsigned long long>& indexIds, unsigned long long& currentPreCmpLen, unsigned long long startPreCmpLen = 0);
+	IndexNode* getCacheNode(unsigned long long indexId);
 	unsigned char getUseType();																//获取使用方式
 	bool putIndexNode(IndexNode* indexNode);												//外部使用完了告诉说外部已经不再引用
 	unsigned long long acquireNumber(unsigned char numCount);								//获取连续的几个数
@@ -39,6 +45,7 @@ private:
 	std::multimap<unsigned long long, unsigned long long> IndexIdPreority;					//这里保存索引的优先级key是索引的前面已经比较过的大小,越小优先级越大
 	RTL_SRWLOCK  rwLock;																	//缓存在搜索模式下会被多个线程使用到加个读写锁
 	UniqueGenerator generator;																//唯一id生成器
+	UniqueGenerator* externalGenerator;														//外部共享的唯一id生成器（多线程构建时使用）
 	IndexNodePoolManager* poolManager;														//该实例专属的内存池管理器
 };
 

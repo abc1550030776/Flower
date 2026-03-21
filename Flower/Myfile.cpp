@@ -1,28 +1,28 @@
 #include "Myfile.h"
-#include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/types.h>
 
 Myfile::Myfile()
 {
-	file = NULL;
+	fd = -1;
 }
 
 bool Myfile::init(const char* fileName, bool createIfNExist)
 {
-	file = fopen(fileName, "rb+");
-	if (file == NULL)
-	{
-		if (!createIfNExist)
-		{
-			return false;
-		}
-	}
-	else
+	fd = open(fileName, O_RDWR);
+	if (fd >= 0)
 	{
 		return true;
 	}
-	file = fopen(fileName, "wb+");
-	if (file == NULL)
+
+	if (!createIfNExist)
+	{
+		return false;
+	}
+
+	fd = open(fileName, O_RDWR | O_CREAT | O_TRUNC, 0644);
+	if (fd < 0)
 	{
 		return false;
 	}
@@ -32,43 +32,40 @@ bool Myfile::init(const char* fileName, bool createIfNExist)
 
 bool Myfile::read(unsigned long long pos, void* data, size_t size)
 {
-	if (fseeko(file, (off_t)pos, SEEK_SET) != 0)
+	size_t totalRead = 0;
+	while (totalRead < size)
 	{
-		return false;
+		ssize_t n = pread(fd, (char*)data + totalRead, size - totalRead, (off_t)(pos + totalRead));
+		if (n <= 0)
+		{
+			return false;
+		}
+		totalRead += n;
 	}
-
-	if (fread(data, size, 1, file) != 1)
-	{
-		return false;
-	}
-
 	return true;
 }
 
 bool Myfile::write(unsigned long long pos, void* data, size_t size)
 {
-	if (fseeko(file, (off_t)pos, SEEK_SET) != 0)
+	size_t totalWritten = 0;
+	while (totalWritten < size)
 	{
-		return false;
-	}
-
-	if (fwrite(data, size, 1, file) != 1)
-	{
-		return false;
+		ssize_t n = pwrite(fd, (const char*)data + totalWritten, size - totalWritten, (off_t)(pos + totalWritten));
+		if (n <= 0)
+		{
+			return false;
+		}
+		totalWritten += n;
 	}
 	return true;
 }
 
 bool Myfile::sync()
 {
-	if (fflush(file) != 0)
-	{
-		return false;
-	}
 #ifdef __APPLE__
-	if (fsync(fileno(file)) == -1)
+	if (fsync(fd) == -1)
 #else
-	if (fdatasync(fileno(file)) == -1)
+	if (fdatasync(fd) == -1)
 #endif
 	{
 		return false;
@@ -78,9 +75,9 @@ bool Myfile::sync()
 
 Myfile::~Myfile()
 {
-	if (file != NULL)
+	if (fd >= 0)
 	{
-		fclose(file);
-		file = NULL;
+		close(fd);
+		fd = -1;
 	}
 }

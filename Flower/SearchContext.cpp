@@ -215,11 +215,30 @@ public:
 					return false;
 				}
 
-				//判断是否是最后一行或者是是否是搜索的结果在同一行之内
-				if (upperKey == filePos || (filePos + targetLen) <= upperKey)
+				unsigned long long startLine = value;
+				unsigned long long startColumn = filePos - lowerKey;
+				unsigned long long matchEnd = filePos + targetLen - 1;
+
+				unsigned long long endLine, endColumn;
+				if (matchEnd < upperKey)
 				{
-					resultMap->insert(filePos, value, filePos - lowerKey);
+					//单行匹配：结束位置在同一行
+					endLine = startLine;
+					endColumn = matchEnd - lowerKey;
 				}
+				else
+				{
+					//跨行匹配：查询结束位置所在行
+					unsigned long long endLowerKey = 0, endUpperKey = 0, endValue = 0;
+					if (!kvContent.get(matchEnd, endLowerKey, endUpperKey, endValue))
+					{
+						return false;
+					}
+					endLine = endValue;
+					endColumn = matchEnd - endLowerKey;
+				}
+
+				resultMap->insert(filePos, startLine, startColumn, endLine, endColumn);
 			}
 		}
 		return true;

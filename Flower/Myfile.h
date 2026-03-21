@@ -1,5 +1,5 @@
 #pragma once
-#include <stdio.h>
+#include <stddef.h>
 class Myfile
 {
 public:
@@ -12,5 +12,5 @@ public:
 	Myfile(const Myfile&) = delete;
 	Myfile& operator=(const Myfile&) = delete;
 private:
-	FILE* file;
+	int fd;
 };

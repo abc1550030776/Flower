@@ -2,6 +2,7 @@
 #include "string.h"
 #include "BuildIndex.h"
 #include "MemoryPool.h"
+#include "common.h"
 
 IndexNode::IndexNode()
 {
@@ -14,6 +15,7 @@ IndexNode::IndexNode()
 	refCount = 0;
 	partOfKey = 0;
 	gridNum = 1;
+	insertCount = 0;
 }
 
 unsigned long long IndexNode::getPreCmpLen()
@@ -79,6 +81,7 @@ unsigned long long IndexNode::getIndexId()
 void IndexNode::insertLeafSet(unsigned long long start)
 {
 	leafSet.insert(start);
+	insertCount++;
 }
 
 bool IndexNode::mergeSameLenNode(BuildIndex* buildIndex, IndexNode* indexNode, unsigned char buildType)
@@ -164,6 +167,10 @@ bool IndexNode::appendLeafSet(IndexNode* indexNode, unsigned long long beforeNum
 		}
 	}
 
+	setIsModified(true);
+	indexNode->setIsModified(true);
+	insertCount++;
+
 	return true;
 }
 
@@ -226,6 +233,37 @@ bool IndexNode::addLeafPosToResult(unsigned long long leastEndPos, unsigned char
 	return true;
 }
 
+size_t IndexNode::getLeafSetSize()
+{
+	return leafSet.size();
+}
+
+size_t IndexNode::getExactPayloadSize()
+{
+	size_t perChildSize = 0;
+	switch (getType())
+	{
+	case NODE_TYPE_ONE:
+		perChildSize = 16;
+		break;
+	case NODE_TYPE_TWO:
+		perChildSize = 12;
+		break;
+	case NODE_TYPE_THREE:
+		perChildSize = 10;
+		break;
+	case NODE_TYPE_FOUR:
+		perChildSize = 9;
+		break;
+	default:
+		return 0;
+	}
+
+	size_t childrenNum = getChildrenNum();
+	size_t leafSetSize = getLeafSetSize();
+	return 48 + childrenNum * perChildSize + leafSetSize * 8;
+}
+
 unsigned long long IndexNode::getPartOfKey()
 {
 	return partOfKey;
@@ -249,6 +287,16 @@ unsigned char IndexNode::getGridNum()
 void IndexNode::setGridNum(unsigned char gridNum)
 {
 	this->gridNum = gridNum;
+}
+
+unsigned short IndexNode::getInsertCount()
+{
+	return insertCount;
+}
+
+void IndexNode::resetInsertCount()
+{
+	insertCount = 0;
 }
 
 IndexNode::~IndexNode()
@@ -318,7 +366,7 @@ bool IndexNodeTypeOne::toBinary(char* buffer, int len)
 		p += 2;
 		totalSize += 2;
 		leftSize -= 2;
-		char leafBuffer[(MAX_SIZE_PER_INDEX_NODE - 4 * 1024) / 16 * 16];
+		std::vector<char> leafBuffer(children.size() * 16);
 		unsigned short leafNum = 0;
 		for (auto& value : children)
 		{
@@ -338,8 +386,8 @@ bool IndexNodeTypeOne::toBinary(char* buffer, int len)
 			}
 			else if (value.second.childType == CHILD_TYPE_LEAF || value.second.childType == CHILD_TYPE_VALUE)
 			{
-				*((unsigned long long*)(leafBuffer + 16 * leafNum)) = value.first;
-				*((unsigned long long*)(leafBuffer + 16 * leafNum + 8)) = value.second.indexId;
+				*((unsigned long long*)(leafBuffer.data() + 16 * leafNum)) = value.first;
+				*((unsigned long long*)(leafBuffer.data() + 16 * leafNum + 8)) = value.second.indexId;
 				leafNum++;
 			}
 		}
@@ -350,7 +398,7 @@ bool IndexNodeTypeOne::toBinary(char* buffer, int len)
 		}
 		*(unsigned short*)p = leafNum;
 		p += 2;
-		memcpy(p, leafBuffer, leafNum * 16);
+		memcpy(p, leafBuffer.data(), leafNum * 16);
 		p += leafNum * 16;
 		totalSize += (2 + leafNum * 16);
 		leftSize -= (2 + leafNum * 16);
@@ -371,15 +419,15 @@ bool IndexNodeTypeOne::toBinary(char* buffer, int len)
 	//有些比较到这个中途就到文件末尾了这时这个分支记录在叶子节点集里面
 	if (!leafSet.empty())
 	{
-		if (leftSize < 1)
+		if (leftSize < 4)
 		{
 			return false;
 		}
-		char* leafNum = p;
+		unsigned int* leafNum = (unsigned int*)p;
 		*leafNum = 0;
-		p += 1;
-		totalSize++;
-		leftSize--;
+		p += 4;
+		totalSize += 4;
+		leftSize -= 4;
 		for (auto& value : leafSet)
 		{
 			if (leftSize < 8)
@@ -396,12 +444,12 @@ bool IndexNodeTypeOne::toBinary(char* buffer, int len)
 	else
 	{
 		//空的话写零表示这部分是0
-		if (leftSize < 1)
+		if (leftSize < 4)
 		{
 			return false;
 		}
-		*p = 0;
-		totalSize += 1;
+		*((unsigned int*)p) = 0;
+		totalSize += 4;
 	}
 	//最后把总体大小写入最前面
 	*((short*)buffer) = totalSize;
@@ -410,7 +458,7 @@ bool IndexNodeTypeOne::toBinary(char* buffer, int len)
 
 bool IndexNodeTypeOne::toObject(char* buffer, int len, unsigned char buildType)
 {
-	gridNum = (unsigned char)((len + 2 + SIZE_PER_INDEX_FILE_GRID) / SIZE_PER_INDEX_FILE_GRID);
+gridNum = (unsigned char)((len + 3 + SIZE_PER_INDEX_FILE_GRID - 1) / SIZE_PER_INDEX_FILE_GRID);
 
 	char* p = buffer;
 	int leftSize = len;
@@ -493,19 +541,19 @@ bool IndexNodeTypeOne::toObject(char* buffer, int len, unsigned char buildType)
 
 
 	//添加比较到中途就到文件结尾的叶子节点
-	if (leftSize < 1)
+	if (leftSize < 4)
 	{
 		return false;
 	}
-	unsigned char endLeafNum = *p;
-	p += 1;
-	leftSize -= 1;
+	unsigned int endLeafNum = *((unsigned int*)p);
+	p += 4;
+	leftSize -= 4;
 	if (leftSize < endLeafNum * 8)
 	{
 		return false;
 	}
 
-	for (unsigned char i = 0; i < endLeafNum; ++i)
+	for (unsigned int i = 0; i < endLeafNum; ++i)
 	{
 		bool ok = leafSet.insert(*((unsigned long long*)p)).second;
 		if (!ok)
@@ -599,37 +647,7 @@ IndexNode* IndexNodeTypeOne::changeType(BuildIndex* buildIndex, unsigned char bu
 	return ret;
 }
 
-IndexNode* IndexNodeTypeOne::cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId, unsigned char buildType)
-{
-	if (buildIndex == nullptr)
-	{
-		return nullptr;
-	}
-	for (auto& it : children)
-	{
-		if (it.second.getType() == CHILD_TYPE_NODE)
-		{
-			IndexNode* node = buildIndex->getIndexNode(it.second.getIndexId(), buildType);
-			if (node == nullptr)
-			{
-				return nullptr;
-			}
 
-			if (!buildIndex->cutNodeSize(it.second.getIndexId(), node, buildType))
-			{
-				return nullptr;
-			}
-		}
-	}
-
-	IndexNode* tmpNode = this;
-	//本身可能比256要大所以也要调用
-	if (!buildIndex->cutNodeSize(indexId, tmpNode, buildType))
-	{
-		return nullptr;
-	}
-	return tmpNode;
-}
 
 bool IndexNodeTypeOne::insertChildNode(BuildIndex* buildIndex, unsigned long long key, const IndexNodeChild& indexNodeChild, unsigned char buildType)
 {
@@ -637,6 +655,7 @@ bool IndexNodeTypeOne::insertChildNode(BuildIndex* buildIndex, unsigned long lon
 	{
 		return false;
 	}
+	insertCount++;
 
 	auto it = children.find(key);
 	if (it == end(children))
@@ -662,6 +681,7 @@ bool IndexNodeTypeOne::insertChildNode(BuildIndex* buildIndex, unsigned long lon
 			}
 		}
 	}
+	setIsModified(true);
 	return true;
 }
 
@@ -686,6 +706,7 @@ bool IndexNodeTypeOne::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeOne
 					return false;
 				}
 				indexNode->setParentID(indexId);
+				indexNode->setIsModified(true);
 			}
 			//直接插入到孩子的map当中
 			children.insert({ child.first, child.second });
@@ -728,6 +749,12 @@ std::unordered_map<unsigned long long, IndexNodeChild>& IndexNodeTypeOne::getChi
 	return children;
 }
 
+unsigned short IndexNodeTypeOne::getCutNodeSizeThreshold() const
+{
+	static const unsigned short kThreshold = (MAX_SIZE_PER_INDEX_NODE - 3 - 48) / 16;
+	return kThreshold;
+}
+
 bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 {
 	short totalSize = 0;
@@ -760,7 +787,7 @@ bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 		p += 2;
 		totalSize += 2;
 		leftSize -= 2;
-		char leafBuffer[(MAX_SIZE_PER_INDEX_NODE - 4 * 1024) / 12 * 12];
+		std::vector<char> leafBuffer(children.size() * 12);
 		unsigned short leafNum = 0;
 		for (auto& value : children)
 		{
@@ -780,8 +807,8 @@ bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 			}
 			else if (value.second.childType == CHILD_TYPE_LEAF || value.second.childType == CHILD_TYPE_VALUE)
 			{
-				*((unsigned int*)(leafBuffer + 12 * leafNum)) = value.first;
-				*((unsigned long long*)(leafBuffer + 12 * leafNum + 4)) = value.second.indexId;
+				*((unsigned int*)(leafBuffer.data() + 12 * leafNum)) = value.first;
+				*((unsigned long long*)(leafBuffer.data() + 12 * leafNum + 4)) = value.second.indexId;
 				leafNum++;
 			}
 		}
@@ -792,7 +819,7 @@ bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 		}
 		*(unsigned short*)p = leafNum;
 		p += 2;
-		memcpy(p, leafBuffer, leafNum * 12);
+		memcpy(p, leafBuffer.data(), leafNum * 12);
 		p += leafNum * 12;
 		totalSize += (2 + leafNum * 12);
 		leftSize -= (2 + leafNum * 12);
@@ -813,15 +840,15 @@ bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 	//有些比较到这个中途就到文件末尾了这时这个分支记录在叶子节点集里面
 	if (!leafSet.empty())
 	{
-		if (leftSize < 1)
+		if (leftSize < 4)
 		{
 			return false;
 		}
-		char* leafNum = p;
+		unsigned int* leafNum = (unsigned int*)p;
 		*leafNum = 0;
-		p += 1;
-		totalSize++;
-		leftSize--;
+		p += 4;
+		totalSize += 4;
+		leftSize -= 4;
 		for (auto& value : leafSet)
 		{
 			if (leftSize < 8)
@@ -838,12 +865,12 @@ bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 	else
 	{
 		//空的话写零表示这部分是0
-		if (leftSize < 1)
+		if (leftSize < 4)
 		{
 			return false;
 		}
-		*p = 0;
-		totalSize += 1;
+		*((unsigned int*)p) = 0;
+		totalSize += 4;
 	}
 	//最后把总体大小写入最前面
 	*((short*)buffer) = totalSize;
@@ -852,7 +879,7 @@ bool IndexNodeTypeTwo::toBinary(char* buffer, int len)
 
 bool IndexNodeTypeTwo::toObject(char* buffer, int len, unsigned char buildType)
 {
-	gridNum = (unsigned char)((len + 2 + SIZE_PER_INDEX_FILE_GRID) / SIZE_PER_INDEX_FILE_GRID);
+gridNum = (unsigned char)((len + 3 + SIZE_PER_INDEX_FILE_GRID - 1) / SIZE_PER_INDEX_FILE_GRID);
 
 	char* p = buffer;
 	int leftSize = len;
@@ -934,19 +961,19 @@ bool IndexNodeTypeTwo::toObject(char* buffer, int len, unsigned char buildType)
 
 
 	//添加比较到中途就到文件结尾的叶子节点
-	if (leftSize < 1)
+	if (leftSize < 4)
 	{
 		return false;
 	}
-	unsigned char endLeafNum = *p;
-	p += 1;
-	leftSize -= 1;
+	unsigned int endLeafNum = *((unsigned int*)p);
+	p += 4;
+	leftSize -= 4;
 	if (leftSize < endLeafNum * 8)
 	{
 		return false;
 	}
 
-	for (unsigned char i = 0; i < endLeafNum; ++i)
+	for (unsigned int i = 0; i < endLeafNum; ++i)
 	{
 		bool ok = leafSet.insert(*((unsigned long long*)p)).second;
 		if (!ok)
@@ -1039,37 +1066,7 @@ IndexNode* IndexNodeTypeTwo::changeType(BuildIndex* buildIndex, unsigned char bu
 	return ret;
 }
 
-IndexNode* IndexNodeTypeTwo::cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId, unsigned char buildType)
-{
-	if (buildIndex == nullptr)
-	{
-		return nullptr;
-	}
-	for (auto& it : children)
-	{
-		if (it.second.getType() == CHILD_TYPE_NODE)
-		{
-			IndexNode* node = buildIndex->getIndexNode(it.second.getIndexId(), buildType);
-			if (node == nullptr)
-			{
-				return nullptr;
-			}
 
-			if (!buildIndex->cutNodeSize(it.second.getIndexId(), node, buildType))
-			{
-				return nullptr;
-			}
-		}
-	}
-
-	IndexNode* tmpNode = this;
-	//本身可能比256要大所以也要调用
-	if (!buildIndex->cutNodeSize(indexId, tmpNode, buildType))
-	{
-		return nullptr;
-	}
-	return tmpNode;
-}
 
 bool IndexNodeTypeTwo::insertChildNode(BuildIndex* buildIndex, unsigned long long key, const IndexNodeChild& indexNodeChild, unsigned char buildType)
 {
@@ -1077,6 +1074,7 @@ bool IndexNodeTypeTwo::insertChildNode(BuildIndex* buildIndex, unsigned long lon
 	{
 		return false;
 	}
+	insertCount++;
 
 	//先对添加进来的节点进行处理
 	IndexNodeChild newIndexNodeChild(indexNodeChild.getType(), indexNodeChild.getIndexId());
@@ -1187,6 +1185,7 @@ bool IndexNodeTypeTwo::insertChildNode(BuildIndex* buildIndex, unsigned int key,
 	{
 		return false;
 	}
+	insertCount++;
 
 	auto it = children.find(key);
 	if (it == end(children))
@@ -1212,6 +1211,7 @@ bool IndexNodeTypeTwo::insertChildNode(BuildIndex* buildIndex, unsigned int key,
 			}
 		}
 	}
+	setIsModified(true);
 	return true;
 }
 
@@ -1236,6 +1236,7 @@ bool IndexNodeTypeTwo::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeTwo
 					return false;
 				}
 				indexNode->setParentID(indexId);
+				indexNode->setIsModified(true);
 			}
 			//直接插入到孩子的map当中
 			children.insert({ child.first, child.second });
@@ -1277,6 +1278,12 @@ std::unordered_map<unsigned int, IndexNodeChild>& IndexNodeTypeTwo::getChildren(
 	return children;
 }
 
+unsigned short IndexNodeTypeTwo::getCutNodeSizeThreshold() const
+{
+	static const unsigned short kThreshold = (MAX_SIZE_PER_INDEX_NODE - 3 - 48) / 12;
+	return kThreshold;
+}
+
 bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 {
 	short totalSize = 0;
@@ -1309,7 +1316,7 @@ bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 		p += 2;
 		totalSize += 2;
 		leftSize -= 2;
-		char leafBuffer[(MAX_SIZE_PER_INDEX_NODE - 4 * 1024) / 10 * 10];
+		std::vector<char> leafBuffer(children.size() * 10);
 		unsigned short leafNum = 0;
 		for (auto& value : children)
 		{
@@ -1329,8 +1336,8 @@ bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 			}
 			else if (value.second.childType == CHILD_TYPE_LEAF || value.second.childType == CHILD_TYPE_VALUE)
 			{
-				*((unsigned short*)(leafBuffer + 10 * leafNum)) = value.first;
-				*((unsigned long long*)(leafBuffer + 10 * leafNum + 2)) = value.second.indexId;
+				*((unsigned short*)(leafBuffer.data() + 10 * leafNum)) = value.first;
+				*((unsigned long long*)(leafBuffer.data() + 10 * leafNum + 2)) = value.second.indexId;
 				leafNum++;
 			}
 		}
@@ -1341,7 +1348,7 @@ bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 		}
 		*(unsigned short*)p = leafNum;
 		p += 2;
-		memcpy(p, leafBuffer, leafNum * 10);
+		memcpy(p, leafBuffer.data(), leafNum * 10);
 		p += leafNum * 10;
 		totalSize += (2 + leafNum * 10);
 		leftSize -= (2 + leafNum * 10);
@@ -1362,15 +1369,15 @@ bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 	//有些比较到这个中途就到文件末尾了这时这个分支记录在叶子节点集里面
 	if (!leafSet.empty())
 	{
-		if (leftSize < 1)
+		if (leftSize < 4)
 		{
 			return false;
 		}
-		char* leafNum = p;
+		unsigned int* leafNum = (unsigned int*)p;
 		*leafNum = 0;
-		p += 1;
-		totalSize++;
-		leftSize--;
+		p += 4;
+		totalSize += 4;
+		leftSize -= 4;
 		for (auto& value : leafSet)
 		{
 			if (leftSize < 8)
@@ -1387,12 +1394,12 @@ bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 	else
 	{
 		//空的话写零表示这部分是0
-		if (leftSize < 1)
+		if (leftSize < 4)
 		{
 			return false;
 		}
-		*p = 0;
-		totalSize += 1;
+		*((unsigned int*)p) = 0;
+		totalSize += 4;
 	}
 	//最后把总体大小写入最前面
 	*((short*)buffer) = totalSize;
@@ -1401,7 +1408,7 @@ bool IndexNodeTypeThree::toBinary(char* buffer, int len)
 
 bool IndexNodeTypeThree::toObject(char* buffer, int len, unsigned char buildType)
 {
-	gridNum = (unsigned char)((len + 2 + SIZE_PER_INDEX_FILE_GRID) / SIZE_PER_INDEX_FILE_GRID);
+gridNum = (unsigned char)((len + 3 + SIZE_PER_INDEX_FILE_GRID - 1) / SIZE_PER_INDEX_FILE_GRID);
 	char* p = buffer;
 	int leftSize = len;
 	if (leftSize < 40)
@@ -1482,19 +1489,19 @@ bool IndexNodeTypeThree::toObject(char* buffer, int len, unsigned char buildType
 
 
 	//添加比较到中途就到文件结尾的叶子节点
-	if (leftSize < 1)
+	if (leftSize < 4)
 	{
 		return false;
 	}
-	unsigned char endLeafNum = *p;
-	p += 1;
-	leftSize -= 1;
+	unsigned int endLeafNum = *((unsigned int*)p);
+	p += 4;
+	leftSize -= 4;
 	if (leftSize < endLeafNum * 8)
 	{
 		return false;
 	}
 
-	for (unsigned char i = 0; i < endLeafNum; ++i)
+	for (unsigned int i = 0; i < endLeafNum; ++i)
 	{
 		bool ok = leafSet.insert(*((unsigned long long*)p)).second;
 		if (!ok)
@@ -1587,37 +1594,7 @@ IndexNode* IndexNodeTypeThree::changeType(BuildIndex* buildIndex, unsigned char 
 	return ret;
 }
 
-IndexNode* IndexNodeTypeThree::cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId, unsigned char buildType)
-{
-	if (buildIndex == nullptr)
-	{
-		return nullptr;
-	}
-	for (auto& it : children)
-	{
-		if (it.second.getType() == CHILD_TYPE_NODE)
-		{
-			IndexNode* node = buildIndex->getIndexNode(it.second.getIndexId(), buildType);
-			if (node == nullptr)
-			{
-				return nullptr;
-			}
 
-			if (!buildIndex->cutNodeSize(it.second.getIndexId(), node, buildType))
-			{
-				return nullptr;
-			}
-		}
-	}
-
-	IndexNode* tmpNode = this;
-	//本身可能比256要大所以也要调用
-	if (!buildIndex->cutNodeSize(indexId, tmpNode, buildType))
-	{
-		return nullptr;
-	}
-	return tmpNode;
-}
 
 bool IndexNodeTypeThree::insertChildNode(BuildIndex* buildIndex, unsigned int key, const IndexNodeChild& indexNodeChild, unsigned char buildType)
 {
@@ -1625,6 +1602,7 @@ bool IndexNodeTypeThree::insertChildNode(BuildIndex* buildIndex, unsigned int ke
 	{
 		return false;
 	}
+	insertCount++;
 
 	//先对添加进来的节点进行处理
 	IndexNodeChild newIndexNodeChild(indexNodeChild.getType(), indexNodeChild.getIndexId());
@@ -1726,6 +1704,7 @@ bool IndexNodeTypeThree::insertChildNode(BuildIndex* buildIndex, unsigned int ke
 			}
 		}
 	}
+	setIsModified(true);
 	return true;
 }
 
@@ -1735,6 +1714,7 @@ bool IndexNodeTypeThree::insertChildNode(BuildIndex* buildIndex, unsigned short 
 	{
 		return false;
 	}
+	insertCount++;
 
 	auto it = children.find(key);
 	if (it == end(children))
@@ -1784,6 +1764,7 @@ bool IndexNodeTypeThree::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeT
 					return false;
 				}
 				indexNode->setParentID(indexId);
+				indexNode->setIsModified(true);
 			}
 			//直接插入到孩子的map当中
 			children.insert({ child.first, child.second });
@@ -1824,6 +1805,12 @@ IndexNodeChild* IndexNodeTypeThree::getIndexNodeChild(unsigned short key)
 std::unordered_map<unsigned short, IndexNodeChild>& IndexNodeTypeThree::getChildren()
 {
 	return children;
+}
+
+unsigned short IndexNodeTypeThree::getCutNodeSizeThreshold() const
+{
+	static const unsigned short kThreshold = (MAX_SIZE_PER_INDEX_NODE - 3 - 48) / 10;
+	return kThreshold;
 }
 
 bool IndexNodeTypeFour::toBinary(char* buffer, int len)
@@ -1911,15 +1898,15 @@ bool IndexNodeTypeFour::toBinary(char* buffer, int len)
 	//有些比较到这个中途就到文件末尾了这时这个分支记录在叶子节点集里面
 	if (!leafSet.empty())
 	{
-		if (leftSize < 1)
+		if (leftSize < 4)
 		{
 			return false;
 		}
-		char* leafNum = p;
+		unsigned int* leafNum = (unsigned int*)p;
 		*leafNum = 0;
-		p += 1;
-		totalSize++;
-		leftSize--;
+		p += 4;
+		totalSize += 4;
+		leftSize -= 4;
 		for (auto& value : leafSet)
 		{
 			if (leftSize < 8)
@@ -1936,12 +1923,12 @@ bool IndexNodeTypeFour::toBinary(char* buffer, int len)
 	else
 	{
 		//空的话写零表示这部分是0
-		if (leftSize < 1)
+		if (leftSize < 4)
 		{
 			return false;
 		}
-		*p = 0;
-		totalSize += 1;
+		*((unsigned int*)p) = 0;
+		totalSize += 4;
 	}
 	//最后把总体大小写入最前面
 	*((short*)buffer) = totalSize;
@@ -1950,7 +1937,7 @@ bool IndexNodeTypeFour::toBinary(char* buffer, int len)
 
 bool IndexNodeTypeFour::toObject(char* buffer, int len, unsigned char buildType)
 {
-	gridNum = (unsigned char)((len + 2 + SIZE_PER_INDEX_FILE_GRID) / SIZE_PER_INDEX_FILE_GRID);
+gridNum = (unsigned char)((len + 3 + SIZE_PER_INDEX_FILE_GRID - 1) / SIZE_PER_INDEX_FILE_GRID);
 
 	char* p = buffer;
 	int leftSize = len;
@@ -2032,19 +2019,19 @@ bool IndexNodeTypeFour::toObject(char* buffer, int len, unsigned char buildType)
 
 
 	//添加比较到中途就到文件结尾的叶子节点
-	if (leftSize < 1)
+	if (leftSize < 4)
 	{
 		return false;
 	}
-	unsigned char endLeafNum = *p;
-	p += 1;
-	leftSize -= 1;
+	unsigned int endLeafNum = *((unsigned int*)p);
+	p += 4;
+	leftSize -= 4;
 	if (leftSize < endLeafNum * 8)
 	{
 		return false;
 	}
 
-	for (unsigned char i = 0; i < endLeafNum; ++i)
+	for (unsigned int i = 0; i < endLeafNum; ++i)
 	{
 		bool ok = leafSet.insert(*((unsigned long long*)p)).second;
 		if (!ok)
@@ -2097,37 +2084,7 @@ IndexNode* IndexNodeTypeFour::changeType(BuildIndex* buildIndex, unsigned char b
 	return nullptr;
 }
 
-IndexNode* IndexNodeTypeFour::cutNodeSize(BuildIndex* buildIndex, unsigned long long indexId, unsigned char buildType)
-{
-	if (buildIndex == nullptr)
-	{
-		return nullptr;
-	}
-	for (auto& it : children)
-	{
-		if (it.second.getType() == CHILD_TYPE_NODE)
-		{
-			IndexNode* node = buildIndex->getIndexNode(it.second.getIndexId(), buildType);
-			if (node == nullptr)
-			{
-				return nullptr;
-			}
 
-			if (!buildIndex->cutNodeSize(it.second.getIndexId(), node, buildType))
-			{
-				return nullptr;
-			}
-		}
-	}
-
-	IndexNode* tmpNode = this;
-	//本身可能比256要大所以也要调用
-	if (!buildIndex->cutNodeSize(indexId, tmpNode, buildType))
-	{
-		return nullptr;
-	}
-	return tmpNode;
-}
 
 bool IndexNodeTypeFour::insertChildNode(BuildIndex* buildIndex, unsigned short key, const IndexNodeChild& indexNodeChild, unsigned char buildType)
 {
@@ -2135,6 +2092,7 @@ bool IndexNodeTypeFour::insertChildNode(BuildIndex* buildIndex, unsigned short k
 	{
 		return false;
 	}
+	insertCount++;
 
 	//先对添加进来的节点进行处理
 	IndexNodeChild newIndexNodeChild(indexNodeChild.getType(), indexNodeChild.getIndexId());
@@ -2245,6 +2203,7 @@ bool IndexNodeTypeFour::insertChildNode(BuildIndex* buildIndex, unsigned char ke
 	{
 		return false;
 	}
+	insertCount++;
 
 	auto it = children.find(key);
 	if (it == end(children))
@@ -2270,6 +2229,7 @@ bool IndexNodeTypeFour::insertChildNode(BuildIndex* buildIndex, unsigned char ke
 			}
 		}
 	}
+	setIsModified(true);
 	return true;
 }
 
@@ -2294,6 +2254,7 @@ bool IndexNodeTypeFour::mergeSameLenNode(BuildIndex* buildIndex, IndexNodeTypeFo
 					return false;
 				}
 				indexNode->setParentID(indexId);
+				indexNode->setIsModified(true);
 			}
 			//直接插入到孩子的map当中
 			children.insert({ child.first, child.second });
@@ -2333,4 +2294,10 @@ IndexNodeChild* IndexNodeTypeFour::getIndexNodeChild(unsigned char key)
 std::unordered_map<unsigned char, IndexNodeChild>& IndexNodeTypeFour::getChildren()
 {
 	return children;
+}
+
+unsigned short IndexNodeTypeFour::getCutNodeSizeThreshold() const
+{
+	static const unsigned short kThreshold = (MAX_SIZE_PER_INDEX_NODE - 3 - 48) / 9;
+	return kThreshold;
 }
