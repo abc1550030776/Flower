@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <thread>
 #include <vector>
+#include <cstdio>
 #include "interface.h"
 #include "common.h"
 #include "UniqueGenerator.h"
