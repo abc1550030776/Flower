@@ -1,5 +1,6 @@
 #include "IndexNode.h"
 #include <cstdlib>
+#include <cstdio>
 #include <unordered_map>
 #include <unordered_set>
 #include "BuildIndex.h"
