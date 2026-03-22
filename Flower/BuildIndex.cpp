@@ -1,5 +1,6 @@
 #include "BuildIndex.h"
 #include <cstdlib>
+#include <cstdio>
 #include <memory.h>
 #include "common.h"
 #include <sys/stat.h>
