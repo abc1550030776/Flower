@@ -3415,6 +3415,50 @@ bool BuildIndex::initForSegment(const char* fileName, const char* indexFileName,
 	return true;
 }
 
+bool BuildIndex::initForParallelKvBuild(const char* fileName, const char* kvFileName, Index* kvIndex)
+{
+	if (fileName == nullptr || kvFileName == nullptr || kvIndex == nullptr)
+	{
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+	}
+
+	if (!dstFile.init(fileName, false))
+	{
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+	}
+
+	if (!kvIndexFile.init(kvFileName, kvIndex))
+	{
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+	}
+	kvIndexFile.setBuildIndex(this, BUILD_TYPE_KV);
+	kvIndexFile.setDeferRootWrite(true);
+
+	struct stat statbuf;
+	if (stat(fileName, &statbuf) != 0)
+	{
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+	}
+	dstFileSize = statbuf.st_size;
+	return true;
+}
+
+bool BuildIndex::initForParallelKvMerge(const char* kvFileName, Index* kvIndex)
+{
+	if (kvFileName == nullptr || kvIndex == nullptr)
+	{
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+	}
+
+	if (!kvIndexFile.init(kvFileName, kvIndex))
+	{
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+	}
+	kvIndexFile.setBuildIndex(this, BUILD_TYPE_KV);
+	kvIndexFile.setDeferRootWrite(true);
+	return true;
+}
+
 bool BuildIndex::buildSegment(unsigned long long startPos, unsigned long long endPos,
 	std::vector<unsigned long long>& outRootIds)
 {
@@ -3493,6 +3537,87 @@ bool BuildIndex::buildSegment(unsigned long long startPos, unsigned long long en
 
 	//把构建好的根节点id列表返回
 	outRootIds = indexFile.getRootIndexIds();
+	return true;
+}
+
+bool BuildIndex::buildKvSegment(unsigned long long startPos, unsigned long long endPos, unsigned long long nextLineNum,
+	bool includeFirstLine, char delimiter, unsigned long long& outRootId)
+{
+	if (includeFirstLine)
+	{
+		if (!addKV(0, 0))
+		{
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+		}
+	}
+
+	unsigned long long lineNum = nextLineNum;
+	for (unsigned long long filePos = startPos; filePos < endPos; filePos += 8)
+	{
+		unsigned char buffer[8];
+		unsigned long long remainSize = endPos - filePos;
+		unsigned long long readSize = (remainSize >= 8) ? 8 : remainSize;
+		unsigned long long pos = filePos;
+		if (!dstFile.read(pos, buffer, readSize))
+		{
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+		}
+
+		for (unsigned long long i = 0; i < readSize; ++i)
+		{
+			if (buffer[i] != delimiter)
+			{
+				continue;
+			}
+
+			unsigned long long nextPos = filePos + i + 1;
+			if (nextPos >= dstFileSize)
+			{
+				continue;
+			}
+
+			if (!addKV(nextPos, lineNum))
+			{
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+			}
+			++lineNum;
+		}
+	}
+
+	outRootId = kvIndexFile.getRootIndexId();
+	if (!kvIndexFile.writeEveryCache())
+	{
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+	}
+	return true;
+}
+
+bool BuildIndex::mergeKvRoots(unsigned long long leftRootId, unsigned long long rightRootId, unsigned long long& outRootId)
+{
+	if (leftRootId == 0)
+	{
+		outRootId = rightRootId;
+		return true;
+	}
+	if (rightRootId == 0)
+	{
+		outRootId = leftRootId;
+		return true;
+	}
+
+	IndexNodeChild leftChildNode(CHILD_TYPE_NODE, leftRootId);
+	IndexNodeChild rightChildNode(CHILD_TYPE_NODE, rightRootId);
+	if (!addVMergeNode(0, 0, leftChildNode, rightChildNode))
+	{
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+	}
+
+	outRootId = leftChildNode.getIndexId();
+	kvIndexFile.setRootIndexId(outRootId);
+	if (!kvIndexFile.writeEveryCache())
+	{
+		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+	}
 	return true;
 }
 

@@ -16,6 +16,7 @@ public:
 	IndexFile();
 	bool init(const char* fileName, Index* index);
 	void setBuildIndex(BuildIndex* buildIndex, unsigned char buildType);
+	void setDeferRootWrite(bool deferRootWrite);											//中间阶段只写节点不写root
 	IndexNode* getIndexNode(unsigned long long indexId, unsigned char buildType = BUILD_TYPE_FILE);
 	bool changePreCmpLen(unsigned long long indexId, unsigned long long orgPreCmpLen, unsigned long long newPreCmpLen);
 	IndexNode* newIndexNode(unsigned char nodeType, unsigned long long preCmpLen);			//创建新的节点
@@ -45,4 +46,5 @@ private:
 	std::vector<unsigned long long> rootIndexIds;											//为了加快构建速度现在把一个文件分成一块一块每一块一个rootIndexId
 	BuildIndex* pBuildIndex;
 	unsigned char buildType;
+	bool deferRootWrite;
 };

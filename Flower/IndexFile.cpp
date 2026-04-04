@@ -8,7 +8,7 @@
 #include "common.h"
 #include "MemoryPool.h"
 
-IndexFile::IndexFile() : pBuildIndex(nullptr), buildType(0)
+IndexFile::IndexFile() : pBuildIndex(nullptr), buildType(0), deferRootWrite(false)
 {
 	pIndex = nullptr;
 	rootIndexId = 0;
@@ -18,6 +18,11 @@ void IndexFile::setBuildIndex(BuildIndex* buildIndex, unsigned char type)
 {
 	pBuildIndex = buildIndex;
 	buildType = type;
+}
+
+void IndexFile::setDeferRootWrite(bool deferRootWrite)
+{
+	this->deferRootWrite = deferRootWrite;
 }
 
 bool IndexFile::init(const char* fileName, Index* index)
@@ -657,11 +662,14 @@ bool IndexFile::writeEveryCache()
 
 	pIndex->clearCache();
 
-	unsigned long long pos;
-	pos = 0;
-	if (!indexFile.write(pos, &rootIndexId, 8))
+	if (!deferRootWrite)
 	{
-		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+		unsigned long long pos;
+		pos = 0;
+		if (!indexFile.write(pos, &rootIndexId, 8))
+		{
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+		}
 	}
 	if (!indexFile.sync())
 	{
