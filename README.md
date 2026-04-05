@@ -20,5 +20,20 @@
   返回值:搜索成功返回true,失败返回false
   两个search函数可以反复调用,不要构建索引和搜索索引同时进行,结束的时候把SearchContext对象销毁
 
+构建:
+  1、Bazel
+  程序里面的main.cpp是使用例子，代码根目录运行:
+  bazel run //Flower:flower --cxxopt='-std=c++17'
+  当前 Bazel 配置会链接 tcmalloc，依赖定义见 MODULE.bazel
+
+  2、CMake
+  代码根目录运行:
+  cmake -S . -B build
+  cmake --build build -j
+  可执行文件默认输出为:
+  build/Flower/flower
+
+  如果机器上装了 tcmalloc，CMake 会自动链接；如果没有，会给出提示并继续正常构建
+
 例子:
-      程序里面的main.cpp是使用例子,我在测试的时候使用上了tcmalloc，需要修改WORKSPACE文件中name为com_google_tcmalloc的local_repository把path改成tcmalloc源文件的根目录，创建一个/test文件，代码根目录运行bazel run //Flower:flower --cxxopt='-std=c++17'
+      程序里面的main.cpp是使用例子
