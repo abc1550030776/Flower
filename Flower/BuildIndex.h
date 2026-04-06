@@ -21,8 +21,13 @@ public:
 	bool addKV(unsigned long long key, unsigned long long value);
 	bool build(bool needBuildLineIndex = false, char delimiter = '\n');	//构建文件索引
 	bool initForSegment(const char* fileName, const char* indexFileName, Index* index);	//多线程段构建时的初始化
+	bool initForParallelKvBuild(const char* fileName, const char* kvFileName, Index* kvIndex);	//并行KV段构建初始化
+	bool initForParallelKvMerge(const char* kvFileName, Index* kvIndex);	//并行KV归并初始化
 	bool buildSegment(unsigned long long startPos, unsigned long long endPos,
 		std::vector<unsigned long long>& outRootIds);				//构建指定范围的段
+	bool buildKvSegment(unsigned long long startPos, unsigned long long endPos, unsigned long long nextLineNum,
+		bool includeFirstLine, char delimiter, unsigned long long& outRootId);	//构建KV指定范围
+	bool mergeKvRoots(unsigned long long leftRootId, unsigned long long rightRootId, unsigned long long& outRootId);	//合并两个KV根
 	bool buildKvIndex(char delimiter = '\n');						//单独构建KV行索引
 	bool writeKvEveryCache();									//把所有的kv的缓存写入硬盘中
 private:

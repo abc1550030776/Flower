@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <thread>
 #include <vector>
+#include <cstdio>
 #include "interface.h"
 #include "common.h"
 #include "UniqueGenerator.h"
@@ -38,6 +39,125 @@ static void* SegmentBuildThreadFun(void* arg)
 	}
 
 	if (!buildIndex.buildSegment(ctx->startPos, ctx->endPos, ctx->rootIds))
+	{
+		return nullptr;
+	}
+
+	ctx->success = true;
+	return nullptr;
+}
+
+struct KvLineCountContext {
+	const char* fileName;
+	unsigned long long startPos;
+	unsigned long long endPos;
+	unsigned long long dstFileSize;
+	char delimiter;
+	unsigned long long producedLineStartCount;
+	bool success;
+};
+
+struct KvSegmentBuildContext {
+	const char* fileName;
+	const char* kvFileName;
+	UniqueGenerator* sharedGenerator;
+	unsigned long long startPos;
+	unsigned long long endPos;
+	unsigned long long nextLineNum;
+	bool includeFirstLine;
+	char delimiter;
+	unsigned long long rootId;
+	bool success;
+};
+
+struct KvMergeContext {
+	const char* kvFileName;
+	UniqueGenerator* sharedGenerator;
+	unsigned long long leftRootId;
+	unsigned long long rightRootId;
+	unsigned long long outRootId;
+	bool success;
+};
+
+static bool countProducedLineStarts(const char* fileName, unsigned long long startPos, unsigned long long endPos,
+	unsigned long long dstFileSize, char delimiter, unsigned long long& count)
+{
+	Myfile dstFile;
+	if (!dstFile.init(fileName, false))
+	{
+		return false;
+	}
+
+	count = 0;
+	for (unsigned long long filePos = startPos; filePos < endPos; filePos += 8)
+	{
+		unsigned char buffer[8];
+		unsigned long long remainSize = endPos - filePos;
+		unsigned long long readSize = (remainSize >= 8) ? 8 : remainSize;
+		unsigned long long pos = filePos;
+		if (!dstFile.read(pos, buffer, readSize))
+		{
+			return false;
+		}
+
+		for (unsigned long long i = 0; i < readSize; ++i)
+		{
+			if (buffer[i] != delimiter)
+			{
+				continue;
+			}
+			if ((filePos + i + 1) < dstFileSize)
+			{
+				++count;
+			}
+		}
+	}
+	return true;
+}
+
+static void* KvLineCountThreadFun(void* arg)
+{
+	KvLineCountContext* ctx = (KvLineCountContext*)arg;
+	ctx->success = countProducedLineStarts(ctx->fileName, ctx->startPos, ctx->endPos,
+		ctx->dstFileSize, ctx->delimiter, ctx->producedLineStartCount);
+	return nullptr;
+}
+
+static void* KvSegmentBuildThreadFun(void* arg)
+{
+	KvSegmentBuildContext* ctx = (KvSegmentBuildContext*)arg;
+	ctx->success = false;
+
+	Index kvIndex(USE_TYPE_BUILD, ctx->sharedGenerator);
+	BuildIndex buildIndex;
+	if (!buildIndex.initForParallelKvBuild(ctx->fileName, ctx->kvFileName, &kvIndex))
+	{
+		return nullptr;
+	}
+
+	if (!buildIndex.buildKvSegment(ctx->startPos, ctx->endPos, ctx->nextLineNum, ctx->includeFirstLine,
+		ctx->delimiter, ctx->rootId))
+	{
+		return nullptr;
+	}
+
+	ctx->success = true;
+	return nullptr;
+}
+
+static void* KvMergeThreadFun(void* arg)
+{
+	KvMergeContext* ctx = (KvMergeContext*)arg;
+	ctx->success = false;
+
+	Index kvIndex(USE_TYPE_BUILD, ctx->sharedGenerator);
+	BuildIndex buildIndex;
+	if (!buildIndex.initForParallelKvMerge(ctx->kvFileName, &kvIndex))
+	{
+		return nullptr;
+	}
+
+	if (!buildIndex.mergeKvRoots(ctx->leftRootId, ctx->rightRootId, ctx->outRootId))
 	{
 		return nullptr;
 	}
@@ -130,17 +250,186 @@ bool BuildDstIndex(const char* fileName, bool needBuildLineIndex, char delimiter
 		printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 	}
 
-	//如果需要构建行索引，先顺序构建KV索引（行号必须顺序计算）
+	//如果需要构建行索引，先并行构建KV索引
 	if (needBuildLineIndex)
 	{
-		Index kvIndex(USE_TYPE_BUILD);
-		Index dummyIndex(USE_TYPE_BUILD);
-		BuildIndex kvBuilder;
-		if (!kvBuilder.init(fileName, &dummyIndex, &kvIndex))
+		char kvFileName[4096] = { 0 };
+		if (!getKVFilePath(fileName, kvFileName))
 		{
 			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}
-		if (!kvBuilder.buildKvIndex(delimiter))
+
+		remove(kvFileName);
+		{
+			Myfile kvFileCreator;
+			if (!kvFileCreator.init(kvFileName, true))
+			{
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+			}
+		}
+
+		unsigned long kvSegmentsPerThread = (rootIndexCount + threadCount - 1) / threadCount;
+		unsigned long kvThreadCount = (rootIndexCount + kvSegmentsPerThread - 1) / kvSegmentsPerThread;
+		std::vector<KvLineCountContext> kvCountContexts(kvThreadCount);
+		std::vector<pthread_t> kvCountPids(kvThreadCount);
+
+		for (unsigned long i = 0; i < kvThreadCount; ++i)
+		{
+			unsigned long startSegment = i * kvSegmentsPerThread;
+			unsigned long endSegment = startSegment + kvSegmentsPerThread;
+			if (endSegment > rootIndexCount) endSegment = rootIndexCount;
+
+			kvCountContexts[i].fileName = fileName;
+			kvCountContexts[i].startPos = (unsigned long long)startSegment * DST_SIZE_PER_ROOT;
+			kvCountContexts[i].endPos = (unsigned long long)endSegment * DST_SIZE_PER_ROOT;
+			if (kvCountContexts[i].endPos > dstFileSize)
+			{
+				kvCountContexts[i].endPos = dstFileSize;
+			}
+			kvCountContexts[i].dstFileSize = dstFileSize;
+			kvCountContexts[i].delimiter = delimiter;
+			kvCountContexts[i].producedLineStartCount = 0;
+			kvCountContexts[i].success = false;
+
+			if (pthread_create(&kvCountPids[i], NULL, KvLineCountThreadFun, &kvCountContexts[i]) != 0)
+			{
+				for (unsigned long j = 0; j < i; ++j)
+				{
+					pthread_join(kvCountPids[j], NULL);
+				}
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+			}
+		}
+
+		bool allKvCountSuccess = true;
+		for (unsigned long i = 0; i < kvThreadCount; ++i)
+		{
+			pthread_join(kvCountPids[i], NULL);
+			if (!kvCountContexts[i].success)
+			{
+				allKvCountSuccess = false;
+			}
+		}
+		if (!allKvCountSuccess)
+		{
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+		}
+
+		UniqueGenerator sharedKvGenerator;
+		std::vector<KvSegmentBuildContext> kvBuildContexts(kvThreadCount);
+		std::vector<pthread_t> kvBuildPids(kvThreadCount);
+		unsigned long long producedPrefixCount = 0;
+		for (unsigned long i = 0; i < kvThreadCount; ++i)
+		{
+			kvBuildContexts[i].fileName = fileName;
+			kvBuildContexts[i].kvFileName = kvFileName;
+			kvBuildContexts[i].sharedGenerator = &sharedKvGenerator;
+			kvBuildContexts[i].startPos = kvCountContexts[i].startPos;
+			kvBuildContexts[i].endPos = kvCountContexts[i].endPos;
+			kvBuildContexts[i].nextLineNum = producedPrefixCount + 1;
+			kvBuildContexts[i].includeFirstLine = (i == 0);
+			kvBuildContexts[i].delimiter = delimiter;
+			kvBuildContexts[i].rootId = 0;
+			kvBuildContexts[i].success = false;
+			producedPrefixCount += kvCountContexts[i].producedLineStartCount;
+
+			if (pthread_create(&kvBuildPids[i], NULL, KvSegmentBuildThreadFun, &kvBuildContexts[i]) != 0)
+			{
+				for (unsigned long j = 0; j < i; ++j)
+				{
+					pthread_join(kvBuildPids[j], NULL);
+				}
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+			}
+		}
+
+		bool allKvBuildSuccess = true;
+		for (unsigned long i = 0; i < kvThreadCount; ++i)
+		{
+			pthread_join(kvBuildPids[i], NULL);
+			if (!kvBuildContexts[i].success)
+			{
+				allKvBuildSuccess = false;
+			}
+		}
+		if (!allKvBuildSuccess)
+		{
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+		}
+
+		std::vector<unsigned long long> kvRoots;
+		for (unsigned long i = 0; i < kvThreadCount; ++i)
+		{
+			if (kvBuildContexts[i].rootId != 0)
+			{
+				kvRoots.push_back(kvBuildContexts[i].rootId);
+			}
+		}
+
+		while (kvRoots.size() > 1)
+		{
+			unsigned long pairCount = (unsigned long)(kvRoots.size() / 2);
+			std::vector<KvMergeContext> mergeContexts(pairCount);
+			std::vector<pthread_t> mergePids(pairCount);
+
+			for (unsigned long i = 0; i < pairCount; ++i)
+			{
+				mergeContexts[i].kvFileName = kvFileName;
+				mergeContexts[i].sharedGenerator = &sharedKvGenerator;
+				mergeContexts[i].leftRootId = kvRoots[i * 2];
+				mergeContexts[i].rightRootId = kvRoots[i * 2 + 1];
+				mergeContexts[i].outRootId = 0;
+				mergeContexts[i].success = false;
+
+				if (pthread_create(&mergePids[i], NULL, KvMergeThreadFun, &mergeContexts[i]) != 0)
+				{
+					for (unsigned long j = 0; j < i; ++j)
+					{
+						pthread_join(mergePids[j], NULL);
+					}
+					printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+				}
+			}
+
+			bool allMergeSuccess = true;
+			for (unsigned long i = 0; i < pairCount; ++i)
+			{
+				pthread_join(mergePids[i], NULL);
+				if (!mergeContexts[i].success)
+				{
+					allMergeSuccess = false;
+				}
+			}
+			if (!allMergeSuccess)
+			{
+				printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+			}
+
+			std::vector<unsigned long long> nextRoots;
+			nextRoots.reserve((kvRoots.size() + 1) / 2);
+			for (unsigned long i = 0; i < pairCount; ++i)
+			{
+				nextRoots.push_back(mergeContexts[i].outRootId);
+			}
+			if (kvRoots.size() % 2 == 1)
+			{
+				nextRoots.push_back(kvRoots.back());
+			}
+			kvRoots.swap(nextRoots);
+		}
+
+		unsigned long long finalKvRootId = kvRoots.empty() ? 0 : kvRoots[0];
+		Myfile kvIndexFile;
+		if (!kvIndexFile.init(kvFileName, false))
+		{
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+		}
+		unsigned long long pos = 0;
+		if (!kvIndexFile.write(pos, &finalKvRootId, 8))
+		{
+			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
+		}
+		if (!kvIndexFile.sync())
 		{
 			printf("failed at %s:%d\n", __FILE__, __LINE__); return false;
 		}

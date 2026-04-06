@@ -21,10 +21,16 @@ bazel_dep(
 )
 
 ############################
-# tcmalloc（原 local_repository）
+# protobuf（覆盖 tcmalloc 依赖的旧版本，使其兼容 Bazel 9）
+############################
+bazel_dep(name = "protobuf", version = "34.0.bcr.1", repo_name = "com_google_protobuf")
+
+############################
+# tcmalloc（从 GitHub 远程拉取）
 ############################
 bazel_dep(name = "tcmalloc")
-local_path_override(
+git_override(
     module_name = "tcmalloc",
-    path = "/root/Source/tcmalloc",
+    remote = "https://github.com/google/tcmalloc.git",
+    commit = "068dd9e9f1337556c55fe5d2e994030b4449548d",
 )

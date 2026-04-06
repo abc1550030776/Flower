@@ -4,40 +4,92 @@ class SetWithLock;
 class Myfile;
 class IndexNodePoolManager;
 
-const unsigned short SIZE_PER_INDEX_FILE_GRID = 128;			//索引文件里面一个格子的大小、每个节点可能占用多个格子
+#ifndef FLOWER_SIZE_PER_INDEX_FILE_GRID
+#define FLOWER_SIZE_PER_INDEX_FILE_GRID 128
+#endif
+#ifndef FLOWER_MAX_SIZE_PER_INDEX_NODE
+#define FLOWER_MAX_SIZE_PER_INDEX_NODE (20 * 1024)
+#endif
+#ifndef FLOWER_DST_SIZE_PER_ROOT
+#define FLOWER_DST_SIZE_PER_ROOT (8 * 1024 * 1024)
+#endif
+#ifndef FLOWER_KV_CUT_NODE_SIZE_THRESHOLD
+#define FLOWER_KV_CUT_NODE_SIZE_THRESHOLD 4096
+#endif
+#ifndef FLOWER_EMERGENCY_CLEANUP_THRESHOLD
+#define FLOWER_EMERGENCY_CLEANUP_THRESHOLD 0.1f
+#endif
+#ifndef FLOWER_PARTIAL_CLEANUP_THRESHOLD_SEARCH
+#define FLOWER_PARTIAL_CLEANUP_THRESHOLD_SEARCH 0.2f
+#endif
+#ifndef FLOWER_PARTIAL_CLEANUP_THRESHOLD_BUILD
+#define FLOWER_PARTIAL_CLEANUP_THRESHOLD_BUILD 0.4f
+#endif
+#ifndef FLOWER_PARTIAL_CLEANUP_RATIO_BUILD
+#define FLOWER_PARTIAL_CLEANUP_RATIO_BUILD 0.7f
+#endif
+#ifndef FLOWER_PENALTY_THRESHOLD_LIGHT
+#define FLOWER_PENALTY_THRESHOLD_LIGHT 0.3f
+#endif
+#ifndef FLOWER_PENALTY_THRESHOLD_MEDIUM
+#define FLOWER_PENALTY_THRESHOLD_MEDIUM 0.2f
+#endif
+#ifndef FLOWER_PENALTY_THRESHOLD_HEAVY
+#define FLOWER_PENALTY_THRESHOLD_HEAVY 0.1f
+#endif
+#ifndef FLOWER_PENALTY_FACTOR_HEAVY
+#define FLOWER_PENALTY_FACTOR_HEAVY 0.1f
+#endif
+#ifndef FLOWER_PENALTY_FACTOR_MEDIUM_MIN
+#define FLOWER_PENALTY_FACTOR_MEDIUM_MIN 0.2f
+#endif
+#ifndef FLOWER_PENALTY_FACTOR_MEDIUM_MAX
+#define FLOWER_PENALTY_FACTOR_MEDIUM_MAX 0.5f
+#endif
+#ifndef FLOWER_PENALTY_FACTOR_LIGHT_MIN
+#define FLOWER_PENALTY_FACTOR_LIGHT_MIN 0.5f
+#endif
+#ifndef FLOWER_PENALTY_FACTOR_LIGHT_MAX
+#define FLOWER_PENALTY_FACTOR_LIGHT_MAX 1.0f
+#endif
+#ifndef FLOWER_MEM_INFO_CACHE_INTERVAL
+#define FLOWER_MEM_INFO_CACHE_INTERVAL 0.5f
+#endif
 
-const unsigned short MAX_SIZE_PER_INDEX_NODE = 20 * 1024;		//每个索引节点在索引文件里面最多占用的大小
+const unsigned short SIZE_PER_INDEX_FILE_GRID = FLOWER_SIZE_PER_INDEX_FILE_GRID;			//索引文件里面一个格子的大小、每个节点可能占用多个格子
 
-const unsigned int DST_SIZE_PER_ROOT = 8 * 1024 * 1024;					//多少个目标文件字节的数据构建一个一部分的根节点
+const unsigned short MAX_SIZE_PER_INDEX_NODE = FLOWER_MAX_SIZE_PER_INDEX_NODE;		//每个索引节点在索引文件里面最多占用的大小
 
-const unsigned short KV_CUT_NODE_SIZE_THRESHOLD = 4096;				//KV构建路径cutNodeSize限流阈值
+const unsigned int DST_SIZE_PER_ROOT = FLOWER_DST_SIZE_PER_ROOT;					//多少个目标文件字节的数据构建一个一部分的根节点
+
+const unsigned short KV_CUT_NODE_SIZE_THRESHOLD = FLOWER_KV_CUT_NODE_SIZE_THRESHOLD;				//KV构建路径cutNodeSize限流阈值
 
 // ========== 内存管理阈值常量 ==========
 // 紧急清理阈值：系统内存低于此值时清空所有缓存和内存池
-const float EMERGENCY_CLEANUP_THRESHOLD = 0.1f;  // 10%
+const float EMERGENCY_CLEANUP_THRESHOLD = FLOWER_EMERGENCY_CLEANUP_THRESHOLD;  // 10%
 
 // 部分清理阈值：组合内存低于此值时进行部分清理
-const float PARTIAL_CLEANUP_THRESHOLD_SEARCH = 0.2f;   // 20% (搜索模式)
-const float PARTIAL_CLEANUP_THRESHOLD_BUILD = 0.4f;    // 40% (构建模式)
+const float PARTIAL_CLEANUP_THRESHOLD_SEARCH = FLOWER_PARTIAL_CLEANUP_THRESHOLD_SEARCH;   // 20% (搜索模式)
+const float PARTIAL_CLEANUP_THRESHOLD_BUILD = FLOWER_PARTIAL_CLEANUP_THRESHOLD_BUILD;    // 40% (构建模式)
 
 // 部分清理比例
-const float PARTIAL_CLEANUP_RATIO_BUILD = 0.7f;  // 70% (构建模式清理比例)
+const float PARTIAL_CLEANUP_RATIO_BUILD = FLOWER_PARTIAL_CLEANUP_RATIO_BUILD;  // 70% (构建模式清理比例)
 
 // 惩罚因子阈值：系统内存低于这些阈值时应用不同程度的惩罚
-const float PENALTY_THRESHOLD_LIGHT = 0.3f;   // 30% (开始应用惩罚)
-const float PENALTY_THRESHOLD_MEDIUM = 0.2f;  // 20% (中度惩罚)
-const float PENALTY_THRESHOLD_HEAVY = 0.1f;   // 10% (重度惩罚)
+const float PENALTY_THRESHOLD_LIGHT = FLOWER_PENALTY_THRESHOLD_LIGHT;   // 30% (开始应用惩罚)
+const float PENALTY_THRESHOLD_MEDIUM = FLOWER_PENALTY_THRESHOLD_MEDIUM;  // 20% (中度惩罚)
+const float PENALTY_THRESHOLD_HEAVY = FLOWER_PENALTY_THRESHOLD_HEAVY;   // 10% (重度惩罚)
 
 // 惩罚因子值
-const float PENALTY_FACTOR_HEAVY = 0.1f;      // 重度惩罚因子
-const float PENALTY_FACTOR_MEDIUM_MIN = 0.2f; // 中度惩罚因子最小值
-const float PENALTY_FACTOR_MEDIUM_MAX = 0.5f; // 中度惩罚因子最大值
-const float PENALTY_FACTOR_LIGHT_MIN = 0.5f;  // 轻度惩罚因子最小值
-const float PENALTY_FACTOR_LIGHT_MAX = 1.0f;  // 轻度惩罚因子最大值
+const float PENALTY_FACTOR_HEAVY = FLOWER_PENALTY_FACTOR_HEAVY;      // 重度惩罚因子
+const float PENALTY_FACTOR_MEDIUM_MIN = FLOWER_PENALTY_FACTOR_MEDIUM_MIN; // 中度惩罚因子最小值
+const float PENALTY_FACTOR_MEDIUM_MAX = FLOWER_PENALTY_FACTOR_MEDIUM_MAX; // 中度惩罚因子最大值
+const float PENALTY_FACTOR_LIGHT_MIN = FLOWER_PENALTY_FACTOR_LIGHT_MIN;  // 轻度惩罚因子最小值
+const float PENALTY_FACTOR_LIGHT_MAX = FLOWER_PENALTY_FACTOR_LIGHT_MAX;  // 轻度惩罚因子最大值
 
 // 内存信息缓存刷新间隔（秒）
 // 避免频繁读取 /proc/meminfo 文件，减少 I/O 开销
-const float MEM_INFO_CACHE_INTERVAL = 0.5f;  // 0.5秒
+const float MEM_INFO_CACHE_INTERVAL = FLOWER_MEM_INFO_CACHE_INTERVAL;  // 0.5秒
 
 bool getIndexPath(const char* dstFilePath, char* indexPath);
 

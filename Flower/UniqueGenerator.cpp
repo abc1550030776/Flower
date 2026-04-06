@@ -4,17 +4,19 @@ UniqueGenerator::UniqueGenerator()
 {
 	maxUniqueNum = 1;
 	memset(recycleBitmap, 0, sizeof(recycleBitmap));
+	lock_.Ptr = 0;
 }
 
 void UniqueGenerator::setInitMaxUniqueNum(unsigned long long initMaxUniqueNum)
 {
-	std::lock_guard<std::mutex> lock(mutex_);
+	acquireExclusive(&lock_);
 	maxUniqueNum = initMaxUniqueNum;
+	releaseExclusive(&lock_);
 }
 
 unsigned long long UniqueGenerator::acquireNumber(unsigned char numberCount)
 {
-	std::lock_guard<std::mutex> lock(mutex_);
+	acquireExclusive(&lock_);
 
 	unsigned short startBit = (unsigned short)(numberCount - 1);
 	unsigned short wordIdx = startBit / 64;
@@ -54,23 +56,27 @@ unsigned long long UniqueGenerator::acquireNumber(unsigned char numberCount)
 			recycleBitmap[remainBucket / 64] |= (1ULL << (remainBucket % 64));
 		}
 
+		releaseExclusive(&lock_);
 		return returnVal;
 	}
 
 	unsigned long long ret = maxUniqueNum;
 	maxUniqueNum += numberCount;
+	releaseExclusive(&lock_);
 	return ret;
 }
 
 void UniqueGenerator::recycleNumber(unsigned long long number, unsigned char numberCount)
 {
-	std::lock_guard<std::mutex> lock(mutex_);
+	acquireExclusive(&lock_);
 	if (numberCount > RECYCLE_BUCKET_COUNT)
 	{
+		releaseExclusive(&lock_);
 		return;
 	}
 
 	unsigned short bucket = (unsigned short)(numberCount - 1);
 	everyRecycleNumber[bucket].push(number);
 	recycleBitmap[bucket / 64] |= (1ULL << (bucket % 64));
+	releaseExclusive(&lock_);
 }
