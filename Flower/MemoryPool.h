@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
-#include <mutex>
 #include <cstddef>
+#include "ExclusiveLock.h"
 
 // 通用内存池模板类
 // 用于频繁分配和释放固定大小对象的场景
@@ -15,17 +15,19 @@ public:
     MemoryPool(size_t initialSize = 1024, size_t growSize = 512)
         : initialSize(initialSize), growSize(growSize)
     {
+        lock.Ptr = 0;
         allocateChunk(initialSize);
     }
 
     ~MemoryPool()
     {
         // 释放所有分配的内存块
-        std::lock_guard<std::mutex> lock(mutex);
+        acquireExclusive(&lock);
         for (auto chunk : chunks)
         {
             ::operator delete(chunk);
         }
+        releaseExclusive(&lock);
     }
 
     // 从内存池分配一个对象
@@ -33,8 +35,8 @@ public:
     template<typename... Args>
     T* allocate(Args&&... args)
     {
-        std::lock_guard<std::mutex> lock(mutex);
-        
+        acquireExclusive(&lock);
+
         // 如果空闲列表为空，分配新的内存块
         if (freeList.empty())
         {
@@ -47,6 +49,7 @@ public:
 
         // 在该位置使用placement new构造对象
         T* obj = new(ptr) T(std::forward<Args>(args)...);
+        releaseExclusive(&lock);
         return obj;
     }
 
@@ -62,46 +65,52 @@ public:
         obj->~T();
 
         // 将内存位置添加回空闲列表
-        std::lock_guard<std::mutex> lock(mutex);
+        acquireExclusive(&lock);
         freeList.push_back(obj);
+        releaseExclusive(&lock);
     }
 
     // 获取统计信息
     size_t getFreeCount() const
     {
-        std::lock_guard<std::mutex> lock(mutex);
-        return freeList.size();
+        acquireExclusive(&lock);
+        size_t ret = freeList.size();
+        releaseExclusive(&lock);
+        return ret;
     }
 
     size_t getTotalCount() const
     {
-        std::lock_guard<std::mutex> lock(mutex);
-        return totalAllocated;
+        acquireExclusive(&lock);
+        size_t ret = totalAllocated;
+        releaseExclusive(&lock);
+        return ret;
     }
-    
+
     // 清空内存池，释放所有内存回系统
     // 注意：调用此函数前必须确保没有对象正在使用
     // reinit: 是否在清空后重新初始化内存池
     void clearAll(bool reinit = true)
     {
-        std::lock_guard<std::mutex> lock(mutex);
-        
+        acquireExclusive(&lock);
+
         // 释放所有分配的内存块
         for (auto chunk : chunks)
         {
             ::operator delete(chunk);
         }
-        
+
         // 清空容器
         chunks.clear();
         freeList.clear();
         totalAllocated = 0;
-        
+
         // 如果需要重新初始化，分配初始大小的内存块
         if (reinit)
         {
             allocateChunk(initialSize);
         }
+        releaseExclusive(&lock);
     }
 
 private:
@@ -115,6 +124,7 @@ private:
         // 分配原始内存
         void* chunk = ::operator new(sizeof(T) * count);
         chunks.push_back(chunk);
+        freeList.reserve(freeList.size() + count);
 
         // 将内存块中的每个位置添加到空闲列表
         char* ptr = static_cast<char*>(chunk);
@@ -132,7 +142,7 @@ private:
     size_t initialSize;             // 初始大小
     size_t growSize;                // 增长大小
     size_t totalAllocated = 0;      // 总共分配的对象数量
-    mutable std::mutex mutex;       // 互斥锁，保证线程安全
+    mutable EXCLOCK lock;           // 独占锁，保证线程安全
 };
 
 // 前向声明IndexNode类型
@@ -156,7 +166,7 @@ public:
     MemoryPool<IndexNodeTypeTwo>& getPoolTypeTwo();
     MemoryPool<IndexNodeTypeThree>& getPoolTypeThree();
     MemoryPool<IndexNodeTypeFour>& getPoolTypeFour();
-    
+
     // 清空所有内存池，释放所有内存回系统
     // 警告：调用此函数前必须确保所有索引缓存已清空，没有对象正在使用
     void clearAllPools();
