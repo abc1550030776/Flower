@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <cstddef>
+#include <utility>
 #include "ExclusiveLock.h"
 
 // 通用内存池模板类
