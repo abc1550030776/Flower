@@ -1,7 +1,39 @@
-load("@rules_cc//cc:defs.bzl", "cc_binary")
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test")
+
+cc_library(
+    name = "flower_lib",
+    srcs = [
+        "BuildIndex.cpp",
+        "ExclusiveLock.cpp",
+        "Index.cpp",
+        "IndexFile.cpp",
+        "IndexNode.cpp",
+        "KVContent.cpp",
+        "MemoryPool.cpp",
+        "Myfile.cpp",
+        "ReadWriteLock.cpp",
+        "ResultMapWithLock.cpp",
+        "SearchContext.cpp",
+        "SearchIndex.cpp",
+        "SetWithLock.cpp",
+        "UniqueGenerator.cpp",
+        "common.cpp",
+        "interface.cpp",
+    ],
+    hdrs = glob(["*.h"]),
+    includes = ["."],
+    visibility = ["//visibility:public"],
+)
 
 cc_binary(
     name = "flower",
-    srcs = glob(["*.cpp", "*.h"]),
+    srcs = ["main.cpp"],
     malloc = "@tcmalloc//tcmalloc",
+    deps = [":flower_lib"],
+)
+
+cc_test(
+    name = "flower_unit_tests",
+    srcs = ["tests/unit_tests.cpp"],
+    deps = [":flower_lib"],
 )

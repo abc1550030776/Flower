@@ -71,3 +71,16 @@ endif()
 add_executable(flower main.cpp)
 
 target_link_libraries(flower PRIVATE flower_lib)
+
+if(BUILD_TESTING)
+    add_executable(flower_unit_tests
+        tests/unit_tests.cpp
+    )
+
+    target_link_libraries(flower_unit_tests
+        PRIVATE
+            flower_lib
+    )
+
+    add_test(NAME flower_unit_tests COMMAND flower_unit_tests)
+endif()
