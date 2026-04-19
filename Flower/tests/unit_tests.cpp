@@ -11,6 +11,7 @@
 #include "MemoryPool.h"
 #include "Myfile.h"
 #include "SetWithLock.h"
+#include "interface.h"
 #include "UniqueGenerator.h"
 #include "common.h"
 
@@ -202,6 +203,66 @@ void testAddFindPosSkipsInsertOnPrefixMismatch() {
 	CHECK_TRUE(positions.empty());
 }
 
+void testEqualBytesFastPathHandlesShortNeedles() {
+	const unsigned char left7[] = {'f', 'l', 'o', 'w', 'e', 'r', '!'};
+	const unsigned char same7[] = {'f', 'l', 'o', 'w', 'e', 'r', '!'};
+	const unsigned char diff7[] = {'f', 'l', 'o', 'w', 'e', 'r', '?'};
+	const unsigned char left3[] = {'a', 'b', 'c'};
+	const unsigned char diff3[] = {'a', 'b', 'd'};
+
+	CHECK_TRUE(EqualBytesFastPath(left7, same7, 7));
+	CHECK_TRUE(!EqualBytesFastPath(left7, diff7, 7));
+	CHECK_TRUE(EqualBytesFastPath(left3, reinterpret_cast<const unsigned char*>("abc"), 3));
+	CHECK_TRUE(!EqualBytesFastPath(left3, diff3, 3));
+}
+
+void testSearchContextShortBranchSupportsOffsetsAndLineColumns() {
+	TempFile tempFile;
+	Myfile file;
+	CHECK_TRUE(file.init(tempFile.path, true));
+
+	const char content[] = "zero\nabc\nxyzabc\n";
+	CHECK_TRUE(file.write(0, const_cast<char*>(content), sizeof(content) - 1));
+	CHECK_TRUE(file.sync());
+
+	char indexPath[4096] = {};
+	char kvPath[4096] = {};
+	CHECK_TRUE(getIndexPath(tempFile.path, indexPath));
+	CHECK_TRUE(getKVFilePath(tempFile.path, kvPath));
+
+	CHECK_TRUE(BuildDstIndex(tempFile.path, true));
+
+	SearchContext context;
+	CHECK_TRUE(context.init(tempFile.path, 2, true));
+
+	std::set<unsigned long long> positions;
+	CHECK_TRUE(context.search("abc", 3, &positions));
+	CHECK_EQ(positions.size(), 2ULL);
+	CHECK_TRUE(positions.count(5) == 1);
+	CHECK_TRUE(positions.count(12) == 1);
+
+	ResultMap result;
+	CHECK_TRUE(context.search("abc", 3, &result));
+	CHECK_EQ(result.size(), 2ULL);
+
+	auto first = result.find(5);
+	CHECK_TRUE(first != result.end());
+	CHECK_EQ(first->second.GetLineNum(), 1ULL);
+	CHECK_EQ(first->second.GetColumnNum(), 0ULL);
+	CHECK_EQ(first->second.GetEndLineNum(), 1ULL);
+	CHECK_EQ(first->second.GetEndColumnNum(), 2ULL);
+
+	auto second = result.find(12);
+	CHECK_TRUE(second != result.end());
+	CHECK_EQ(second->second.GetLineNum(), 2ULL);
+	CHECK_EQ(second->second.GetColumnNum(), 3ULL);
+	CHECK_EQ(second->second.GetEndLineNum(), 2ULL);
+	CHECK_EQ(second->second.GetEndColumnNum(), 5ULL);
+
+	unlink(indexPath);
+	unlink(kvPath);
+}
+
 }  // namespace
 
 int main() {
@@ -215,6 +276,8 @@ int main() {
 		{"CommonHelpers", testCommonHelpers},
 		{"AddFindPosHandlesPositiveAndNegativeSkip", testAddFindPosHandlesPositiveAndNegativeSkip},
 		{"AddFindPosSkipsInsertOnPrefixMismatch", testAddFindPosSkipsInsertOnPrefixMismatch},
+		{"EqualBytesFastPathHandlesShortNeedles", testEqualBytesFastPathHandlesShortNeedles},
+		{"SearchContextShortBranchSupportsOffsetsAndLineColumns", testSearchContextShortBranchSupportsOffsetsAndLineColumns},
 	};
 
 	for (const auto& test : tests) {

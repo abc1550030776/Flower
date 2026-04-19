@@ -5,6 +5,15 @@
 #include <sys/stat.h>
 #include <deque>
 
+namespace {
+
+inline bool CompareShortNeedle(const unsigned char* left, const char* right, unsigned int rightOffset, unsigned int len)
+{
+	return EqualBytesFastPath(left, reinterpret_cast<const unsigned char*>(right + rightOffset), len);
+}
+
+}
+
 SearchIndex::SearchIndex()
 {
 	searchTarget = nullptr;
@@ -702,6 +711,24 @@ bool SearchIndex::search()
 			unsigned long long leafLen = dstFileSize - filePos;
 			if (leafLen - skipSize >= leftSearchTarget)
 			{
+				if (leftSearchTarget <= 7)
+				{
+					unsigned char shortBuffer[8] = {};
+					if (!dstFile.read(filePos + skipSize, shortBuffer, leftSearchTarget))
+					{
+						return false;
+					}
+
+					if (CompareShortNeedle(shortBuffer, searchTarget, targetStart, leftSearchTarget))
+					{
+						if (!AddFindPos(resultSet, filePos, skipCharNum, dstFile, searchTarget, targetLen))
+						{
+							return false;
+						}
+					}
+					continue;
+				}
+
 				//比较文件当中相应长度的字符串看看是不是一样
 				unsigned char* buffer = (unsigned char*)malloc(4 * 1024);
 				if (buffer == nullptr)
@@ -810,8 +837,21 @@ bool SearchIndex::search()
 			}
 
 			bool isSameHead = false;
+			unsigned char* buffer = nullptr;
+			if (remainReadSize <= 7)
+			{
+				unsigned char shortBuffer[8] = {};
+				if (remainReadSize != 0 && !dstFile.read(filePos + skipSize, shortBuffer, remainReadSize))
+				{
+					indexFile.putIndexNode(pNode);
+					return false;
+				}
+				isSameHead = CompareShortNeedle(shortBuffer, searchTarget, targetStart, (unsigned int)remainReadSize);
+			}
+			else
+			{
 			//比较文件当中相应长度的字符串看看是不是一样
-			unsigned char* buffer = (unsigned char*)malloc(4 * 1024);
+				buffer = (unsigned char*)malloc(4 * 1024);
 			if (buffer == nullptr)
 			{
 				indexFile.putIndexNode(pNode);
@@ -887,6 +927,7 @@ bool SearchIndex::search()
 						isSameHead = true;
 					}
 				}
+			}
 			}
 
 			if (isSameHead)
@@ -1005,23 +1046,14 @@ bool SearchIndex::search()
 						if (skipSize + leftSearchTarget < nodeLen + 8)
 						{
 							std::unordered_map<unsigned long long, IndexNodeChild>& children = pTmpNode->getChildren();
-							for (auto child : children)
-							{
-								unsigned char* p = (unsigned char*)& child.first;
-								unsigned long long needCmpLen = skipSize + leftSearchTarget - nodeLen;
-								unsigned long long i = 0;
-								for (; i < needCmpLen; ++i)
+								for (auto child : children)
 								{
-									if (p[i] != searchTarget[targetStart + nodeLen - skipSize + i])
+									unsigned char* p = (unsigned char*)& child.first;
+									unsigned long long needCmpLen = skipSize + leftSearchTarget - nodeLen;
+									if (CompareShortNeedle(p, searchTarget, (unsigned int)(targetStart + nodeLen - skipSize), (unsigned int)needCmpLen))
 									{
-										break;
-									}
-								}
-
-								if (i == needCmpLen)
-								{
-									if (child.second.getType() == CHILD_TYPE_LEAF)
-									{
+										if (child.second.getType() == CHILD_TYPE_LEAF)
+										{
 										if (!AddFindPos(resultSet, child.second.getIndexId() - pNode->getPreCmpLen() - nodeLen - 8, skipCharNum, dstFile, searchTarget, targetLen))
 										{
 											free(buffer);
@@ -1088,23 +1120,14 @@ bool SearchIndex::search()
 						if (skipSize + leftSearchTarget < nodeLen + 4)
 						{
 							std::unordered_map<unsigned int, IndexNodeChild>& children = pTmpNode->getChildren();
-							for (auto child : children)
-							{
-								unsigned char* p = (unsigned char*)& child.first;
-								unsigned long long needCmpLen = skipSize + leftSearchTarget - nodeLen;
-								unsigned long long i = 0;
-								for (; i < needCmpLen; ++i)
+								for (auto child : children)
 								{
-									if (p[i] != searchTarget[targetStart + nodeLen - skipSize + i])
+									unsigned char* p = (unsigned char*)& child.first;
+									unsigned long long needCmpLen = skipSize + leftSearchTarget - nodeLen;
+									if (CompareShortNeedle(p, searchTarget, (unsigned int)(targetStart + nodeLen - skipSize), (unsigned int)needCmpLen))
 									{
-										break;
-									}
-								}
-
-								if (i == needCmpLen)
-								{
-									if (child.second.getType() == CHILD_TYPE_LEAF)
-									{
+										if (child.second.getType() == CHILD_TYPE_LEAF)
+										{
 										if (!AddFindPos(resultSet, child.second.getIndexId() - pNode->getPreCmpLen() - nodeLen - 4, skipCharNum, dstFile, searchTarget, targetLen))
 										{
 											free(buffer);
@@ -1171,23 +1194,14 @@ bool SearchIndex::search()
 						if (skipSize + leftSearchTarget < nodeLen + 2)
 						{
 							std::unordered_map<unsigned short, IndexNodeChild>& children = pTmpNode->getChildren();
-							for (auto child : children)
-							{
-								unsigned char* p = (unsigned char*)& child.first;
-								unsigned long long needCmpLen = skipSize + leftSearchTarget - nodeLen;
-								unsigned long long i = 0;
-								for (; i < needCmpLen; ++i)
+								for (auto child : children)
 								{
-									if (p[i] != searchTarget[targetStart + nodeLen - skipSize + i])
+									unsigned char* p = (unsigned char*)& child.first;
+									unsigned long long needCmpLen = skipSize + leftSearchTarget - nodeLen;
+									if (CompareShortNeedle(p, searchTarget, (unsigned int)(targetStart + nodeLen - skipSize), (unsigned int)needCmpLen))
 									{
-										break;
-									}
-								}
-
-								if (i == needCmpLen)
-								{
-									if (child.second.getType() == CHILD_TYPE_LEAF)
-									{
+										if (child.second.getType() == CHILD_TYPE_LEAF)
+										{
 										if (!AddFindPos(resultSet, child.second.getIndexId() - pNode->getPreCmpLen() - nodeLen - 2, skipCharNum, dstFile, searchTarget, targetLen))
 										{
 											free(buffer);
@@ -1254,23 +1268,14 @@ bool SearchIndex::search()
 						if (skipSize + leftSearchTarget < nodeLen + 1)
 						{
 							std::unordered_map<unsigned char, IndexNodeChild>& children = pTmpNode->getChildren();
-							for (auto child : children)
-							{
-								unsigned char* p = (unsigned char*)& child.first;
-								unsigned long long needCmpLen = skipSize + leftSearchTarget - nodeLen;
-								unsigned long long i = 0;
-								for (; i < needCmpLen; ++i)
+								for (auto child : children)
 								{
-									if (p[i] != searchTarget[targetStart + nodeLen - skipSize + i])
+									unsigned char* p = (unsigned char*)& child.first;
+									unsigned long long needCmpLen = skipSize + leftSearchTarget - nodeLen;
+									if (CompareShortNeedle(p, searchTarget, (unsigned int)(targetStart + nodeLen - skipSize), (unsigned int)needCmpLen))
 									{
-										break;
-									}
-								}
-
-								if (i == needCmpLen)
-								{
-									if (child.second.getType() == CHILD_TYPE_LEAF)
-									{
+										if (child.second.getType() == CHILD_TYPE_LEAF)
+										{
 										if (!AddFindPos(resultSet, child.second.getIndexId() - pNode->getPreCmpLen() - nodeLen - 1, skipCharNum, dstFile, searchTarget, targetLen))
 										{
 											free(buffer);

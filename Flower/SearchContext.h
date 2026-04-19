@@ -17,5 +17,6 @@ private:
 	char* dstFileName;
 	unsigned long threadNum;
 	unsigned long long rootIndexNum;
+	unsigned long long dstFileSize;
 	Index* kvIndex;
 };
