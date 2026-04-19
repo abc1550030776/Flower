@@ -1,4 +1,6 @@
 #pragma once
+#include <cstdint>
+#include <cstring>
 
 class SetWithLock;
 class Myfile;
@@ -116,3 +118,40 @@ float getAvailableMemRate(IndexNodePoolManager& poolManager);
 bool FlwPrintf(const char* fileName, const char* format, ...);
 
 bool AddFindPos(SetWithLock* resultSet, unsigned long long pos, char skipNum, Myfile& dstFile, const char* searchTarget, unsigned int targetLen);
+
+inline uint64_t LoadUint64Partial(const unsigned char* data, unsigned int len)
+{
+	uint64_t value = 0;
+	if (len != 0)
+	{
+		std::memcpy(&value, data, len);
+	}
+	return value;
+}
+
+inline bool EqualBytesFastPath(const unsigned char* left, const unsigned char* right, unsigned int len)
+{
+	switch (len)
+	{
+	case 0:
+		return true;
+	case 1:
+		return left[0] == right[0];
+	case 2:
+	{
+		uint16_t leftValue = 0;
+		uint16_t rightValue = 0;
+		std::memcpy(&leftValue, left, sizeof(leftValue));
+		std::memcpy(&rightValue, right, sizeof(rightValue));
+		return leftValue == rightValue;
+	}
+	case 3:
+	case 4:
+	case 5:
+	case 6:
+	case 7:
+		return LoadUint64Partial(left, len) == LoadUint64Partial(right, len);
+	default:
+		return std::memcmp(left, right, len) == 0;
+	}
+}

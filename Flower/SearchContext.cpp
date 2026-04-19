@@ -7,6 +7,254 @@
 #include "common.h"
 #include "ResultMapWithLock.h"
 #include "KVContent.h"
+#include <vector>
+#include <sys/stat.h>
+
+namespace {
+
+constexpr size_t SHORT_SEARCH_CHUNK_SIZE = 1 << 20;
+
+struct ShortSearchWorker
+{
+	const char* fileName = nullptr;
+	const unsigned char* needle = nullptr;
+	unsigned int needleLen = 0;
+	uint64_t packedNeedle = 0;
+	unsigned char firstByte = 0;
+	unsigned char lastByte = 0;
+	unsigned long long rangeStart = 0;
+	unsigned long long rangeEnd = 0;
+	unsigned long long fileSize = 0;
+	SetWithLock* resultSet = nullptr;
+
+	bool init(const char* fileName, const char* searchTarget, unsigned int targetLen,
+		unsigned long long rangeStart, unsigned long long rangeEnd, unsigned long long fileSize, SetWithLock* resultSet)
+	{
+		if (fileName == nullptr || searchTarget == nullptr || targetLen == 0 || targetLen >= 8 || resultSet == nullptr)
+		{
+			return false;
+		}
+		this->fileName = fileName;
+		this->needle = reinterpret_cast<const unsigned char*>(searchTarget);
+		this->needleLen = targetLen;
+		this->packedNeedle = LoadUint64Partial(this->needle, targetLen);
+		this->firstByte = this->needle[0];
+		this->lastByte = this->needle[targetLen - 1];
+		this->rangeStart = rangeStart;
+		this->rangeEnd = rangeEnd;
+		this->fileSize = fileSize;
+		this->resultSet = resultSet;
+		return true;
+	}
+
+	bool search()
+	{
+		Myfile file;
+		if (!file.init(fileName, false))
+		{
+			return false;
+		}
+
+		if (rangeStart >= rangeEnd || rangeStart >= fileSize)
+		{
+			return true;
+		}
+
+		unsigned long long cursor = rangeStart;
+		while (cursor < rangeEnd)
+		{
+			size_t scanSize = static_cast<size_t>(rangeEnd - cursor);
+			if (scanSize > SHORT_SEARCH_CHUNK_SIZE)
+			{
+				scanSize = SHORT_SEARCH_CHUNK_SIZE;
+			}
+
+			size_t overlap = needleLen > 0 ? needleLen - 1 : 0;
+			size_t readSize = scanSize + overlap;
+			unsigned long long remainingFileSize = fileSize - cursor;
+			if (readSize > remainingFileSize)
+			{
+				readSize = static_cast<size_t>(remainingFileSize);
+			}
+
+			std::vector<unsigned char> buffer(readSize);
+			if (readSize != 0 && !file.read(cursor, buffer.data(), readSize))
+			{
+				return false;
+			}
+
+			if (needleLen == 1)
+			{
+				const unsigned char* found = buffer.data();
+				size_t left = scanSize;
+				while (left != 0)
+				{
+					found = reinterpret_cast<const unsigned char*>(memchr(found, firstByte, left));
+					if (found == nullptr)
+					{
+						break;
+					}
+					size_t offset = static_cast<size_t>(found - buffer.data());
+					resultSet->insert(cursor + offset);
+					++found;
+					left = scanSize - offset - 1;
+				}
+			}
+			else if (readSize >= needleLen)
+			{
+				size_t matchLimit = scanSize;
+				size_t maxMatchStarts = readSize - needleLen + 1;
+				if (matchLimit > maxMatchStarts)
+				{
+					matchLimit = maxMatchStarts;
+				}
+				for (size_t i = 0; i < matchLimit; ++i)
+				{
+					if (buffer[i] != firstByte || buffer[i + needleLen - 1] != lastByte)
+					{
+						continue;
+					}
+					if (LoadUint64Partial(buffer.data() + i, needleLen) == packedNeedle)
+					{
+						resultSet->insert(cursor + i);
+					}
+				}
+			}
+
+			cursor += scanSize;
+		}
+		return true;
+	}
+};
+
+static void* ShortSearchThreadFun(void* arg)
+{
+	return reinterpret_cast<void*>(static_cast<uintptr_t>(reinterpret_cast<ShortSearchWorker*>(arg)->search()));
+}
+
+bool RunShortSearchParallel(const char* fileName, const char* searchTarget, unsigned int targetLen,
+	unsigned long threadNum, unsigned long long fileSize, SetWithLock* resultSet)
+{
+	if (fileName == nullptr || searchTarget == nullptr || targetLen == 0 || targetLen >= 8 || resultSet == nullptr)
+	{
+		return false;
+	}
+
+	if (fileSize < targetLen)
+	{
+		return true;
+	}
+
+	unsigned long long searchableSize = fileSize - targetLen + 1;
+	unsigned long workerCount = threadNum == 0 ? 1 : threadNum;
+	if (workerCount > searchableSize)
+	{
+		workerCount = static_cast<unsigned long>(searchableSize);
+	}
+	if (workerCount == 0)
+	{
+		workerCount = 1;
+	}
+
+	unsigned long long rangePerWorker = (searchableSize + workerCount - 1) / workerCount;
+	std::vector<ShortSearchWorker> workers(workerCount);
+	std::vector<pthread_t> pids(workerCount);
+	unsigned long created = 0;
+	for (unsigned long i = 0; i < workerCount; ++i)
+	{
+		unsigned long long rangeStart = i * rangePerWorker;
+		unsigned long long rangeEnd = rangeStart + rangePerWorker;
+		if (rangeEnd > searchableSize)
+		{
+			rangeEnd = searchableSize;
+		}
+		if (!workers[i].init(fileName, searchTarget, targetLen, rangeStart, rangeEnd, fileSize, resultSet))
+		{
+			return false;
+		}
+		if (pthread_create(&pids[i], NULL, ShortSearchThreadFun, &workers[i]) != 0)
+		{
+			for (unsigned long j = 0; j < created; ++j)
+			{
+				pthread_join(pids[j], NULL);
+			}
+			return false;
+		}
+		++created;
+	}
+
+	bool success = true;
+	for (unsigned long i = 0; i < created; ++i)
+	{
+		void* ret = nullptr;
+		pthread_join(pids[i], &ret);
+		if (!static_cast<bool>(reinterpret_cast<uintptr_t>(ret)))
+		{
+			success = false;
+		}
+	}
+	return success;
+}
+
+bool FillLineAndColumnResult(const char* dstFileName, Index* kvIndex, const std::set<unsigned long long>& positions,
+	unsigned int targetLen, ResultMapWithLock& resultMap)
+{
+	if (dstFileName == nullptr || kvIndex == nullptr)
+	{
+		return false;
+	}
+
+	char kvIndexFile[4096] = {};
+	if (!getKVFilePath(dstFileName, kvIndexFile))
+	{
+		return false;
+	}
+
+	KVContent kvContent;
+	if (!kvContent.init(kvIndexFile, kvIndex))
+	{
+		return false;
+	}
+
+	for (auto& filePos : positions)
+	{
+		unsigned long long lowerKey = 0;
+		unsigned long long upperKey = 0;
+		unsigned long long value = 0;
+		if (!kvContent.get(filePos, lowerKey, upperKey, value))
+		{
+			return false;
+		}
+
+		unsigned long long startLine = value;
+		unsigned long long startColumn = filePos - lowerKey;
+		unsigned long long matchEnd = filePos + targetLen - 1;
+		unsigned long long endLine = 0;
+		unsigned long long endColumn = 0;
+		if (matchEnd < upperKey)
+		{
+			endLine = startLine;
+			endColumn = matchEnd - lowerKey;
+		}
+		else
+		{
+			unsigned long long endLowerKey = 0;
+			unsigned long long endUpperKey = 0;
+			unsigned long long endValue = 0;
+			if (!kvContent.get(matchEnd, endLowerKey, endUpperKey, endValue))
+			{
+				return false;
+			}
+			endLine = endValue;
+			endColumn = matchEnd - endLowerKey;
+		}
+
+		resultMap.insert(filePos, startLine, startColumn, endLine, endColumn);
+	}
+	return true;
+}
+
+}
 
 SearchContext::SearchContext()
 {
@@ -14,6 +262,7 @@ SearchContext::SearchContext()
 	dstFileName = nullptr;
 	threadNum = 0;
 	rootIndexNum = 0;
+	dstFileSize = 0;
 	kvIndex = nullptr;
 }
 
@@ -57,6 +306,13 @@ bool SearchContext::init(const char* fileName, unsigned long threadNum, bool sea
 	{
 		return false;
 	}
+
+	struct stat statbuf;
+	if (stat(fileName, &statbuf) != 0)
+	{
+		return false;
+	}
+	dstFileSize = statbuf.st_size;
 
 	if (searchLine)
 	{
@@ -310,6 +566,12 @@ bool SearchContext::search(const char* searchTarget, unsigned int targetLen, std
 	{
 		return false;
 	}
+
+	if (targetLen > 0 && targetLen < 8)
+	{
+		SetWithLock resultSet(set);
+		return RunShortSearchParallel(dstFileName, searchTarget, targetLen, threadNum, dstFileSize, &resultSet);
+	}
 	//这里使用多线程搜索
 	SetWithLock* resultSet = new SetWithLock(set);
 
@@ -387,6 +649,17 @@ bool SearchContext::search(const char* searchTarget, unsigned int targetLen, Res
 	}
 
 	ResultMapWithLock resultMap(*map);
+
+	if (targetLen > 0 && targetLen < 8)
+	{
+		std::set<unsigned long long> positions;
+		SetWithLock resultSet(&positions);
+		if (!RunShortSearchParallel(dstFileName, searchTarget, targetLen, threadNum, dstFileSize, &resultSet))
+		{
+			return false;
+		}
+		return FillLineAndColumnResult(dstFileName, kvIndex, positions, targetLen, resultMap);
+	}
 
 	//这里先算出需要多少个helper,每个helper都会开8个线程这里控制线程数不会超过核心数太多
 	unsigned long helperCount = (threadNum + 8 - 1) / 8;
