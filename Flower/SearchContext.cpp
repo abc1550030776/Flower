@@ -9,10 +9,113 @@
 #include "KVContent.h"
 #include <vector>
 #include <sys/stat.h>
+#include <immintrin.h>
 
 namespace {
 
 constexpr size_t SHORT_SEARCH_CHUNK_SIZE = 1 << 20;
+
+inline void SearchShortNeedleScalar(const unsigned char* buffer, size_t scanSize,
+	unsigned long long basePos, unsigned int needleLen, uint64_t packedNeedle,
+	unsigned char firstByte, unsigned char lastByte, SetWithLock* resultSet)
+{
+	if (needleLen == 1)
+	{
+		const unsigned char* found = buffer;
+		size_t left = scanSize;
+		while (left != 0)
+		{
+			found = reinterpret_cast<const unsigned char*>(memchr(found, firstByte, left));
+			if (found == nullptr)
+			{
+				break;
+			}
+			size_t offset = static_cast<size_t>(found - buffer);
+			resultSet->insert(basePos + offset);
+			++found;
+			left = scanSize - offset - 1;
+		}
+		return;
+	}
+
+	if (scanSize < needleLen)
+	{
+		return;
+	}
+
+	size_t matchLimit = scanSize - needleLen + 1;
+	for (size_t i = 0; i < matchLimit; ++i)
+	{
+		if (buffer[i] != firstByte || buffer[i + needleLen - 1] != lastByte)
+		{
+			continue;
+		}
+		if (LoadUint64Partial(buffer + i, needleLen) == packedNeedle)
+		{
+			resultSet->insert(basePos + i);
+		}
+	}
+}
+
+#if defined(__x86_64__) || defined(__i386__)
+__attribute__((target("avx2")))
+inline void SearchShortNeedleAvx2(const unsigned char* buffer, size_t scanSize,
+	unsigned long long basePos, unsigned int needleLen, uint64_t packedNeedle,
+	unsigned char firstByte, unsigned char lastByte, SetWithLock* resultSet)
+{
+	if (needleLen <= 1 || scanSize < needleLen)
+	{
+		SearchShortNeedleScalar(buffer, scanSize, basePos, needleLen, packedNeedle, firstByte, lastByte, resultSet);
+		return;
+	}
+
+	size_t matchLimit = scanSize - needleLen + 1;
+	const __m256i firstVec = _mm256_set1_epi8(static_cast<char>(firstByte));
+	const __m256i lastVec = _mm256_set1_epi8(static_cast<char>(lastByte));
+
+	size_t i = 0;
+	for (; i + 32 <= matchLimit; i += 32)
+	{
+		const __m256i firstLoad = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(buffer + i));
+		const __m256i lastLoad = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(buffer + i + needleLen - 1));
+		const __m256i firstCmp = _mm256_cmpeq_epi8(firstLoad, firstVec);
+		const __m256i lastCmp = _mm256_cmpeq_epi8(lastLoad, lastVec);
+		uint32_t mask = static_cast<uint32_t>(_mm256_movemask_epi8(_mm256_and_si256(firstCmp, lastCmp)));
+
+		while (mask != 0)
+		{
+			uint32_t bit = static_cast<uint32_t>(__builtin_ctz(mask));
+			size_t candidate = i + bit;
+			if (LoadUint64Partial(buffer + candidate, needleLen) == packedNeedle)
+			{
+				resultSet->insert(basePos + candidate);
+			}
+			mask &= (mask - 1);
+		}
+	}
+
+	if (i < matchLimit)
+	{
+		SearchShortNeedleScalar(buffer + i, matchLimit - i + needleLen - 1, basePos + i,
+			needleLen, packedNeedle, firstByte, lastByte, resultSet);
+	}
+}
+
+inline bool HasAvx2Support()
+{
+#if defined(__GNUC__)
+	__builtin_cpu_init();
+	return __builtin_cpu_supports("avx2");
+#else
+	return false;
+#endif
+}
+#else
+inline bool HasAvx2Support()
+{
+	return false;
+}
+#endif
 
 struct ShortSearchWorker
 {
@@ -26,6 +129,7 @@ struct ShortSearchWorker
 	unsigned long long rangeEnd = 0;
 	unsigned long long fileSize = 0;
 	SetWithLock* resultSet = nullptr;
+	bool useAvx2 = false;
 
 	bool init(const char* fileName, const char* searchTarget, unsigned int targetLen,
 		unsigned long long rangeStart, unsigned long long rangeEnd, unsigned long long fileSize, SetWithLock* resultSet)
@@ -41,11 +145,12 @@ struct ShortSearchWorker
 		this->firstByte = this->needle[0];
 		this->lastByte = this->needle[targetLen - 1];
 		this->rangeStart = rangeStart;
-		this->rangeEnd = rangeEnd;
-		this->fileSize = fileSize;
-		this->resultSet = resultSet;
-		return true;
-	}
+			this->rangeEnd = rangeEnd;
+			this->fileSize = fileSize;
+			this->resultSet = resultSet;
+			this->useAvx2 = HasAvx2Support();
+			return true;
+		}
 
 	bool search()
 	{
@@ -83,42 +188,17 @@ struct ShortSearchWorker
 				return false;
 			}
 
-			if (needleLen == 1)
+			if (useAvx2)
 			{
-				const unsigned char* found = buffer.data();
-				size_t left = scanSize;
-				while (left != 0)
-				{
-					found = reinterpret_cast<const unsigned char*>(memchr(found, firstByte, left));
-					if (found == nullptr)
-					{
-						break;
-					}
-					size_t offset = static_cast<size_t>(found - buffer.data());
-					resultSet->insert(cursor + offset);
-					++found;
-					left = scanSize - offset - 1;
-				}
+				#if defined(__x86_64__) || defined(__i386__)
+				SearchShortNeedleAvx2(buffer.data(), scanSize, cursor, needleLen, packedNeedle, firstByte, lastByte, resultSet);
+				#else
+				SearchShortNeedleScalar(buffer.data(), scanSize, cursor, needleLen, packedNeedle, firstByte, lastByte, resultSet);
+				#endif
 			}
-			else if (readSize >= needleLen)
+			else
 			{
-				size_t matchLimit = scanSize;
-				size_t maxMatchStarts = readSize - needleLen + 1;
-				if (matchLimit > maxMatchStarts)
-				{
-					matchLimit = maxMatchStarts;
-				}
-				for (size_t i = 0; i < matchLimit; ++i)
-				{
-					if (buffer[i] != firstByte || buffer[i + needleLen - 1] != lastByte)
-					{
-						continue;
-					}
-					if (LoadUint64Partial(buffer.data() + i, needleLen) == packedNeedle)
-					{
-						resultSet->insert(cursor + i);
-					}
-				}
+				SearchShortNeedleScalar(buffer.data(), scanSize, cursor, needleLen, packedNeedle, firstByte, lastByte, resultSet);
 			}
 
 			cursor += scanSize;
